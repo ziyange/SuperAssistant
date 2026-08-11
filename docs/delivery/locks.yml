@@ -1,0 +1,7 @@
+version: 1
+updated_at: "2026-08-09T00:00:00+08:00"
+locks: []
+policy:
+  owner: "local-user"
+  stale_lock_action: "reconcile-before-release"
+  note: "PHASE-000 has no application worktree locks; PHASE-001 task worktrees acquire explicit repository and path resources."
