@@ -1,0 +1,133 @@
+# Super Assistant operations
+
+This document defines H1 local runtime lifecycle, persistence, health, observability, recovery, retention, upgrade, and support behavior. Operational automation never widens authorization or treats missing evidence as successful execution.
+
+## Managed local layout
+
+H1 stores application data under a current-user application directory selected by Electron. Logical subdirectories are:
+
+- `database/` for SQLite and migration metadata;
+- `artifacts/` for immutable content addressed by ArtifactVersion metadata;
+- `logs/` for structured redacted application/worker logs;
+- `worktrees/active/` for Task-owned worktrees;
+- `worktrees/quarantine/` for dirty, orphaned, or ambiguous worktrees;
+- `backups/` for integrity-checked local database backups;
+- `runtime/` for nonsecret instance locks and ephemeral IPC metadata.
+
+The paths are resolved through platform APIs and normalized. Repository files never store application secrets or mutable runtime state. Windows Credential Manager stores secret values; only opaque references enter SQLite.
+
+## Startup sequence
+
+1. Acquire a per-user application instance lock.
+2. Verify directory ownership, permissions, available disk, and path containment.
+3. Open SQLite with foreign keys and busy timeout enabled; run integrity and migration-state checks.
+4. Create a pre-migration backup, apply numbered migrations transactionally, and verify the resulting schema version.
+5. Start the authenticated Adapter Worker and negotiate SAI/App Server compatibility.
+6. Recover Outbox delivery without changing message IDs.
+7. Scan nonterminal ExecutionAttempts, active ResourceLeases, event gaps, and worker correlation.
+8. Move ambiguous ExecutionAttempts through `UNKNOWN → RECONCILING`; do not dispatch replacements.
+9. Rebuild Task projections and compare them with stored projections.
+10. Inventory managed worktrees; attach known owners and quarantine ambiguous directories.
+11. Enable new dispatch only after recovery gates pass.
+
+Failure before step 11 permits read-only diagnostics and backup/repair actions but no new side effect.
+
+## Shutdown sequence
+
+A normal application exit stops accepting dispatch and requests `cancel` for every active local ExecutionAttempt. Before closing SQLite, the main process confirms that each Attempt's upstream activity and descendant processes terminated, or records the Attempt as `UNKNOWN` with ambiguous evidence; it then releases or invalidates the corresponding ResourceLeases and stops the Adapter Worker. An abnormal exit cannot make those confirmations, so startup moves every affected Attempt to `RECONCILING` before any dispatch. H1 has no orphan, background, or independent headless worker after the Electron main process exits.
+
+## SQLite operations
+
+- WAL mode and foreign keys are enabled for normal operation.
+- Each migration has a unique integer version, checksum, forward script, compatibility note, and backup requirement.
+- Migrations never delete or rename a live field in one step; they add, dual-write, backfill, dual-read, then deprecate.
+- Backup occurs before migration and at configurable successful-operation intervals.
+- A backup includes database/checksum/manifest but excludes retrievable credentials.
+- Restore is an explicit user operation while dispatch is disabled; restored nonterminal ExecutionAttempts enter reconciliation.
+- `SQLITE_BUSY`, corruption, disk-full, and read-only filesystem conditions fail closed and emit an incident.
+
+## Adapter and App Server supervision
+
+The main process supervises one H1 Codex Adapter Worker. The worker supervises App Server. Health includes worker process identity, negotiated versions, protocol heartbeat/observation age, App Server exit status, event backlog, and active ExecutionAttempt correlations.
+
+Restart uses bounded exponential backoff and a circuit breaker. Reaching the breaker sets Agent Connection `UNAVAILABLE` and preserves Tasks. A worker restart never clears an ExecutionAttempt or idempotency record. Unsupported versions require an explicit compatible application/Codex upgrade; silent fallback is prohibited.
+
+## Worktree operations
+
+Each mutating Task owns one managed worktree under [ADR-004](decisions/ADR-004-task-worktrees.md). Operations record baseline, branch, owner, fencing token, byte estimate, state, and disposition.
+
+- Active: owner Task exists and lease is current.
+- Retained: terminal Task with user-configured evidence retention.
+- Quarantined: dirty, orphaned, path mismatch, process ambiguity, or failed cleanup precondition.
+- Cleanable: terminal evidence captured, no process uses the path, leases released, repository identity matches, and retention permits removal.
+
+Cleanup is bounded, path-validated, nonrecursive outside the exact managed target, and auditable. Quarantine is the default for uncertainty. Disk-pressure handling notifies the user and pauses new mutating Tasks before considering retained cleanup.
+
+## Observability
+
+Structured logs contain timestamp, severity, component, event code, trace/task/work-item/attempt IDs where applicable, protocol version, duration, result category, and redacted details. They exclude secret values, prompt content by default, raw Authorization headers, full environment, and unrestricted source content.
+
+H1 operational metrics include:
+
+- active/queued/waiting/blocked/reconciling Tasks;
+- ExecutionAttempt duration, terminal outcomes, retries, unknown/reconciliation age;
+- Outbox backlog/age and Inbox duplicates/gaps;
+- worker/App Server restarts and protocol failures;
+- lease contention/stale fencing attempts;
+- database size/busy time/integrity result;
+- ArtifactVersion/worktree/quarantine bytes;
+- Decision age and notification delivery.
+
+Metrics remain local in H1. Export or telemetry requires an explicit later policy and opt-in authorization.
+
+## Incident classes and runbooks
+
+### Ambiguous execution
+
+Freeze redispatch, mark `UNKNOWN`, start reconciliation, inspect adapter/process/worktree/event evidence, and return a proven terminal/active/`NOT_STARTED` result or retain `RECONCILING`. Manual override cannot assert success without evidence; abandoning an indeterminate ExecutionAttempt requires an explicit L4 Decision and preserves the ambiguity record.
+
+### Database integrity failure
+
+Disable writes and dispatch, preserve the affected files, validate recent backups, offer read-only diagnostics, and restore only after explicit confirmation. All restored nonterminal work is reconciled.
+
+### Protocol incompatibility
+
+Set Agent Connection unavailable, record installed and supported version ranges, stop App Server interaction, retain Tasks, and guide the user to a compatible upgrade. Do not switch to CLI scraping or experimental methods.
+
+### Credential failure
+
+Set the connection to `AUTH_REQUIRED`, block affected WorkItems, retain completed evidence, and request reauthentication through Credential Manager. Do not log or echo the rejected credential.
+
+### Disk pressure
+
+Pause new ArtifactVersion-heavy or mutating dispatch, report database/ArtifactVersion/worktree usage, clean only records in `Cleanable` state under retention policy, and quarantine uncertainty. Database commits take priority over new model work.
+
+### Cancellation incomplete
+
+Keep the ExecutionAttempt `CANCELLING`, show remaining process/lease/worktree blockers, retry bounded termination, then reconcile. Never release a fencing lease while a surviving process may still write without first fencing it out.
+
+## Retention and audit
+
+H1 retention values are user-configurable system settings with safe defaults supplied by the application release. Active Tasks, open Decisions, nonterminal/ambiguous ExecutionAttempts, retained Authorization evidence, referenced ProjectChanges, and quarantined worktrees cannot be automatically deleted.
+
+ArtifactVersion content may be deleted by policy only after its hold expires; ArtifactVersion metadata and audit digest remain. Inbox/Outbox evidence remains at least through the longest retry, reconciliation, audit, and backup window. Project and Task history use archive rather than business hard delete.
+
+## Upgrade and rollback
+
+Application upgrade checks Node/Electron bundle integrity, database migration compatibility, SAI range, Codex App Server range, and available disk before changing state. The pre-upgrade database backup and installed application package provide rollback. After rollback, the older application may open the database only if its declared schema compatibility includes the current version; otherwise it remains read-only and offers restore.
+
+Function or Adapter breaking changes block new affected ExecutionAttempts and move active incompatible WorkItems to `BLOCKED` or reconciliation. They never silently reinterpret an approved ProposalVersion.
+
+## Verification and release evidence
+
+A release gate includes documentation links, schema/migration tests, domain state-machine tests, fake App Server contract tests, secure IPC tests, worktree isolation/cancellation tests, SQLite crash/recovery tests, redaction tests, Electron Playwright critical flows, lint, typecheck, build, and an opt-in real-Codex smoke test. Remote CI is labeled planned until it has actually produced evidence.
+
+Repository delivery follows [ADR-005](decisions/ADR-005-rolling-task-packs.md): the active Task Pack is immutable, exact-path bounded, and verified; the next phase's packs are approved before archive.
+
+## H1-H3 evolution
+
+- H1 is one local owner, SQLite, local Credential Manager, local ArtifactVersion content/worktrees, one Codex worker, and local-only metrics.
+- H2 adds multiple workers/adapters, monitoring ingestion, aggregation, budgets, and higher-volume retention. Durable IDs, Inbox/Outbox, per-ExecutionAttempt ordering, fencing, and recovery scans remain.
+- H3 adds tenant-partitioned services, managed queues/object storage/vault, RBAC operations, approval quorum, audit export, backup regions, and retention enforcement. Migration preserves H1 public IDs and audit meaning; remote operation cannot weaken ambiguous-state, credential, or authorization controls.
+
+Related facts: [architecture](architecture.md), [data model](data-model.md), [security](security.md), and [Codex Adapter](adapters/codex.md).
