@@ -1,0 +1,470 @@
+# Full Methodology
+
+Use this reference when the user wants a complete document-first engineering workflow, not just a quick plan.
+
+## Contents
+
+- [Lifecycle Summary](#lifecycle-summary)
+- [Startup, Intake, and Planning](#s0-startup-and-authorization)
+- [Docs Source of Truth](#s6-docs-source-of-truth-creation)
+- [Phase and Task Design](#s9-phase-plan-and-task-breakdown)
+- [Implementation and Validation](#s13-agent-implementation)
+- [Acceptance and Change Control](#s16-main-agent-acceptance)
+- [Writeback, Merge, and Archive](#s20-documentation-writeback)
+
+## Authority and Capability Boundaries
+
+Follow higher-priority platform, user, and repository instructions before this methodology or generated project instructions. Treat approved docs as intended facts and reconcile them with code, tests, configuration, and runtime evidence.
+
+This workflow does not provide a background scheduler, persistent lock or deadlock service, CI provider, GitHub integration, or automatic merge system. Use available tools explicitly, keep file ownership and locks as coordination protocols, and distinguish planned operations from executed evidence.
+
+## Lifecycle Summary
+
+```text
+S0  Startup and authorization
+S1  Raw idea capture
+S2  Project scan and current-state analysis
+S3  Formal solution draft
+S4  Independent solution review
+S5  Formal solution finalization
+S6  Docs source-of-truth creation
+S7  Docs review
+S8  Docs finalization
+S9  Phase plan and task breakdown
+S10 Context Pack / Task Pack generation
+S11 Execution strategy selection
+S12 Branch and concurrency control
+S13 Agent implementation
+S14 Test quality review
+S15 Local / sandbox / CI validation
+S16 Main-agent acceptance
+S17 Git conflict handling
+S18 Change classification
+S19 Phase integration acceptance
+S20 Documentation writeback
+S21 Merge / PR / release preparation
+S22 Phase archive
+```
+
+## S0 Startup and Authorization
+
+Capture:
+
+- Project or task name.
+- Autonomy Mode: Goal Mode (closed whitelist, max iterations), Plan Mode (phase-by-phase permission handshake), or Build Mode (stream execution).
+- Allowed file modifications (`Allowed Files`).
+- Branch creation permission.
+- Subagent permission.
+- GitHub / PR / CI permission.
+- Dependency install and network permission.
+- Commit and draft PR permission.
+- Forbidden files, directories, systems, secrets, or production resources.
+
+Derive authorization already established by the user or environment. Ask only about missing choices that change direction or permit material external or high-risk actions.
+
+Output:
+
+```text
+Project / task:
+Workflow mode: Goal / Plan / Build
+Authorization:
+Known restrictions:
+High-risk operations:
+Must-confirm questions:
+Reasonable assumptions:
+Later questions:
+Next step:
+```
+
+Never execute by default:
+
+- Merge to main.
+- Push to remote main.
+- Force push.
+- Delete remote branches.
+- Reset Git history.
+- Publish production release.
+- Delete user files.
+- Overwrite uncommitted user changes.
+
+## S1 Raw Idea Capture, Reflection, and Feasibility Check
+
+Turn natural language into structured product input through mandatory self-reflection. Ask only for information that changes direction or resolves feasibility bottlenecks; otherwise record reasonable assumptions.
+
+Mandatory Reflection & Feasibility Rules:
+- **Never produce final specs immediately**: Upon receiving raw ideas, the agent's first block output MUST be `## CoT Intake Reflection`, detailing Missing Facts, Codebase Conflicts, and Technical Feasibility Bottlenecks.
+- **Pain-Point Card Matching**: Match user input against 6 domain cards in `references/pain-points.md` using binary (0/1) feature hit score $S(C)$:
+  $$S(C) = \frac{2.0 \times N_{\text{mandatory-hits}} + 1.0 \times N_{\text{pattern-hits}}}{2.0 \times N_{\text{mandatory-total}} + 1.0 \times N_{\text{pattern-total}}}$$
+  Top-1 exclusivity applies for $S(C) \ge 0.5$.
+- **Feasibility Verification**: Confirm that the requested feature can be realistically built under existing project constraints before writing formal architecture or docs.
+
+Capture:
+
+- Problem.
+- Target users.
+- Current workaround.
+- Core scenarios.
+- MVP scope.
+- Non-goals.
+- Success criteria.
+- Platform, time, budget, technical constraints.
+- Design, brand, performance, security, compliance constraints.
+- Delivery shape: site, app, API, CLI, library, plugin, automation.
+
+Auto-Init Trigger:
+Once sufficient information is gathered and feasibility is confirmed, automatically trigger project initialization (`python scripts/scaffold_docs.py --auto-detect`) to auto-populate `AGENTS.md` with detected stack commands (including Monorepo / sub-directory scan for Makefile, Dockerfile, pnpm-workspace, go.work, Cargo workspace, etc.) and create `docs/` source of truth.
+
+Artifact: `docs/product.md`.
+
+
+## S2 Project Scan and Current-State Analysis
+
+For new projects, determine:
+
+- Suggested stack.
+- Project structure.
+- Build tool.
+- Test framework.
+- Deployment model.
+- Database, authentication, external service needs.
+- CI needs.
+
+For existing projects, inspect:
+
+- `README`.
+- `docs`.
+- `AGENTS.md`.
+- package/build config.
+- test directories.
+- CI config.
+- architecture entry points.
+- code style.
+- git status and uncommitted changes.
+
+Output:
+
+```text
+Project type:
+Main stack:
+Run command:
+Test command:
+Build command:
+Key directories:
+Engineering conventions:
+Git state:
+Uncommitted changes:
+Risks:
+Recommended workflow mode:
+```
+
+## S3 Formal Solution Draft
+
+Include:
+
+- Background and goal.
+- Current state.
+- Users and scenarios.
+- Scope and non-goals.
+- Functional modules.
+- Data objects and state transitions.
+- Interfaces, pages, interactions, or CLI/API contracts.
+- Technical implementation path.
+- Codex execution boundaries.
+- Workflow mode.
+- Branch strategy.
+- Subagent strategy.
+- Test and validation strategy.
+- Risks and rollback.
+- Phase plan.
+- Deliverables.
+- Requirement traceability matrix.
+- Open questions.
+
+Artifacts:
+
+- `formal-solution.md` when strict mode needs a durable draft.
+- `requirement-traceability-matrix.md` when requirements are numerous or regulated.
+
+## S4 Independent Solution Review
+
+Use in strict mode or when risk is high. Review only supplied materials and treat missing material as missing, not implied. Use an independent fresh-context reviewer only when subagents are authorized; otherwise run the same rubric as a disclosed main-agent self-review.
+
+Score:
+
+- Requirement clarity.
+- Business loop completeness.
+- Functional boundary quality.
+- Architecture feasibility.
+- Data and state completeness.
+- Security and permission coverage.
+- Interface and integration feasibility.
+- Test and acceptance executability.
+- Documentation traceability.
+- Codex executability.
+- Subagent decomposability.
+- Branch and concurrency safety.
+- CI / validation feasibility.
+- Change and rollback ability.
+
+Proceed only when no blocking issues remain.
+
+## S5 Formal Solution Finalization
+
+Incorporate valid review findings into the final plan. Do not output a comparison or revision history; output the current formal solution.
+
+## S6 Docs Source-of-Truth Creation
+
+Use mode-specific structure:
+
+- Quick: minimum docs.
+- Standard: AGENTS, docs index, product, requirements, architecture, delivery, verification, archive.
+- Strict: standard plus locks and quality gates. Add ADRs and API/data/security/UX/operations docs only when applicable facts exist.
+
+Gate:
+
+- Docs entry exists.
+- Current requirements are traceable.
+- Current validation is explicit.
+- Codex can find the project facts from docs.
+
+## S7 Docs Review
+
+Review:
+
+- Docs entry clarity.
+- Requirement traceability.
+- Acceptance testability.
+- Architecture completeness.
+- Task Pack executability.
+- Test strategy executability.
+- Subagent boundaries.
+- Relative link and anchor validity (via `scripts/check_docs_links.py`).
+- Automated script compliance and JSON output schemas.
+- Branch and concurrency safety.
+- Change handling.
+- Archive completeness.
+
+## S8 Docs Finalization
+
+Fix docs review issues. Keep docs factual and current. Do not create decorative empty files.
+
+## S9 Phase Plan and Task Breakdown
+
+Every phase defines:
+
+- Goal.
+- Scope and non-goals.
+- Requirement IDs.
+- Tasks.
+- Dependencies.
+- Branch strategy.
+- Agent strategy.
+- Test strategy.
+- Acceptance gate.
+- Risks.
+- Archive path.
+
+Task splitting rules:
+
+- One clear goal per task.
+- Independent acceptance per task.
+- Disjoint write scopes for parallel tasks.
+- Shared contracts designed before implementation.
+- High-risk tasks get early spikes or validation.
+
+## S10 Context Pack / Task Pack Generation
+
+Each Task Pack must include:
+
+- `TASK-*` ID.
+- Status.
+- Related `REQ-*` IDs.
+- Objective.
+- Must-read documents.
+- Allowed files (must list explicit subdirectories or file patterns, e.g. `src/auth/*.ts`; broad wildcards such as `*`, `**`, `.` are strictly rejected).
+- Forbidden files.
+- Interface/data/UI constraints.
+- Implementation requirements.
+- Test requirements.
+- Acceptance criteria.
+- Done definition.
+- Risks.
+- Required output.
+
+No worker may modify code without a Task Pack.
+
+## S11 Execution Strategy Selection
+
+Single-agent mode for:
+
+- Small tasks.
+- Highly coupled work.
+- Critical path decisions.
+- No subagent authorization.
+
+Multi-agent mode for:
+
+- Independent modules.
+- Read-only exploration.
+- Test and implementation separation.
+- Docs and code work that can safely run in parallel.
+
+Use multi-agent mode only after the user explicitly authorizes subagents. Otherwise keep the same Task Packs and execute them serially with the main agent.
+
+## S12 Branch and Concurrency Control
+
+Recommended branch names:
+
+```text
+codex/phase-001-short-name
+codex/task-001-short-name
+codex/fix-short-name
+```
+
+Concurrency protocol:
+
+- Task Pack declares allowed and forbidden files.
+- Parallel writes must not overlap.
+- Shared files are edited by the main agent.
+- Use `docs/delivery/locks.yml` only when useful.
+
+## S13 Agent Implementation
+
+Implementation steps:
+
+1. Read Task Pack.
+2. Read must-read docs.
+3. Check allowed and forbidden files.
+4. Check git status.
+5. Read relevant code.
+6. Add or update tests.
+7. Run a failing check where practical.
+8. Make small scoped edits.
+9. Run passing verification.
+10. Report changed files, tests, risks.
+
+Rules:
+
+- Do not revert user changes.
+- Do not overwrite other agents.
+- Do not do unrelated refactors.
+- Do not remove tests.
+- Do not bypass business logic.
+- Do not change unauthorized contracts.
+- Follow local style.
+
+## S14 Test Quality Review
+
+Inspect whether tests prove behavior:
+
+- Acceptance coverage.
+- Meaningful assertions.
+- Success path.
+- Failure path.
+- Boundary conditions.
+- Permission and error cases where relevant.
+- Stable execution.
+- CI compatibility.
+
+## S15 Local / Sandbox / CI Validation
+
+Levels:
+
+- L1: local targeted command.
+- L2: local lint/test/typecheck/build.
+- L3: clean worktree, clean install, container, or sandbox.
+- L4: GitHub PR checks or equivalent CI (consuming `--json` outputs from `check_task_pack.py` and `check_docs_links.py`).
+
+Strict mode requires inspectable evidence. Label evidence as planned, locally executed, isolated, or externally executed. Never present a planned CI or PR check as completed; explain every skipped check.
+
+## S16 Main-Agent Acceptance
+
+Inputs:
+
+- Task Pack.
+- Diff.
+- Subagent output.
+- Test output.
+- CI / PR checks.
+- Relevant docs.
+
+Statuses:
+
+- `PASS`.
+- `REQUEST_CHANGES`.
+- `BLOCKED`.
+
+## S17 Git Conflict Handling
+
+When conflicts appear:
+
+1. Pause merge.
+2. Read conflict files.
+3. Compare against Task Pack, requirements, and architecture.
+4. Resolve without deleting valid logic or tests.
+5. Re-run relevant verification.
+6. Record cause and resolution.
+7. Re-enter acceptance.
+
+## S18 Change Classification
+
+Levels:
+
+- Micro: no architecture, interface, data, or phase-plan impact.
+- Standard: affects requirements, tests, or local implementation plan.
+- Strict: affects architecture, data, security, milestone, or multiple tasks.
+
+Strict changes require pausing affected work and asking the user to confirm.
+
+## S19 Phase Integration Acceptance
+
+Check:
+
+- All tasks complete.
+- All tasks passed main-agent acceptance.
+- Task branches merged or ready.
+- No code/interface/data conflict remains.
+- Stage verification passes.
+- Docs are updated.
+- Archive and release notes are ready.
+- User confirmation obtained where required.
+
+## S20 Documentation Writeback
+
+Write back:
+
+- Requirement status.
+- Architecture changes.
+- New commands.
+- Test strategy changes.
+- Decisions.
+- Known limitations.
+- Phase acceptance.
+- Change records.
+
+Do not rewrite entire docs unless necessary. Prefer targeted patches.
+
+## S21 Merge / PR / Release Preparation
+
+Gate:
+
+- Acceptance is `PASS`.
+- Worktree state is clear.
+- Tests/CI pass or risk is documented.
+- Docs are updated.
+- Conflicts are resolved.
+- Main branch merge is confirmed by user.
+
+## S22 Phase Archive
+
+Archive:
+
+- Phase summary.
+- Task Packs.
+- Verification evidence.
+- Acceptance records.
+- Change records.
+- Known issues.
+- Roadmap update.
+
+Then either return to S9 for the next phase or move to release/maintenance/closeout.

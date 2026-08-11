@@ -1,0 +1,139 @@
+name: Documentation gates
+
+on:
+  pull_request:
+    paths:
+      - 'AGENTS.md'
+      - 'docs/**'
+      - 'references/**'
+      - 'scripts/**'
+      - 'tests/**'
+      - '.github/workflows/docs-gates.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'AGENTS.md'
+      - 'docs/**'
+      - 'references/**'
+      - 'scripts/**'
+      - 'tests/**'
+      - '.github/workflows/docs-gates.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docs-gates-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  governance:
+    name: Governance validators
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Install schema-validator dependency
+        run: python -m pip install --disable-pip-version-check --no-input jsonschema==4.26.0
+
+      - name: Validate documentation links
+        run: python scripts/check_docs_links.py docs --json
+
+      - name: Validate every Task Pack
+        shell: python
+        run: |
+          from pathlib import Path
+          import subprocess
+          import sys
+
+          task_packs = sorted(Path("docs/delivery/tasks").glob("TASK-*.md"))
+          if not task_packs:
+              raise SystemExit("No TASK-*.md files were found.")
+
+          for task_pack in task_packs:
+              print(f"::group::{task_pack.as_posix()}", flush=True)
+              result = subprocess.run(
+                  [
+                      sys.executable,
+                      "scripts/check_task_pack.py",
+                      str(task_pack),
+                      "--schemas",
+                      "references/schemas.md",
+                      "--json",
+                  ],
+                  check=False,
+              )
+              print("::endgroup::", flush=True)
+              if result.returncode != 0:
+                  raise SystemExit(result.returncode)
+
+      - name: Validate requirement traceability
+        run: >-
+          python scripts/check_traceability.py
+          --requirements docs/requirements.md
+          --matrix docs/requirement-traceability-matrix.md
+          --json
+
+      - name: Validate five standalone schemas
+        run: python scripts/check_schemas.py references/schemas --json
+
+      - name: Require runtime evidence inputs
+        shell: python
+        run: |
+          from pathlib import Path
+
+          required = [
+              Path("docs/delivery/execution-trace.json"),
+              Path("docs/delivery/permission-audit.log"),
+          ]
+          missing = [path.as_posix() for path in required if not path.is_file()]
+          empty = [path.as_posix() for path in required if path.is_file() and path.stat().st_size == 0]
+          if missing or empty:
+              raise SystemExit(f"Missing runtime evidence: {missing}; empty runtime evidence: {empty}")
+
+      - name: Verify Plan-mode runtime trace
+        run: >-
+          python scripts/verify_runtime_trace.py
+          --mode plan
+          --task-pack docs/delivery/tasks/TASK-000.md
+          --schemas references/schemas.md
+          --next-iteration 1
+          --json
+
+      - name: Run governance unit tests
+        run: python -m unittest discover -s tests -v
+
+      - name: Check patch whitespace
+        shell: python
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          BEFORE_SHA: ${{ github.event.before }}
+          HEAD_SHA: ${{ github.sha }}
+        run: |
+          import os
+          import subprocess
+
+          event_name = os.environ["EVENT_NAME"]
+          head = os.environ["HEAD_SHA"]
+          if event_name == "pull_request":
+              command = ["git", "diff", "--check", os.environ["BASE_SHA"], head]
+          else:
+              before = os.environ.get("BEFORE_SHA", "")
+              if before and set(before) != {"0"}:
+                  command = ["git", "diff", "--check", before, head]
+              else:
+                  command = ["git", "diff-tree", "--check", "--root", "--no-commit-id", "-r", head]
+          raise SystemExit(subprocess.run(command, check=False).returncode)

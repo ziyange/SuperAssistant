@@ -1,0 +1,9 @@
+[
+  {
+    "expansion_seq": 1,
+    "tx_id": "tx-phase000-remote-grant-002",
+    "approved_pattern": ".git/config#origin=https://github.com/ziyange/SuperAssistant.git",
+    "approved_at": "2026-08-11T08:46:14+08:00",
+    "approved_by": "user"
+  }
+]

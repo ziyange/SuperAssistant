@@ -1,6 +1,6 @@
 # Super Assistant documentation
 
-This repository is currently at `PHASE-000`: the document-first lifecycle baseline. No application implementation is present or authorized by the active Task Pack.
+This repository contains the accepted `PHASE-000` document-first lifecycle baseline. No application implementation is present, and no application delivery phase is active.
 
 ## Authority map
 
@@ -16,11 +16,11 @@ This repository is currently at `PHASE-000`: the document-first lifecycle baseli
 
 ## Current execution
 
-- Active phase: `PHASE-000`.
-- Active pack: [TASK-000](delivery/tasks/TASK-000.md).
-- Approved next-phase packs: `TASK-101` through `TASK-105`.
+- Completed baseline pack: [TASK-000](delivery/tasks/TASK-000.md).
+- Active application phase: none.
+- Ready, not opened: `PHASE-001`, with approved packs `TASK-101` through `TASK-105`.
 - Draft following-phase packs: `TASK-201` through `TASK-203`.
-- Application code begins only after `TASK-000` passes and `PHASE-001` is opened on an isolated branch/worktree.
+- Application code begins only after `PHASE-001` is explicitly opened on an isolated branch/worktree.
 
 ## Design and implementation plans
 

@@ -1,9 +1,9 @@
 # Super Assistant document-first initialization plan
 
-- Status: In progress
+- Status: Local baseline complete; publication outcome is external S21 handoff evidence
 - Date: 2026-08-09
 - Execution mode: Strict + Plan
-- Active Task Pack: `TASK-000`
+- Completed Task Pack: `TASK-000`
 
 ## Outcome
 
@@ -47,4 +47,4 @@ Transform the V3.0 proposal into a self-contained, versioned repository of produ
 
 ## Completion gate
 
-This plan is complete when the full local quality gate passes, all created files are represented in the current trace/verification evidence, the three commits exist on `main`, `origin` equals the approved URL, local `main` tracks `origin/main` at the published commit, and the worktree is clean.
+Local execution is complete when the full local quality gate passes, all created files are represented in the current trace/verification evidence, exactly three baseline commits exist on `main`, and the worktree is clean. The S21 publication handoff completes the user-facing plan only after live Git evidence confirms that `origin` equals the approved URL and local `main` tracks `origin/main` at the same commit; that post-commit result is reported in the final handoff rather than asserted recursively inside its own commit.

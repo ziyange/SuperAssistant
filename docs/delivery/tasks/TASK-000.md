@@ -2,7 +2,7 @@
 
 ## Status
 
-IN_PROGRESS
+COMPLETED
 
 PHASE: PHASE-000
 
@@ -167,11 +167,11 @@ Only document UX facts. Do not create UI assets or application components. UX fa
 - All five schemas are valid and runtime trace verification exits `0` in Plan mode.
 - The verification report contains actual local command results and labels remote CI as planned.
 - Local `main` contains exactly three logical baseline commits and a clean worktree.
-- `origin` equals `https://github.com/ziyange/SuperAssistant.git`, local `main` tracks `origin/main`, and the remote points to the same published commit.
+- After local TASK-000 acceptance, the S21 publication handoff configures only `origin=https://github.com/ziyange/SuperAssistant.git`, pushes `main` with upstream tracking, and verifies local/remote commit equality. A publication failure blocks plan handoff without changing the local Task Pack result or using pull, merge, or force-push.
 
 ## Done Definition
 
-All acceptance criteria pass, active facts agree, phase handoff rules are explicit, application code is absent, and the initial baseline report plus Git history provide reproducible evidence.
+All local acceptance criteria pass, active facts agree, phase handoff rules are explicit, application code is absent, and the initial baseline report plus Git history provide reproducible evidence. The separately observed S21 publication result is included in the final handoff.
 
 ## Risks
 

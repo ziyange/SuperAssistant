@@ -4,7 +4,7 @@ Task Packs are execution permissions, not design substitutes. Every pack names e
 
 | Pack | Phase | Status | Purpose |
 |---|---|---|---|
-| TASK-000 | PHASE-000 | IN_PROGRESS | Establish facts, governance, schemas, CI, trace, and local Git baseline |
+| TASK-000 | PHASE-000 | COMPLETED | Established facts, governance, schemas, CI, trace, and local Git baseline |
 | TASK-101 | PHASE-001 | APPROVED | Repository and test foundation |
 | TASK-102 | PHASE-001 | APPROVED | Secure desktop shell and IPC |
 | TASK-103 | PHASE-001 | APPROVED | Foundation domain and SQLite persistence |

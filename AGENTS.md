@@ -2,10 +2,10 @@
 
 ## Current lifecycle state
 
-- Current delivery phase: `PHASE-000` document-first baseline.
-- Active executable pack: `docs/delivery/tasks/TASK-000.md`.
-- Application code is outside the scope of `TASK-000`.
-- The next executable phase is `PHASE-001`; its packs must remain approved and unchanged before implementation starts.
+- `PHASE-000` is the accepted document-first baseline; `TASK-000` is completed locally.
+- No application delivery phase or executable Task Pack is active.
+- The next executable phase is `PHASE-001`; `TASK-101` through `TASK-105` are approved but implementation starts only after that phase is explicitly opened in an isolated branch/worktree.
+- The initial GitHub publication is an S21 handoff after local acceptance, not an application phase.
 
 ## Sources of truth
 

@@ -1,0 +1,18 @@
+[
+  {
+    "tx_id": "tx-phase000-plan-001",
+    "iteration_index": 0,
+    "timestamp": "2026-08-09T18:30:00+08:00",
+    "action_type": "MODE_SWITCH",
+    "normalized_path": "N/A",
+    "intent_hash": "e9abe3b7cb9666d3d828f396a90ec22755d14a0ded000a0f8bef055540963841",
+    "result_status": "COMPLETED",
+    "ignored_candidates": [
+      "CONCURRENCY_RACE:0.526:TOP1_EXCLUSIVITY",
+      "SCHEMA_MIGRATION:0.471:BELOW_THRESHOLD",
+      "STATE_MEMORY_LEAK:0.235:BELOW_THRESHOLD",
+      "PERFORMANCE_DEGRADATION:0.176:BELOW_THRESHOLD",
+      "CROSS_PLATFORM:0.158:BELOW_THRESHOLD"
+    ]
+  }
+]
