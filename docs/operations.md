@@ -52,6 +52,16 @@ A normal application exit stops accepting dispatch and requests `cancel` for eve
 - Restore is an explicit user operation while dispatch is disabled; restored nonterminal ExecutionAttempts enter reconciliation.
 - `SQLITE_BUSY`, corruption, disk-full, and read-only filesystem conditions fail closed and emit an incident.
 
+### PHASE-001 foundation persistence implementation
+
+Migration `001-foundation` is applied in a SQLite transaction and recorded
+only after its schema statements complete. Repeated startup reads the recorded
+version and does not replay it. A migration error rolls its transaction back,
+leaving the previous schema and version usable. The foundation connection
+enables foreign keys, WAL mode, and a five-second busy timeout before applying
+migrations. Repository reopen tests cover Workspace-scoped Agent, Function,
+Project, and immutable version-reference persistence.
+
 ## Adapter and App Server supervision
 
 The main process supervises one H1 Codex Adapter Worker. The worker supervises App Server. Health includes worker process identity, negotiated versions, protocol heartbeat/observation age, App Server exit status, event backlog, and active ExecutionAttempt correlations.

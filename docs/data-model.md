@@ -2,6 +2,18 @@
 
 SQLite is the H1 authoritative store. External identifiers are UUIDv7 strings; timestamps are UTC ISO-8601 with millisecond precision; mutable records use an integer `row_version` for optimistic concurrency. Enumerations are stored as uppercase stable codes. JSON payloads carry a schema version and are validated before persistence.
 
+### PHASE-001 migration 001 foundation slice
+
+`TASK-103` introduces transactional migration `001-foundation` with
+`schema_migrations`, `workspaces`, `agents`, `projects`, `functions`, and
+`version_references`. Foreign keys are enabled on every SQLite connection. The
+Project presentation path is retained as normalized slash-separated text while
+a separate lower-cased `canonical_key` enforces one Project identity per
+Workspace. `version_references` reserves immutable Agent, Function, Template,
+protocol, and snapshot version vocabulary; this phase records Function version
+references without implementing Template behavior. Agent rows carry only an
+opaque nullable `credential_ref`, never credential material.
+
 ## Required core records
 
 The approved model contains twelve named persistent records. Their names are stable engineering vocabulary and must not be replaced with adapter-specific terms:

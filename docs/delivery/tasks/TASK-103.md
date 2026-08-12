@@ -52,6 +52,21 @@ Implement the authoritative foundation domain types, deterministic state transit
 - docs/data-model.md
 - docs/operations.md
 - docs/verification/reports/phase-001-task-103.md
+- packages/domain/tsconfig.json
+- packages/persistence/tsconfig.json
+- packages/domain/package.json
+
+## Approved Scope Expansion
+
+Expansion 1 of 2 was approved by the user on 2026-08-12. These two exact
+TypeScript configuration paths include this Task's domain and persistence
+source/tests in the existing type-check command. The expansion does not permit
+dependency, build-strategy, data-model, or runtime-scope changes.
+
+Expansion 2 of 2 was approved by the user on 2026-08-12. It permits only an
+`exports` entry for the already-declared `@super-assistant/domain` workspace
+dependency so persistence imports the public domain contract rather than an
+internal path. It adds no dependency or build-strategy change.
 
 ## Forbidden Files
 
