@@ -16,7 +16,13 @@ Super Assistant is the default home and remains available as a global panel from
 
 ## First-run experience
 
-The first-run page offers four clear actions: connect an existing Agent, add a Project, create an Agent with assistance, or start a Task directly. H1 fully supports adding a local Git Project, connecting the local Codex runtime, and starting a development Task. Agent templates beyond Codex are visibly labeled as later-horizon capabilities only when their code exists; unavailable controls are not interactive promises.
+The PHASE-001 shell offers three bounded actions: connect Codex, add a Project,
+or start a Task. These controls are onboarding guidance until the corresponding
+Project and Codex capabilities arrive in later approved Task Packs. H1 fully
+supports adding a local Git Project, connecting the local Codex runtime, and
+starting a development Task. Agent templates—including any create-with-
+assistance route—are absent until their H2 contract and code exist; unavailable
+controls are not interactive promises.
 
 Connection onboarding shows detected Runtime version, compatibility, authentication state, Project path, repository identity, default branch, and a test result. Credential fields write directly through the secure broker; existing secrets are displayed only as present/absent labels.
 

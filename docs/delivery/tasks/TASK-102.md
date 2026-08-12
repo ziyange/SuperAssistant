@@ -52,6 +52,16 @@ Implement the smallest secure Electron shell with isolated renderer, typed valid
 - docs/security.md
 - docs/ux.md
 - docs/verification/reports/phase-001-task-102.md
+- apps/desktop/index.html
+- apps/desktop/tsconfig.json
+- playwright.config.ts
+
+## Approved Scope Expansion
+
+Expansion 1 of 2 was approved by the user on 2026-08-12. The three exact
+paths above are required to mount the bounded renderer, type-check the
+implementation, and run the required browser acceptance suite. This expansion
+does not permit dependency, privilege, IPC-channel, or product-scope changes.
 
 ## Forbidden Files
 

@@ -47,6 +47,19 @@ Worker IPC uses an application-start nonce delivered through an inherited privat
 
 The frozen H1 maximum Worker and renderer IPC frame is 1 MiB. Large content crosses the boundary only as a validated opaque Artifact handle and checksum. The SAI envelope is validated against [the SAI 1.0 schema](api/sai-envelope.schema.json) before it can affect domain state.
 
+### PHASE-001 desktop shell implementation
+
+`TASK-102` implements the first deny-by-default desktop boundary. Its preload
+exposes only `superAssistant.getOnboarding()` and
+`superAssistant.setOnboarding({ completed: boolean })`; both map to the
+allowlisted `onboarding:get` and `onboarding:set` channels. Main independently
+rejects unknown channels, extra fields, malformed values, requests over 1 MiB,
+path-like extra payload, and missing or untrusted sender frames. The window
+uses context isolation, sandboxing, disabled Node integration, an allowlisted
+same-origin/file navigation rule, denied popup/webview creation, and a
+restrictive `self` CSP. This shell has no credentials, Project write, Codex
+startup, arbitrary process, filesystem, or external-navigation capability.
+
 ## Authorization and L1-L4 routing
 
 ### L1: explicit fact lookup
