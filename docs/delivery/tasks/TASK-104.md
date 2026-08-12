@@ -56,6 +56,25 @@ Implement canonical Project registration, metadata provenance, lifecycle policy,
 - docs/data-model.md
 - docs/operations.md
 - docs/verification/reports/phase-001-task-104.md
+- packages/persistence/src/sqlite/migration-runner.ts
+- packages/persistence/src/sqlite/migrations/002-project-metadata.sql
+- apps/desktop/src/renderer/App.tsx
+- packages/persistence/tests/migration-runner.test.ts
+
+## Execution Expansion
+
+The implementation agent approved these three exact paths on 2026-08-12 under
+the user's full-plan execution delegation. Migration 002 adds Project metadata
+without rewriting released migration 001; its runner must register that new
+forward-only migration. `App.tsx` is the existing bounded composition point
+needed to render the allowed Project Center on its already-fixed destination.
+No dependency, credential, remote, execution, or broad file-scope change is
+permitted.
+
+The existing migration-runner regression test is also included solely to move
+its expected applied schema from `[1]` to `[1, 2]` and inject its simulated
+failure at version `3`. This preserves, rather than weakens, repeat and
+rollback coverage after adding forward-only migration 002.
 
 ## Forbidden Files
 

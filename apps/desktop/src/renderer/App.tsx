@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { Navigation, type Destination } from './navigation.js';
 import { Onboarding } from './onboarding.js';
+import { ProjectCenter } from './project-center.js';
 
 export function App() {
   const [current, setCurrent] = useState<Destination>('super-assistant');
@@ -15,5 +16,5 @@ export function App() {
     void window.superAssistant?.setOnboarding({ completed: true }).then(({ onboarding }) => setCompleted(onboarding.completed));
   };
 
-  return <main><Navigation current={current} onNavigate={setCurrent} /><h1>{current === 'super-assistant' ? 'Super Assistant' : current}</h1><Onboarding completed={completed} onComplete={completeOnboarding} /></main>;
+  return <main><Navigation current={current} onNavigate={setCurrent} /><h1>{current === 'super-assistant' ? 'Super Assistant' : current}</h1>{current === 'project-center' ? <ProjectCenter projects={[]} /> : <Onboarding completed={completed} onComplete={completeOnboarding} />}</main>;
 }

@@ -5,7 +5,8 @@ import type Database from 'better-sqlite3';
 
 export interface Migration { version: number; name: string; sql: string; }
 const foundationSql = readFileSync(fileURLToPath(new URL('./migrations/001-foundation.sql', import.meta.url)), 'utf8');
-export const foundationMigrations: readonly Migration[] = [{ version: 1, name: 'foundation', sql: foundationSql }];
+const projectMetadataSql = readFileSync(fileURLToPath(new URL('./migrations/002-project-metadata.sql', import.meta.url)), 'utf8');
+export const foundationMigrations: readonly Migration[] = [{ version: 1, name: 'foundation', sql: foundationSql }, { version: 2, name: 'project-metadata', sql: projectMetadataSql }];
 
 export function applyMigrations(database: Database.Database, migrations: readonly Migration[] = foundationMigrations): void {
   database.exec('CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, name TEXT NOT NULL, applied_at TEXT NOT NULL)');

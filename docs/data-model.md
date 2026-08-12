@@ -14,6 +14,14 @@ protocol, and snapshot version vocabulary; this phase records Function version
 references without implementing Template behavior. Agent rows carry only an
 opaque nullable `credential_ref`, never credential material.
 
+### PHASE-001 migration 002 Project slice
+
+`TASK-104` adds forward-only migration `002-project-metadata`: metadata and
+its `DISCOVERED | USER` provenance are stored separately from the Project
+identity, while managed-worktree records bind Project, Task, canonical path,
+branch, baseline commit, resource key, and safe disposition. The migration
+does not rewrite migration 001 or introduce execution-attempt records.
+
 ## Required core records
 
 The approved model contains twelve named persistent records. Their names are stable engineering vocabulary and must not be replaced with adapter-specific terms:

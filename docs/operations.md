@@ -62,6 +62,12 @@ enables foreign keys, WAL mode, and a five-second busy timeout before applying
 migrations. Repository reopen tests cover Workspace-scoped Agent, Function,
 Project, and immutable version-reference persistence.
 
+`TASK-104` validates Project paths before registration and uses noninteractive
+native Git argument arrays for disposable task worktrees. Each generated
+worktree has a distinct `codex/phase-001-<task>` branch and baseline commit;
+source checkouts are never modified. Unknown/stale paths reconcile to
+quarantine rather than deletion.
+
 ## Adapter and App Server supervision
 
 The main process supervises one H1 Codex Adapter Worker. The worker supervises App Server. Health includes worker process identity, negotiated versions, protocol heartbeat/observation age, App Server exit status, event backlog, and active ExecutionAttempt correlations.
