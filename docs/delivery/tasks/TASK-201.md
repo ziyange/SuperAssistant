@@ -47,7 +47,7 @@ Classify read-only and side-effecting goals, route one Project and Codex Functio
 - packages/domain/tests/authorization.test.ts
 - packages/domain/tests/preflight.test.ts
 - packages/domain/tests/routing.test.ts
-- packages/persistence/src/sqlite/migrations/002-proposal-authorization.sql
+- packages/persistence/src/sqlite/migrations/003-proposal-authorization.sql
 - packages/persistence/src/repositories/proposal-repository.ts
 - packages/persistence/src/repositories/authorization-repository.ts
 - packages/persistence/src/index.ts
@@ -110,7 +110,10 @@ All authorization and invalidation scenarios pass, immutable records are inspect
 
 ## Risks
 
-`SECURITY_PERMISSION 0.600` is active and confirmed. Confused-deputy routing, stale authorization, TOCTOU, and double confirmation are critical. The Task Pack remains non-executable while status is DRAFT.
+`SECURITY_PERMISSION 0.600` is active and confirmed. Confused-deputy routing,
+stale authorization, TOCTOU, and double confirmation are critical. This
+reviewed draft follows PHASE-001 migration `002-project-metadata`; it remains
+non-executable until validated and formally approved.
 
 ## Output Required
 

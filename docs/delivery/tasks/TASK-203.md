@@ -42,7 +42,7 @@ Build the H1 Task Center and Task detail projection for one required Work Item, 
 - packages/domain/src/index.ts
 - packages/domain/tests/artifact.test.ts
 - packages/domain/tests/task-projection.test.ts
-- packages/persistence/src/sqlite/migrations/004-artifact.sql
+- packages/persistence/src/sqlite/migrations/005-artifact.sql
 - packages/persistence/src/repositories/artifact-repository.ts
 - packages/persistence/src/queries/task-projection.ts
 - packages/persistence/src/index.ts
@@ -114,6 +114,9 @@ Projection, Artifact security, renderer, and Playwright suites pass; facts refle
 ## Risks
 
 `SECURITY_PERMISSION 0.600` is active and confirmed. Untrusted content rendering, artifact path authorization, checksum confusion, and false completion are principal risks. Progress memory growth is bounded and tested even though the performance card is below activation.
+
+This reviewed draft follows TASK-202 migration `004-execution`; it remains
+non-executable until validated and formally approved.
 
 ## Output Required
 

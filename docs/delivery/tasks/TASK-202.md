@@ -50,7 +50,7 @@ Activate one authorized Work Item through the full SAI lifecycle with atomic Tas
 - packages/domain/tests/task.test.ts
 - packages/domain/tests/execution-attempt.test.ts
 - packages/domain/tests/resource-lease.test.ts
-- packages/persistence/src/sqlite/migrations/003-execution.sql
+- packages/persistence/src/sqlite/migrations/004-execution.sql
 - packages/persistence/src/repositories/execution-repository.ts
 - packages/persistence/src/repositories/outbox-repository.ts
 - packages/persistence/src/repositories/inbox-repository.ts
@@ -131,6 +131,9 @@ The full fake lifecycle and failure matrix passes, opt-in real smoke is honestly
 ## Risks
 
 `SECURITY_PERMISSION 0.600` is active and confirmed. Duplicate side effects, confused authorization, stale fencing, process escape, and uncertain outcomes are critical. `CONCURRENCY_RACE 0.526` remains controlled even in the single-task phase through lease fencing and worktree isolation.
+
+This reviewed draft follows TASK-201 migration `003-proposal-authorization`;
+it remains non-executable until validated and formally approved.
 
 ## Output Required
 

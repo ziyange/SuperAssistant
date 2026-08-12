@@ -15,5 +15,6 @@ Task Packs are execution permissions, not design substitutes. Every pack names e
 | TASK-201 | PHASE-002 | DRAFT | Proposal, authorization, and preflight |
 | TASK-202 | PHASE-002 | DRAFT | App Server execution lifecycle |
 | TASK-203 | PHASE-002 | DRAFT | Task UI and basic Artifact evidence |
+| TASK-204 | PHASE-002 | DRAFT | Integrate, write back, prepare PHASE-003, and archive PHASE-002 |
 
 Status transitions require validation and human confirmation. A draft is not executable. Approved content is frozen for execution; changes create a reviewed revision before work resumes.
