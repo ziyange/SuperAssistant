@@ -3,6 +3,7 @@
 - Worktree: `E:\Programs\SuperAssistant-worktrees\TASK-105-fix`
 - Task Pack: `TASK-105`
 - Date: 2026-08-12
+- Result: `PASS`
 
 ## Read-only Codex boundary
 
@@ -15,28 +16,32 @@ child on shutdown.
 
 ## Evidence
 
-- Adapter contracts: 20 focused assertions passed, including incompatible
+- Adapter contracts: 18 focused cases execute in both unit and contract
+  projects (36 assertions), including incompatible
   version handling, duplicate evidence suppression, product-neutral IPC
   projection, and Agent Center connection-state precedence.
-- Full repository lint and unit suite: 63 tests passed.
+- Full repository lint and unit suite: 81 tests passed.
 - The controlled launcher additionally proves absolute executable/Project
   paths, an explicit `app-server` argument vector, `shell: false`, a bounded
   environment, and child termination after the five-second discovery timeout
   (using a one-millisecond deterministic test deadline). The refreshed suite
-  contains 73 passing unit/contract assertions.
+  initializes its own `stdio` child once and reuses the immutable discovery
+  snapshot for `describe` and `health` without consuming the stream again.
 - The fake App Server is now read over real child-process `stdio`; success,
   authentication-required, malformed frame, timeout, and early-exit cases
   are covered. A child PID is passed to a fixed process-tree terminator rather
-  than relying only on `ChildProcess.kill()`.
+  than relying only on `ChildProcess.kill()`. A real Windows parent/child
+  fixture proves the fixed `taskkill /pid <pid> /t /f` termination path removes
+  the descendant process.
 - Browser E2E and production build: passed.
 - Real Codex smoke: explicitly skipped because its opt-in environment variable
   was not enabled; it is not claimed as runtime evidence.
 
-## Remaining acceptance evidence
+## Acceptance decision
 
-This supplement does not yet establish a production `stdio` worker lifecycle
-that preserves its initialized discovery session, or an OS-level proof that a
-Windows descendant-process tree was terminated. Therefore TASK-105 remains
-implemented in part and cannot be marked `PASS`; PHASE-001 closeout remains
-blocked on those evidence gaps and the already-recorded PHASE-002 Pack
-approval gate.
+TASK-105 is `PASS`. It has a read-only, bounded App Server discovery worker;
+all execution operations fail closed before transport; product projections
+exclude provider-native execution identifiers and secrets; fake-server and
+Windows process-tree contracts pass; and all required local verification gates
+return exit code 0. The opt-in real Codex smoke remains skipped and is not
+needed to claim deterministic fake-server contract coverage.

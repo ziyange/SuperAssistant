@@ -4,6 +4,7 @@ import type { ChildProcess } from 'node:child_process';
 import { spawn, type SpawnOptionsWithoutStdio } from 'node:child_process';
 import { isAbsolute } from 'node:path';
 import { CodexDiscoveryAdapter, type UpstreamDiscovery } from './discovery.js';
+import { readStdioDiscovery } from './stdio-transport.js';
 
 const DISCOVERY_TIMEOUT_MS = 5_000;
 type SpawnReadOnly = () => ChildProcess;
@@ -21,8 +22,26 @@ export function terminateProcessTree(pid: number): Promise<void> {
   return new Promise((resolve, reject) => {
     const killer = spawn('taskkill', ['/pid', String(pid), '/t', '/f'], { shell: false, windowsHide: true, stdio: 'ignore' });
     killer.once('error', reject);
-    killer.once('close', (code) => code === 0 ? resolve() : reject(new Error(`taskkill failed with exit code ${String(code)}.`)));
+    killer.once('close', (code) => {
+      if (code === 0 || isProcessGone(pid)) resolve();
+      else reject(new Error(`taskkill failed with exit code ${String(code)}.`));
+    });
   });
+}
+
+function isProcessGone(pid: number): boolean {
+  try { process.kill(pid, 0); return false; } catch { return true; }
+}
+
+export function createStdioCodexWorker(spawnReadOnly: SpawnReadOnly, discoveryTimeoutMs = DISCOVERY_TIMEOUT_MS): CodexWorker {
+  let child: ChildProcess | null = null;
+  return new CodexWorker(() => {
+    child = spawnReadOnly();
+    return child;
+  }, async () => {
+    if (!child) throw new Error('Codex App Server child was not started.');
+    return readStdioDiscovery(child, discoveryTimeoutMs);
+  }, discoveryTimeoutMs);
 }
 
 export class CodexWorker {
@@ -31,8 +50,8 @@ export class CodexWorker {
   async initialize(): Promise<CodexDiscoveryAdapter> {
     this.child = this.spawnReadOnly();
     try {
-      await withTimeout(this.discovery(), this.discoveryTimeoutMs);
-      return new CodexDiscoveryAdapter(this.discovery);
+      const initializedDiscovery = await withTimeout(this.discovery(), this.discoveryTimeoutMs);
+      return new CodexDiscoveryAdapter(async () => initializedDiscovery);
     } catch (error) {
       await this.shutdown();
       throw error;

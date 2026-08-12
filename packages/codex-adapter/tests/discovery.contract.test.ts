@@ -1,15 +1,32 @@
-/* global URL, process */
+/* global URL, process, Buffer, setTimeout */
 import { describe, expect, test } from 'vitest';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { CodexDiscoveryAdapter } from '../src/discovery.js';
 import { normalizeDiscoveryEvent } from '../src/protocol.js';
-import { CodexWorker, createReadOnlyCodexLaunch } from '../src/worker.js';
+import { CodexWorker, createReadOnlyCodexLaunch, createStdioCodexWorker, terminateProcessTree } from '../src/worker.js';
 import { readStdioDiscovery } from '../src/stdio-transport.js';
 
 const fakeAppServer = fileURLToPath(new URL('./fixtures/fake-app-server.mjs', import.meta.url));
 function spawnFake(mode: string) {
   return spawn(process.execPath, [fakeAppServer], { stdio: ['ignore', 'pipe', 'ignore'], env: { ...process.env, FAKE_APP_SERVER_MODE: mode } });
+}
+async function readTreeChildPid(): Promise<{ parentPid: number; childPid: number }> {
+  const parent = spawnFake('tree');
+  const line = await new Promise<string>((resolve, reject) => {
+    parent.stdout?.once('data', (chunk: Buffer) => resolve(chunk.toString('utf8')));
+    parent.once('error', reject);
+  });
+  const childPid = Number(line.trim().replace('child:', ''));
+  if (!Number.isInteger(parent.pid) || !Number.isInteger(childPid)) throw new Error('Tree fixture did not provide process IDs.');
+  return { parentPid: parent.pid, childPid };
+}
+async function waitForExit(pid: number): Promise<void> {
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    try { process.kill(pid, 0); } catch { return; }
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  throw new Error(`Process ${String(pid)} is still running.`);
 }
 
 describe('read-only Codex discovery', () => {
@@ -45,12 +62,35 @@ describe('read-only Codex discovery', () => {
     await expect(worker.initialize()).rejects.toThrow(/timed out/i);
     expect(killed).toBe(true);
   });
+  test('reuses the initialized stdio discovery snapshot without reading the stream again', async () => {
+    let reads = 0;
+    const worker = new CodexWorker(() => ({ kill: () => undefined }) as never, async () => {
+      reads += 1;
+      return { version: '0.121.0', authenticated: true, capabilities: ['develop'] };
+    });
+    const adapter = await worker.initialize();
+    await adapter.describe();
+    await adapter.health();
+    expect(reads).toBe(1);
+  });
+  test('creates a read-only worker whose initialized discovery comes from its own stdio child', async () => {
+    const child = spawnFake('success');
+    const worker = createStdioCodexWorker(() => child, 500);
+    const adapter = await worker.initialize();
+    await expect(adapter.describe()).resolves.toMatchObject({ adapterVersion: '0.121.0', functions: ['develop'] });
+    await worker.shutdown();
+  });
   test('delegates a real child PID to the controlled process-tree terminator', async () => {
     let terminatedPid: number | undefined;
     const worker = new CodexWorker(() => ({ pid: 4123, kill: () => undefined }) as never, async () => ({ version: '0.121.0', authenticated: true, capabilities: [] }), 100, async (pid) => { terminatedPid = pid; });
     await worker.initialize();
     await worker.shutdown();
     expect(terminatedPid).toBe(4123);
+  });
+  test.skipIf(process.platform !== 'win32')('terminates a spawned Windows child-process tree', async () => {
+    const { parentPid, childPid } = await readTreeChildPid();
+    await terminateProcessTree(parentPid);
+    await waitForExit(childPid);
   });
   test.each([['success', { version: '0.121.0', authenticated: true, capabilities: ['develop'] }], ['auth_required', { version: '0.121.0', authenticated: false, capabilities: [] }]])('reads the %s fake App Server frame over stdio', async (mode, expected) => {
     await expect(readStdioDiscovery(spawnFake(mode), 500)).resolves.toEqual(expected);
