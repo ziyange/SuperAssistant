@@ -3,8 +3,8 @@
 ## Current lifecycle state
 
 - `PHASE-000` is the accepted document-first baseline; `TASK-000` is completed locally.
-- No application delivery phase or executable Task Pack is active.
-- The next executable phase is `PHASE-001`; `TASK-101` through `TASK-105` are approved but implementation starts only after that phase is explicitly opened in an isolated branch/worktree.
+- `PHASE-001` is active on `codex/phase-001-platform-foundation`; `TASK-100` completed the governance and contract freeze.
+- `TASK-101` is the next executable PHASE-001 pack; TASK-102 through TASK-105 remain approved and are ordered by their dependencies. `TASK-106` is the approved PHASE-001 closeout pack.
 - The initial GitHub publication is an S21 handoff after local acceptance, not an application phase.
 
 ## Sources of truth
@@ -26,7 +26,7 @@ When sources disagree, the more specific active fact source wins. A conflict wit
 - Side-effecting work requires an immutable approved Proposal or an explicitly approved repository Task Pack. Read-only queries do not.
 - Application work uses an isolated `codex/phase-00x-*` branch and task worktree. `TASK-000` is the one approved bootstrap exception on a new `main`.
 - Keep product, engineering, and execution facts synchronized before archiving a phase.
-- A phase cannot archive until the following phase's Task Packs are approved.
+- A nonterminal phase cannot archive until the following phase's Task Packs are approved. `PHASE-007` archives only with the accepted H3 completion statement and maintenance-handoff packs.
 
 ## Validation
 

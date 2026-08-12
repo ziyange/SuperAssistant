@@ -1,6 +1,6 @@
 # PHASE-001: Platform foundation
 
-- State: Planned; next phase
+- State: Active; TASK-100 contract freeze, then TASK-101–105 implementation and TASK-106 closeout
 - Horizon: H1
 - Branch family: `codex/phase-001-*`
 - Archive path: `docs/archive/phase-001/`
@@ -51,7 +51,8 @@ Vitest domain and repository tests; SQLite migration forward/rollback tests; IPC
 ## Entry conditions
 
 - TASK-000 passes every local documentation gate.
-- TASK-101–105 pass Task Pack validation and retain `APPROVED` plus `user_confirmed: true`.
+- TASK-100 passes its documentation, schema, traceability, and runtime-trace gates.
+- TASK-101–106 pass Task Pack validation and retain `APPROVED` plus `user_confirmed: true`.
 - A `codex/phase-001-*` branch and isolated worktree are created from the accepted baseline.
 
 ## Exit conditions
@@ -61,7 +62,7 @@ Vitest domain and repository tests; SQLite migration forward/rollback tests; IPC
 - Project and Agent discovery survive application restart without secret leakage.
 - Worktree isolation is proved against an unchanged original repository.
 - Product/engineering facts are written back from implementation evidence.
-- TASK-201–203 are revised if needed and approved for PHASE-002.
+- TASK-201–204 are revised if needed and approved for PHASE-002.
 
 ## Archive evidence
 

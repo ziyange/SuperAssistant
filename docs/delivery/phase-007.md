@@ -15,7 +15,7 @@ Primary scope is the team and enterprise portion of `REQ-070–089` and every ap
 
 ## Dependencies
 
-Stable domain platform, identity provider decision, enterprise threat model, retention/legal policy, and approved PHASE-007 packs.
+Stable domain platform, generic OIDC Authorization Code plus PKCE identity decision, self-hosted Team Service/PostgreSQL authority ADR, enterprise threat model, retention/legal policy, and approved PHASE-007 packs.
 
 ## Scope
 
@@ -25,6 +25,7 @@ Stable domain platform, identity provider decision, enterprise threat model, ret
 - User/service credential namespaces and non-transferable grant context.
 - Complete audit export with integrity validation and access logging.
 - Retention, legal hold, export, and deletion workflows with evidence.
+- Self-hosted Team Service over HTTPS JSON commands/queries and SSE events; Team Workspace PostgreSQL authority with local SQLite cache only.
 
 ## Non-goals
 
@@ -56,7 +57,7 @@ PHASE-006 accepted; identity/RBAC and data-governance ADRs approved; enterprise 
 - Credentials cannot cross principal or Workspace boundaries.
 - Audit export is complete, integrity-verifiable, and access-controlled.
 - Retention and legal-hold rules produce deterministic evidence.
-- Active facts, operational runbooks, and long-term roadmap are accepted.
+- Active facts, operational runbooks, long-term roadmap, and H3 maintenance handoff are accepted; PHASE-007 has no PHASE-008 Task Pack prerequisite.
 
 ## Archive evidence
 

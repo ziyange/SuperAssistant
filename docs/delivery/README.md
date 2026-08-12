@@ -13,7 +13,7 @@ A phase becomes `ready` only when its Task Packs are complete, approved, and val
 | Phase | State | Pack readiness |
 |---|---|---|
 | PHASE-000 | accepted | TASK-000 completed locally; initial publication is an S21 handoff |
-| PHASE-001 | ready, not opened | TASK-101–105 approved |
+| PHASE-001 | active | TASK-100 contract freeze in progress; TASK-101–105 approved; TASK-106 closeout approved |
 | PHASE-002 | planned | TASK-201–203 complete drafts |
 | PHASE-003–007 | planned | phase contracts fixed; packs created in the preceding phase |
 

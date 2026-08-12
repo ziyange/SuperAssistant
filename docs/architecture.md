@@ -144,7 +144,7 @@ Agent question
 | Runtime | Local worker, `stdio` | Multiple workers; optional approved transports | Managed remote workers | Transport changes cannot alter operation semantics |
 | Authorization | One approver, L1-L4 | Policy-bound automation | RBAC and multi-party approval | Grants remain versioned, immutable, scoped, and auditable |
 | Monitoring | Task/Decision events | Aggregation, cooldown, budgets | Tenant and regulatory controls | Raw event evidence remains available beneath aggregation |
-| Storage | SQLite + local ArtifactVersion content | Same logical schema with higher volume | Tenant-partitioned service storage | Public IDs, state enums, event versions, and audit meaning remain stable |
+| Storage | SQLite + local ArtifactVersion content | Same logical schema with higher volume | Self-hosted Team Service with PostgreSQL authority; Electron SQLite is cache-only | Public IDs, state enums, event versions, and audit meaning remain stable |
 
 Breaking changes require additive-read/dual-read migration, explicit deprecation, compatibility tests, and a superseding ADR. H1 code must ignore unknown additive fields and reject unsupported major protocol versions.
 

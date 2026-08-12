@@ -219,7 +219,7 @@
   - An Agent with the matching category but an incompatible Function is excluded from executable routing.
   - User-created tags do not alter Function or authorization contracts.
 - Verification: `SCN-AGENT-CLASSIFICATION — Classification cannot impersonate capability` — filter and route a mixed catalog containing category matches with incompatible Functions.
-- Phase: `PHASE-004`
+- Phase: `PHASE-004` for full multi-Agent lease acquisition, conflict, fairness, and deadlock behavior. PHASE-001/002 provide the required H1 foundation slice: one Task-owned worktree lease, a monotonic fencing token, and write-time ownership verification.
 - Status: `baselined`
 - Dependencies: REQ-014, REQ-017, REQ-050.
 - Risk: Medium — category-only routing could assign unsupported work.

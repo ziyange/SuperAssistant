@@ -109,3 +109,18 @@ Each REQ appears exactly once. `Phase` is the first phase that must fully accept
 | REQ-097 | §§73–75 event wakeup, unavailable assistant, and version changes | `docs/operations.md`; `docs/orchestration.md`; `docs/adapters/codex.md`; `docs/data-model.md` | PHASE-003 | TASK-103 and TASK-203 foundations; Phase plan; pack in preceding phase | `AC-REQ-097` | `SCN-AVAILABILITY-DEGRADE — Component failure degrades capability, not truth` |
 | REQ-098 | §§5–7, 76 onboarding, language, time zone, and theme; approved usability target | `docs/ux.md`; `docs/architecture.md`; `docs/operations.md` | PHASE-003 | TASK-104 and TASK-202 foundations; Phase plan; pack in preceding phase | `AC-REQ-098` | `SCN-UX-ACCESSIBILITY — Core control is usable without hidden interaction assumptions` |
 | REQ-099 | §§84–85 implementation boundary and formal acceptance; approved quality model | `docs/verification/test-strategy.md`; `docs/verification/quality-gate.md`; `docs/operations.md`; `docs/architecture.md` | PHASE-001 | TASK-103 plus every phase acceptance pack | `AC-REQ-099` | `SCN-RELEASE-QUALITY-GATE — A phase cannot pass on intention or weak tests` |
+
+## Cross-requirement lifecycle-scenario coverage
+
+The following scenarios supplement the one-row-per-REQ table. They are required phase-gate evidence, not replacement requirement identifiers.
+
+| Lifecycle scenario | Phase | Initial Task Pack state | Acceptance focus |
+|---|---|---|---|
+| `SCN-FOUNDATION-OWNERSHIP` | PHASE-001 | TASK-103 implementation; TASK-106 closeout | Workspace scope, stable identifiers, migration and secret absence |
+| `SCN-UX-NAVIGATION` | PHASE-001 | TASK-102 implementation; TASK-106 closeout | Five destinations, onboarding, accessibility and future-feature absence |
+| `SCN-ADAPTER-DISCOVERY` | PHASE-001 | TASK-105 implementation; TASK-106 closeout | Safe initialize/health/describe and unavailable execution operations |
+| `SCN-DATA-MIGRATION` | PHASE-001 | TASK-103 implementation; TASK-106 closeout | Transactional migration, reopen and failure recovery |
+| `SCN-AUDIT-EVIDENCE` | PHASE-003 | Phase plan; pack in PHASE-002 | End-to-end append-only authorization, execution, Decision and Change lineage |
+| `SCN-DAG-QUALITY` | PHASE-004 | Phase plan; pack in PHASE-003 | Durable DAG, independent quality evidence and remediation lineage |
+| `SCN-DOMAIN-CONFORMANCE` | PHASE-006 | Phase plan; pack in PHASE-005 | Adapter contract, redaction and recovery across approved domains |
+| `SCN-NFR-QUALITY` | PHASE-003, repeated each later phase | PHASE-001 foundations; phase closeout packs | Platform, performance, accessibility, security, recovery and release evidence |

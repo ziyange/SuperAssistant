@@ -1,6 +1,6 @@
 # Verification scenario catalog
 
-Requirement-level `VS-*` cases in `docs/requirements.md` define focused acceptance. This catalog defines cross-requirement lifecycle scenarios used by the traceability matrix and phase gates.
+Requirement-level `SCN-*` cases in `docs/requirements.md` define focused acceptance. This catalog defines cross-requirement lifecycle scenarios used by the traceability matrix and phase gates. `VS-*` is not a valid scenario prefix in this repository.
 
 ## H1 foundation and execution
 

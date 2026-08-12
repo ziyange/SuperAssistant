@@ -11,6 +11,7 @@ This directory is the authoritative index for decisions that constrain Super Ass
 | [ADR-003](ADR-003-authoritative-state-and-delivery.md) | Platform-authoritative state and at-least-once delivery | Accepted | H1 |
 | [ADR-004](ADR-004-task-worktrees.md) | One isolated worktree per side-effecting Task | Accepted | H1 |
 | [ADR-005](ADR-005-rolling-task-packs.md) | Rolling, pre-approved Task Packs | Accepted | PHASE-000 |
+| [ADR-006](ADR-006-team-authority-and-oidc.md) | Team Workspace authority and generic OIDC identity | Accepted | H3 design; PHASE-007 delivery |
 
 ## Decision governance
 

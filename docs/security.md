@@ -45,6 +45,8 @@ H2 supports additional OS credential backends behind the same broker contract. H
 
 Worker IPC uses an application-start nonce delivered through an inherited private handle, protocol major-version negotiation, maximum frame size, strict message schemas, and immediate disconnect on authentication or framing failure. Local TCP listeners are not used for H1 control IPC.
 
+The frozen H1 maximum Worker and renderer IPC frame is 1 MiB. Large content crosses the boundary only as a validated opaque Artifact handle and checksum. The SAI envelope is validated against [the SAI 1.0 schema](api/sai-envelope.schema.json) before it can affect domain state.
+
 ## Authorization and L1-L4 routing
 
 ### L1: explicit fact lookup

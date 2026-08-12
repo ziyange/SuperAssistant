@@ -130,3 +130,11 @@ The adapter verifies that command identity, AuthorizationGrant reference, Propos
 - H1 uses SAI 1.x over authenticated local IPC and Codex App Server `stdio` behind the adapter.
 - H2 adds more adapters, parallel ExecutionAttempts, monitoring events, and richer capabilities through additive minor versions.
 - H3 adds remote authenticated transports, tenant identity, RBAC decision context, and audit signatures. The eight operation meanings, idempotency, per-ExecutionAttempt sequence, error ambiguity flag, and non-redispatch rule remain invariant.
+
+## TASK-100 frozen SAI 1.0 profile
+
+The machine-readable [SAI envelope schema](sai-envelope.schema.json) is the PHASE-001 contract baseline. It requires product identity, version binding, authorization binding, Project snapshot binding, and at least one fencing token for every mutating command. `request_id` is unique per command issue; `idempotency_key` is retained for the same logical retry; `sequence` begins at `1` and is contiguous only within an Attempt.
+
+Proposal digest is the SHA-256 of RFC 8785 canonical JSON, formatted as `sha256:<lowercase-hex>`. A Grant is atomically consumed exactly once when it creates the initial Attempt. A same-objective retry requires a new Grant and new Attempt after the previous Attempt is terminal or proven `NOT_STARTED`; `UNKNOWN` and `RECONCILING` are never retry states. A material objective or responsibility change creates a remediation WorkItem under the existing Task; an acceptance failure never creates another top-level Task.
+
+H1 validates exactly one Project, one Codex Agent, and one required WorkItem while storing graph-capable records. H3 may add `actor_id` and `tenant_id` as additive fields; existing scope and authority fields remain mandatory and cannot be reinterpreted.

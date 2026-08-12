@@ -52,6 +52,23 @@ The main process supervises one H1 Codex Adapter Worker. The worker supervises A
 
 Restart uses bounded exponential backoff and a circuit breaker. Reaching the breaker sets Agent Connection `UNAVAILABLE` and preserves Tasks. A worker restart never clears an ExecutionAttempt or idempotency record. Unsupported versions require an explicit compatible application/Codex upgrade; silent fallback is prohibited.
 
+## Frozen H1 operating limits
+
+| Control | Value |
+|---|---:|
+| Renderer/Main and Worker IPC frame | 1 MiB; large Artifacts use a handle and checksum |
+| Adapter heartbeat / stale health | 5 seconds / 15 seconds |
+| H1 worktree lease TTL / renewal | 30 seconds / 10 seconds |
+| Graceful cancellation / process-tree deadline | 5 seconds / 15 seconds |
+| Reconciliation poll / responsive-adapter truth deadline | 2 seconds / 30 seconds |
+| Transport retry schedule | 1, 2, 4, 8, 16, then 30 seconds with ±20% jitter |
+| Circuit breaker | five consecutive infrastructure failures; open for 30 seconds |
+| Storage warning / mutation pause | 80% budget warning; 95% or less than 2 GiB free pauses new mutating work |
+| H1 control-plane and audit retention | no automatic deletion |
+| Clean terminal worktree | eligible for review after 7 days; never auto-deleted without clean preconditions |
+
+An expired deadline, lease, or health observation is not proof of non-execution. It creates or retains `UNKNOWN/RECONCILING` until `status`, `events`, and `result` establish a terminal outcome or `NOT_STARTED`.
+
 ## Worktree operations
 
 Each mutating Task owns one managed worktree under [ADR-004](decisions/ADR-004-task-worktrees.md). Operations record baseline, branch, owner, fencing token, byte estimate, state, and disposition.

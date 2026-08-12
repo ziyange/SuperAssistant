@@ -120,6 +120,8 @@ Resource keys are normalized hierarchical identifiers such as repository, worktr
 
 Each lease has a monotonically increasing fencing token. Adapters verify the token immediately before a write. Lease expiry triggers reconciliation; a surviving stale process cannot write using the old token. Multi-resource acquisition uses canonical sorted order to prevent deadlock and releases all provisional leases on failure.
 
+The H1 implementation slice is deliberately narrower: before worktree creation and each mutating command, it acquires and verifies one Task worktree lease with a monotonically increasing fence. Hierarchical resource keys, concurrent conflict analysis, fairness, and deadlock acceptance are PHASE-004 behavior; H1 stores forward-compatible lease facts but does not claim multi-Agent scheduling.
+
 ## Pause, cancellation, and rollback
 
 - Pause prevents new dispatch and requests cooperative interruption where the Function supports it; active irreversible operations are reported, not assumed stopped.

@@ -119,6 +119,8 @@ Stores normalized resource key, owner ExecutionAttempt, fencing token, mode, acq
 
 State is `PROVISIONAL | ACTIVE | RELEASING | RELEASED | EXPIRED | QUARANTINED`. Only `ACTIVE` authorizes a write. A monotonically newer fencing token invalidates all older holders even if a stale process survives.
 
+PHASE-001 and PHASE-002 implement the H1 foundation slice only: one Task-owned worktree lease, a monotonic token, durable owner/baseline/branch facts, and write-time token verification. PHASE-004 alone accepts hierarchical resource normalization, cross-WorkItem conflict detection, fairness, canonical multi-lease ordering, and deadlock prevention.
+
 ## Supporting records
 
 ### Connection and Availability

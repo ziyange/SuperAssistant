@@ -16,7 +16,7 @@ The roadmap designs the full product trajectory now while constraining implement
 
 | Phase | Purpose | Primary increment | Task Pack policy |
 |---|---|---|---|
-| [PHASE-001](phase-001.md) | Platform foundation | Secure desktop shell, SQLite control plane, Project/worktree, Codex discovery | TASK-101–105 approved before opening |
+| [PHASE-001](phase-001.md) | Platform foundation | Contract freeze, secure desktop shell, SQLite control plane, Project/worktree, Codex discovery | TASK-100 opens phase; TASK-101–105 implement; TASK-106 closes |
 | [PHASE-002](phase-002.md) | Codex single-task loop | Proposal, authorization, execution, progress, cancel, basic Artifact | TASK-201–203 drafted now; approve during PHASE-001 |
 | [PHASE-003](phase-003.md) | Decision, audit, and recovery | Question Router, Decision, Change Log, acceptance, restart recovery | Packs authored and approved during PHASE-002 |
 | [PHASE-004](phase-004.md) | Multi-agent quality loop | Stable SAI, templates, DAG, Testing/Inspector, resource fencing | Packs authored and approved during PHASE-003 |
@@ -26,7 +26,7 @@ The roadmap designs the full product trajectory now while constraining implement
 
 ## Cross-phase invariants
 
-- SQLite remains authoritative; adapters reconcile but do not own product state.
+- The local Workspace uses SQLite as authority. A future Team Workspace uses PostgreSQL as authority behind a self-hosted control service; an Electron SQLite cache is never a second authority.
 - Proposal versions and Authorization Grants are immutable.
 - An Attempt is never duplicated by retrying a command.
 - Model output never changes deterministic state without a validated application transition.
