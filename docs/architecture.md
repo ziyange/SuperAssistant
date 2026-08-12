@@ -29,6 +29,12 @@ H1 is local-first under [ADR-001](decisions/ADR-001-local-first.md):
 
 The renderer is sandboxed, uses context isolation, has no Node integration, and communicates only through a versioned preload API. The main process owns SQLite and policy. The adapter worker receives scoped commands over authenticated local IPC and never shares renderer privileges.
 
+## Repository foundation
+
+TASK-101 establishes npm workspaces `@super-assistant/desktop`, `@super-assistant/domain`, `@super-assistant/persistence`, and `@super-assistant/codex-adapter`. Desktop may depend on domain and persistence ports; persistence implements domain ports; codex-adapter depends only on product-neutral domain/SAI contracts. Renderer code must never import a main-process, credential, or direct database module.
+
+The root uses Node `22.19.x`, npm `10.7.x`, strict TypeScript, ESLint, Vitest, Playwright, Vite, and a committed npm lockfile. Dependency lifecycle scripts are disabled for the initial lockfile installation. Electron and SQLite native dependencies are declared for later approved packs, but TASK-101 does not execute their lifecycle scripts, create a database, or expose application behavior.
+
 ## Modules and ownership
 
 The H1 control plane is a modular monolith. Module boundaries are logical and testable even when deployed in one main process.

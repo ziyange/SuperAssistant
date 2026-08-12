@@ -2,6 +2,12 @@
 
 This document defines H1 local runtime lifecycle, persistence, health, observability, recovery, retention, upgrade, and support behavior. Operational automation never widens authorization or treats missing evidence as successful execution.
 
+## Repository validation commands
+
+TASK-101 establishes these root commands: `npm run lint`, `npm run typecheck`, `npm run test:unit`, `npm run test:contract`, `npm run test:e2e`, `npm run build`, and `npm run smoke:codex`. The default smoke command exits successfully only with an explicit skipped reason unless `SUPER_ASSISTANT_ENABLE_CODEX_SMOKE=1`; TASK-101 does not implement that real smoke path. A clean dependency install uses `npm ci --ignore-scripts` until an owning Task Pack authorizes and reviews required native lifecycle scripts.
+
+Vitest workspaces provide unit and contract discovery boundaries. Vitest 3 emits a framework deprecation warning for the approved `vitest.workspace.ts` filename; replacement requires an explicit Task Pack scope change because the current Pack does not authorize a new root configuration file.
+
 ## Managed local layout
 
 H1 stores application data under a current-user application directory selected by Electron. Logical subdirectories are:
