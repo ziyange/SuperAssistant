@@ -1,7 +1,16 @@
+/* global URL, process */
 import { describe, expect, test } from 'vitest';
+import { spawn } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { CodexDiscoveryAdapter } from '../src/discovery.js';
 import { normalizeDiscoveryEvent } from '../src/protocol.js';
 import { CodexWorker, createReadOnlyCodexLaunch } from '../src/worker.js';
+import { readStdioDiscovery } from '../src/stdio-transport.js';
+
+const fakeAppServer = fileURLToPath(new URL('./fixtures/fake-app-server.mjs', import.meta.url));
+function spawnFake(mode: string) {
+  return spawn(process.execPath, [fakeAppServer], { stdio: ['ignore', 'pipe', 'ignore'], env: { ...process.env, FAKE_APP_SERVER_MODE: mode } });
+}
 
 describe('read-only Codex discovery', () => {
   test('normalizes describe and health without provider execution identifiers', async () => {
@@ -35,5 +44,20 @@ describe('read-only Codex discovery', () => {
     const worker = new CodexWorker(() => ({ kill: () => { killed = true; } }) as never, async () => new Promise(() => undefined), 1);
     await expect(worker.initialize()).rejects.toThrow(/timed out/i);
     expect(killed).toBe(true);
+  });
+  test('delegates a real child PID to the controlled process-tree terminator', async () => {
+    let terminatedPid: number | undefined;
+    const worker = new CodexWorker(() => ({ pid: 4123, kill: () => undefined }) as never, async () => ({ version: '0.121.0', authenticated: true, capabilities: [] }), 100, async (pid) => { terminatedPid = pid; });
+    await worker.initialize();
+    await worker.shutdown();
+    expect(terminatedPid).toBe(4123);
+  });
+  test.each([['success', { version: '0.121.0', authenticated: true, capabilities: ['develop'] }], ['auth_required', { version: '0.121.0', authenticated: false, capabilities: [] }]])('reads the %s fake App Server frame over stdio', async (mode, expected) => {
+    await expect(readStdioDiscovery(spawnFake(mode), 500)).resolves.toEqual(expected);
+  });
+  test('fails closed for malformed, timeout, and exited fake App Server states', async () => {
+    await expect(readStdioDiscovery(spawnFake('malformed'), 500)).rejects.toThrow(/malformed/i);
+    await expect(readStdioDiscovery(spawnFake('timeout'), 20)).rejects.toThrow(/timed out/i);
+    await expect(readStdioDiscovery(spawnFake('exit'), 500)).rejects.toThrow(/exited/i);
   });
 });
