@@ -1,6 +1,6 @@
 # PHASE-001: Platform foundation
 
-- State: Active; TASK-100 contract freeze, then TASK-101–105 implementation and TASK-106 closeout
+- State: Archived; TASK-100 through TASK-106 accepted, with evidence in `docs/archive/phase-001/`
 - Horizon: H1
 - Branch family: `codex/phase-001-*`
 - Archive path: `docs/archive/phase-001/`

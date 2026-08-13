@@ -1,6 +1,6 @@
 # PHASE-002: Codex single-task loop
 
-- State: Planned
+- State: Ready
 - Horizon: H1
 - Branch family: `codex/phase-002-*`
 - Archive path: `docs/archive/phase-002/`
@@ -15,7 +15,8 @@ Primary scope is `REQ-020–039`, with relevant Project foundations, Artifact fo
 
 ## Dependencies
 
-Accepted PHASE-001 repositories, secure IPC, Project snapshot/worktree service, Codex discovery, and approved TASK-201–203.
+Archived PHASE-001 repositories, secure IPC, Project snapshot/worktree service,
+Codex discovery, and approved TASK-201–204.
 
 ## Scope
 

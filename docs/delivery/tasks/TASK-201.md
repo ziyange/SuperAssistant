@@ -2,7 +2,7 @@
 
 ## Status
 
-DRAFT
+APPROVED
 
 PHASE: PHASE-002
 
@@ -112,8 +112,8 @@ All authorization and invalidation scenarios pass, immutable records are inspect
 
 `SECURITY_PERMISSION 0.600` is active and confirmed. Confused-deputy routing,
 stale authorization, TOCTOU, and double confirmation are critical. This
-reviewed draft follows PHASE-001 migration `002-project-metadata`; it remains
-non-executable until validated and formally approved.
+approved revision follows PHASE-001 migration `002-project-metadata`; execution
+waits for PHASE-001 archival and fresh entry checks in its own worktree.
 
 ## Output Required
 

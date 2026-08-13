@@ -3,8 +3,11 @@
 ## Current lifecycle state
 
 - `PHASE-000` is the accepted document-first baseline; `TASK-000` is completed locally.
-- `PHASE-001` is active on `codex/phase-001-platform-foundation`; `TASK-100` completed the governance and contract freeze.
-- `TASK-101` is the next executable PHASE-001 pack; TASK-102 through TASK-105 remain approved and are ordered by their dependencies. `TASK-106` is the approved PHASE-001 closeout pack.
+- `PHASE-001` is archived on `codex/phase-001-platform-foundation`; TASK-100
+  through TASK-106 are accepted local evidence.
+- `PHASE-002` is ready. TASK-201 through TASK-204 are approved and ordered;
+  implementation begins only after TASK-201 fresh entry checks in an isolated
+  `codex/phase-002-*` worktree.
 - The initial GitHub publication is an S21 handoff after local acceptance, not an application phase.
 
 ## Sources of truth

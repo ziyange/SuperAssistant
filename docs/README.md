@@ -1,6 +1,7 @@
 # Super Assistant documentation
 
-This repository contains the accepted `PHASE-000` document-first lifecycle baseline. `PHASE-001` is active for contract freeze and platform-foundation delivery; application implementation remains unavailable until `TASK-100` passes.
+This repository contains accepted document-first baselines for `PHASE-000` and
+`PHASE-001`. `PHASE-002` is ready for the authorized single-Task loop.
 
 ## Authority map
 
@@ -17,11 +18,11 @@ This repository contains the accepted `PHASE-000` document-first lifecycle basel
 ## Current execution
 
 - Completed baseline pack: [TASK-000](delivery/tasks/TASK-000.md).
-- Active application phase: `PHASE-001`; [TASK-100](delivery/tasks/TASK-100.md) completed its contract freeze.
-- Next implementation pack: `TASK-101`; TASK-102 through TASK-105 are approved and dependency-ordered.
-- PHASE-001 closeout pack: [TASK-106](delivery/tasks/TASK-106.md), approved.
-- Draft following-phase packs: `TASK-201` through `TASK-203`.
-- Application code begins only after TASK-100 passes on the isolated `codex/phase-001-platform-foundation` branch/worktree.
+- Archived application phase: `PHASE-001`; [TASK-106](delivery/tasks/TASK-106.md)
+  records closeout and [archive evidence](archive/phase-001/README.md).
+- Next implementation pack: [TASK-201](delivery/tasks/TASK-201.md); TASK-201
+  through TASK-204 are approved and dependency-ordered for `PHASE-002`.
+- PHASE-002 code begins only in its isolated `codex/phase-002-*` worktree.
 
 ## Design and implementation plans
 

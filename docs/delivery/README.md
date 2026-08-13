@@ -13,8 +13,8 @@ A phase becomes `ready` only when its Task Packs are complete, approved, and val
 | Phase | State | Pack readiness |
 |---|---|---|
 | PHASE-000 | accepted | TASK-000 completed locally; initial publication is an S21 handoff |
-| PHASE-001 | active | TASK-100 contract freeze in progress; TASK-101–105 approved; TASK-106 closeout approved |
-| PHASE-002 | planned | TASK-201–203 complete drafts |
+| PHASE-001 | archived | TASK-100–106 PASS; archive and PHASE-002 handoff recorded |
+| PHASE-002 | ready | TASK-201–204 approved with user confirmation |
 | PHASE-003–007 | planned | phase contracts fixed; packs created in the preceding phase |
 
 See [archive rules](../archive/README.md) and the [quality gate](../verification/quality-gate.md).

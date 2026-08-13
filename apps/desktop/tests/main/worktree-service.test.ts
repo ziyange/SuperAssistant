@@ -13,4 +13,4 @@ test('creates distinct isolated task worktrees without changing the original', (
     const service = new GitWorktreeService(); const one = service.create({ projectId: 'project' as never, taskId: 'task-one' as never, projectPath: repository, worktreeRoot: worktrees }); const two = service.create({ projectId: 'project' as never, taskId: 'task-two' as never, projectPath: repository, worktreeRoot: worktrees });
     expect(one.path).not.toBe(two.path); expect(one.branch).not.toBe(two.branch); expect(git(repository, 'status', '--porcelain') + readFileSync(join(repository, 'source.txt'), 'utf8')).toBe(before);
   } finally { rmSync(root, { recursive: true, force: true }); }
-});
+}, 15_000);

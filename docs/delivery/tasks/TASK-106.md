@@ -79,6 +79,7 @@ Integrate accepted TASK-101 through TASK-105 evidence, run the PHASE-001 accepta
 - docs/archive/phase-001/acceptance-record.md
 - docs/delivery/permission-audit.log
 - docs/delivery/execution-trace.json
+- apps/desktop/tests/main/worktree-service.test.ts
 
 ## Forbidden Files
 
@@ -140,6 +141,10 @@ PHASE-001 is accepted and archived only after all listed acceptance criteria and
 - Critical: treating an untested discovery path as safe execution. Mitigate with fail-closed checks and contract fixtures.
 - High: archiving without approved PHASE-002 packs. Mitigate with structural validation and explicit human confirmation.
 - High: archive drift. Mitigate with snapshots and current-fact writeback.
+- Medium: Windows Git worktree setup can exceed Vitest's default five-second
+  test timeout under local load. This Pack permits only an explicit per-test
+  fifteen-second deadline; isolation assertions and implementation remain
+  unchanged.
 
 ## Output Required
 

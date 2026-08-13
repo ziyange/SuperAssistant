@@ -2,7 +2,7 @@
 
 ## Status
 
-DRAFT
+APPROVED
 
 PHASE: PHASE-002
 
@@ -132,8 +132,8 @@ The full fake lifecycle and failure matrix passes, opt-in real smoke is honestly
 
 `SECURITY_PERMISSION 0.600` is active and confirmed. Duplicate side effects, confused authorization, stale fencing, process escape, and uncertain outcomes are critical. `CONCURRENCY_RACE 0.526` remains controlled even in the single-task phase through lease fencing and worktree isolation.
 
-This reviewed draft follows TASK-201 migration `003-proposal-authorization`;
-it remains non-executable until validated and formally approved.
+This approved revision follows TASK-201 migration `003-proposal-authorization`;
+execution waits for PHASE-001 archival and TASK-201 PASS.
 
 ## Output Required
 
