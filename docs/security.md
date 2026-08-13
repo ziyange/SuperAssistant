@@ -80,6 +80,16 @@ Permissions, security controls, sensitive information, irreversible action, regu
 
 Every side effect—file write, command execution, process launch, network action, external write, credential use, Git mutation, or ArtifactVersion publication—must match an active AuthorizationGrant bound to the exact ProposalVersion digest. A preflight snapshot mismatch invalidates the execution path and requires a successor ProposalVersion.
 
+### PHASE-002 TASK-201 authorization boundary
+
+`TASK-201` classifies `READ` alone as `READ_ONLY`; it produces no Proposal or
+Grant. `FILE_WRITE`, `COMMAND`, `NETWORK`, `EXTERNAL_WRITE`, and `CREDENTIAL`
+classify the request as `SIDE_EFFECTING`. The desktop IPC surface is limited to
+classification and preflight projection. It has no start, resume, cancel,
+command, shell, credential, or filesystem operation. A Grant is represented as
+`ISSUED` only until the future atomic Attempt-creation transaction consumes it;
+this Task does not create Attempts or external effects.
+
 ## Worktree and process security
 
 [ADR-004](decisions/ADR-004-task-worktrees.md) requires one writable worktree per mutating Task. The adapter resolves and normalizes every path, rejects traversal and symlink escapes, verifies repository identity and baseline commit, and uses explicit argument arrays rather than shell-composed strings. It never targets the user's home, workspace root, repository root, or unresolved variables for recursive deletion.

@@ -24,5 +24,11 @@ export function validateRequest(value: unknown): IpcRequest {
   if (value.channel === 'onboarding:set' && hasOnlyKeys(value.payload, ['completed']) && typeof value.payload.completed === 'boolean') {
     return { channel: 'onboarding:set', payload: { completed: value.payload.completed } };
   }
+  if (value.channel === 'proposal:classify' && hasOnlyKeys(value.payload, ['actions']) && Array.isArray(value.payload.actions) && value.payload.actions.every((action) => typeof action === 'string')) {
+    return { channel: 'proposal:classify', payload: { actions: value.payload.actions } };
+  }
+  if (value.channel === 'proposal:preflight' && hasOnlyKeys(value.payload, ['approved', 'current']) && isRecord(value.payload.approved) && isRecord(value.payload.current)) {
+    return { channel: 'proposal:preflight', payload: { approved: value.payload.approved, current: value.payload.current } };
+  }
   throw new Error('IPC channel or payload is not allowed.');
 }

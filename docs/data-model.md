@@ -79,6 +79,17 @@ Fields: `proposal_id`, monotonically increasing `proposal_version`, goal, refere
 
 Status is `DRAFT | AWAITING_CONFIRMATION | APPROVED | PREFLIGHTING | READY | INVALIDATED | REJECTED | EXPIRED`. Each version is immutable after presentation. Approval applies to one digest only.
 
+### PHASE-002 migration 003 Proposal and authorization slice
+
+`TASK-201` adds forward-only migration `003-proposal-authorization`.
+`proposal_versions` persists the Workspace, Project, Agent, Function, snapshot,
+capability, baseline, action scope, UTC lifetime and canonical
+`sha256:<lowercase-hex>` digest. SQLite rejects updates and deletes through
+immutable-record triggers. `authorization_grants` binds one actor plus
+idempotency key to one Grant; duplicate confirmation returns that existing
+Grant. No Task, WorkItem, Attempt, command, lease, or execution record is
+created in this migration.
+
 ### Task
 
 Fields: `task_id`, `workspace_id`, approved ProposalVersion, AuthorizationGrant, goal, explicit control state, derived status, status reason, creation/completion timestamps, and `row_version`.

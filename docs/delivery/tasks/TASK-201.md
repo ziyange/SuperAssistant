@@ -2,7 +2,7 @@
 
 ## Status
 
-APPROVED
+COMPLETED
 
 PHASE: PHASE-002
 
@@ -48,15 +48,19 @@ Classify read-only and side-effecting goals, route one Project and Codex Functio
 - packages/domain/tests/preflight.test.ts
 - packages/domain/tests/routing.test.ts
 - packages/persistence/src/sqlite/migrations/003-proposal-authorization.sql
+- packages/persistence/src/sqlite/migration-runner.ts
 - packages/persistence/src/repositories/proposal-repository.ts
 - packages/persistence/src/repositories/authorization-repository.ts
 - packages/persistence/src/index.ts
 - packages/persistence/tests/proposal-repository.test.ts
+- packages/persistence/tests/migration-runner.test.ts
 - apps/desktop/src/main/proposal-ipc.ts
 - apps/desktop/src/main/preflight-service.ts
 - apps/desktop/src/main/ipc-router.ts
+- apps/desktop/src/main/ipc-schemas.ts
 - apps/desktop/src/shared/ipc-contract.ts
 - apps/desktop/src/renderer/proposal-review.tsx
+- apps/desktop/src/renderer/App.tsx
 - apps/desktop/tests/main/preflight-service.test.ts
 - apps/desktop/tests/renderer/proposal-review.test.tsx
 - apps/desktop/tests/e2e/proposal-confirmation.spec.ts
@@ -64,6 +68,18 @@ Classify read-only and side-effecting goals, route one Project and Codex Functio
 - docs/security.md
 - docs/orchestration.md
 - docs/verification/reports/phase-002-task-201.md
+
+## Approved scope expansion
+
+The existing migration runner must register migration `003` for the approved
+schema to take effect; its existing regression test proves sequential startup.
+The existing IPC schema validator must recognize the exact new typed channels
+already allowed for the router and shared contract. These three paths are the
+first expansion. The existing renderer `App.tsx` is the sole second expansion:
+it may display the already-allowed Proposal Review in Task Center for a
+deterministic stale preflight projection required by the permitted Playwright
+test. No preload, Electron main bootstrap, execution adapter, confirmation
+handler, or arbitrary channel is authorized.
 
 ## Forbidden Files
 

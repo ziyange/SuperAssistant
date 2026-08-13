@@ -39,6 +39,14 @@ Preflight rereads Project snapshot, Agent Connection/Availability, Function/Adap
 
 Preflight and the transaction that creates executable state share a version check. A mismatch invalidates readiness, releases newly acquired leases, and produces a reasoned successor ProposalVersion path. Approval is never silently stretched to current facts.
 
+### PHASE-002 TASK-201 preflight slice
+
+The implemented deterministic comparison checks Project snapshot, Agent,
+Function, capability, baseline commit, policy, Grant state, and Grant expiry.
+Any mismatch returns `STALE` with stable reasons and blocks confirmation UI.
+The full atomic preflight-plus-Attempt transaction, lease acquisition, Outbox,
+and adapter dispatch are deliberately deferred to `TASK-202`.
+
 ## WorkItem graph and readiness
 
 Dependency types are:
