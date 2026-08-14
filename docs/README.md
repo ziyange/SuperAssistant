@@ -1,7 +1,7 @@
 # Super Assistant documentation
 
 This repository contains accepted document-first baselines for `PHASE-000` and
-`PHASE-001`. `PHASE-002` is ready for the authorized single-Task loop.
+`PHASE-001`. `PHASE-002` is active for the authorized single-Task loop.
 
 ## Authority map
 
@@ -20,9 +20,10 @@ This repository contains accepted document-first baselines for `PHASE-000` and
 - Completed baseline pack: [TASK-000](delivery/tasks/TASK-000.md).
 - Archived application phase: `PHASE-001`; [TASK-106](delivery/tasks/TASK-106.md)
   records closeout and [archive evidence](archive/phase-001/README.md).
-- Next implementation pack: [TASK-201](delivery/tasks/TASK-201.md); TASK-201
-  through TASK-204 are approved and dependency-ordered for `PHASE-002`.
-- PHASE-002 code begins only in its isolated `codex/phase-002-*` worktree.
+- TASK-201 and [TASK-202](delivery/tasks/TASK-202.md) are complete locally;
+  TASK-202 carries a user-approved real-smoke evidence exception. TASK-203
+  through TASK-204 remain approved and queued.
+- PHASE-002 code runs only in its isolated `codex/phase-002-*` worktree.
 
 ## Design and implementation plans
 

@@ -19,7 +19,7 @@
     "test:contract": "vitest run --passWithNoTests",
     "test:e2e": "playwright test --pass-with-no-tests",
     "build": "npm run build --workspaces --if-present",
-    "smoke:codex": "node -e \"if (process.env.SUPER_ASSISTANT_ENABLE_CODEX_SMOKE !== '1') { console.log('SKIPPED: set SUPER_ASSISTANT_ENABLE_CODEX_SMOKE=1 to enable the explicit Codex smoke.'); process.exit(0); } console.error('Codex smoke is not implemented by TASK-101.'); process.exit(1);\""
+    "smoke:codex": "node -e \"const c=require('node:child_process');if(process.env.SUPER_ASSISTANT_ENABLE_CODEX_SMOKE!=='1'){console.log('SKIPPED: set SUPER_ASSISTANT_ENABLE_CODEX_SMOKE=1 to enable the explicit Codex smoke.');process.exit(0)}const r=c.spawnSync(process.env.ComSpec||'cmd.exe',['/d','/s','/c','codex.CMD exec --ephemeral --sandbox read-only --skip-git-repo-check --color never -C tests/fixtures/codex-smoke-repository -'],{encoding:'utf8',timeout:120000,input:'Reply with exactly SMOKE_OK. Do not modify files or invoke tools.'});process.stdout.write(r.stdout||'');process.stderr.write(r.stderr||'');if(r.error)throw r.error;if(r.status!==0||!/(^|\\n)SMOKE_OK\\s*$/m.test(r.stdout||'')){process.exit(1)}\""
   },
   "devDependencies": {
     "@testing-library/jest-dom": "7.0.1",

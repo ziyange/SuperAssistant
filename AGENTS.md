@@ -5,9 +5,10 @@
 - `PHASE-000` is the accepted document-first baseline; `TASK-000` is completed locally.
 - `PHASE-001` is archived on `codex/phase-001-platform-foundation`; TASK-100
   through TASK-106 are accepted local evidence.
-- `PHASE-002` is ready. TASK-201 through TASK-204 are approved and ordered;
-  implementation begins only after TASK-201 fresh entry checks in an isolated
-  `codex/phase-002-*` worktree.
+- `PHASE-002` is active in its isolated `codex/phase-002-single-task-loop`
+  worktree. TASK-201 and TASK-202 are complete locally; TASK-202 carries a
+  user-approved real-smoke evidence exception. TASK-203 through TASK-204 remain
+  approved and queued.
 - The initial GitHub publication is an S21 handoff after local acceptance, not an application phase.
 
 ## Sources of truth

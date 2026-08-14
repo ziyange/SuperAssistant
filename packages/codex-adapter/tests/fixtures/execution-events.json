@@ -1,0 +1,8 @@
+{
+  "attempt_id": "fixture-attempt-1",
+  "scenarios": {
+    "success": [{ "sequence": 1, "type": "EXECUTION_STARTED" }, { "sequence": 2, "type": "EXECUTION_SUCCEEDED" }],
+    "failure": [{ "sequence": 1, "type": "EXECUTION_STARTED" }, { "sequence": 2, "type": "EXECUTION_FAILED" }],
+    "disconnect": [{ "sequence": 1, "type": "CONNECTION_LOST" }]
+  }
+}

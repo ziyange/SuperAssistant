@@ -2,7 +2,7 @@
 
 ## Status
 
-APPROVED
+COMPLETED
 
 PHASE: PHASE-002
 
@@ -39,6 +39,12 @@ Activate one authorized Work Item through the full SAI lifecycle with atomic Tas
 
 ## Allowed Files
 
+- AGENTS.md
+- package.json
+- docs/README.md
+- docs/delivery/README.md
+- docs/delivery/phase-002.md
+- docs/delivery/tasks/TASK-202.md
 - packages/domain/src/task.ts
 - packages/domain/src/work-item.ts
 - packages/domain/src/execution-attempt.ts
@@ -128,12 +134,31 @@ This pack exposes only typed progress data for TASK-203. Provider-native identif
 
 The full fake lifecycle and failure matrix passes, opt-in real smoke is honestly reported, no unauthorized/original-workspace write occurs, facts reflect observed contracts, and the draft is re-approved before implementation.
 
+## User-approved evidence exception
+
+On 2026-08-14, the user explicitly approved skipping the unavailable real Codex
+smoke in order to continue with other development. The enabled smoke command was
+implemented and attempted; its exact environment failure is recorded in the
+TASK-202 report. This exception is not a real-runtime pass and must remain a
+known PHASE-002 closeout risk.
+
 ## Risks
 
 `SECURITY_PERMISSION 0.600` is active and confirmed. Duplicate side effects, confused authorization, stale fencing, process escape, and uncertain outcomes are critical. `CONCURRENCY_RACE 0.526` remains controlled even in the single-task phase through lease fencing and worktree isolation.
 
 This approved revision follows TASK-201 migration `003-proposal-authorization`;
 execution waits for PHASE-001 archival and TASK-201 PASS.
+
+## Approved scope expansion
+
+The user authorized opening PHASE-002 and beginning TASK-202. The five execution
+fact files above may be updated only to record the active phase, Task status, and
+this bounded expansion; no product or engineering contract changes are authorized
+by this expansion.
+
+The user additionally authorized `package.json` solely to replace the inherited
+Codex smoke placeholder with the explicit, disposable, read-only smoke command
+required by this Task Pack. It may not alter dependencies or unrelated scripts.
 
 ## Output Required
 

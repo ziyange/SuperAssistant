@@ -4,3 +4,7 @@ export * from './sqlite/migration-runner.js';
 export * from './repositories/project-repository.js';
 export * from './repositories/proposal-repository.js';
 export * from './repositories/authorization-repository.js';
+export * from './repositories/execution-repository.js';
+export * from './repositories/inbox-repository.js';
+export * from './repositories/outbox-repository.js';
+export * from './repositories/resource-lease-repository.js';

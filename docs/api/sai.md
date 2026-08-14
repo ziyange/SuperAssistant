@@ -90,7 +90,7 @@ Core events are `EXECUTION_ACCEPTED`, `EXECUTION_STARTED`, `ACTIVITY_RECORDED`, 
 
 ## ExecutionAttempt and redispatch rules
 
-The platform owns the authoritative [ExecutionAttempt](../data-model.md#executionattempt) state. Transport loss or App Server exit while outcome is uncertain moves it to `UNKNOWN`, then `RECONCILING`. `start` for that WorkItem is prohibited until `status` in `RECONCILE` mode establishes a terminal outcome or `NOT_STARTED`. Reusing the previous `attempt_id` for a new execution is prohibited.
+The platform owns the authoritative [ExecutionAttempt](../data-model.md#executionattempt) state. Transport loss or App Server exit while outcome is uncertain moves it to `UNKNOWN`, then `RECONCILING`. The existing Attempt is never redispatched: even when `status` in `RECONCILE` mode establishes `NOT_STARTED`, any later same-objective retry requires a new Grant and new Attempt. Reusing the previous `attempt_id` for a new execution is prohibited.
 
 ## Errors
 

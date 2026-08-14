@@ -1,5 +1,6 @@
 export * from './agent-state.js';
 export * from './authorization.js';
+export * from './execution-attempt.js';
 export * from './foundation.js';
 export * from './identifiers.js';
 export * from './ports/foundation-repository.js';
@@ -9,4 +10,9 @@ export * from './project.js';
 export * from './proposal.js';
 export * from './preflight.js';
 export * from './routing.js';
+export * from './resource-lease.js';
+export * from './task.js';
+export * from './work-item.js';
+export * from './ports/execution-port.js';
+export * from './execution-envelope.js';
 export * from './services/project-service.js';

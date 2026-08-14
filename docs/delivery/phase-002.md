@@ -1,6 +1,6 @@
 # PHASE-002: Codex single-task loop
 
-- State: Ready
+- State: Active
 - Horizon: H1
 - Branch family: `codex/phase-002-*`
 - Archive path: `docs/archive/phase-002/`
