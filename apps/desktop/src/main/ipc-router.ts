@@ -5,6 +5,7 @@ import { projectArtifactForRenderer, type ArtifactReadPort } from './artifact-ip
 import { listDecisionsForRenderer, projectDecisionForRenderer, type DecisionReadPort } from './decision-ipc.js';
 import { projectChangesForRenderer, projectHistoryForRenderer, type HistoryReadPort, type ProjectChangeReadPort } from './history-ipc.js';
 import { projectAcceptanceForRenderer, type AcceptanceReadPort } from './acceptance-ipc.js';
+import { projectAuditExportForRenderer, type AuditExportPort } from './audit-export-ipc.js';
 import type { ProposalIpcPort } from './proposal-ipc.js';
 import { listTasksForRenderer, projectTaskForRenderer, type TaskReadPort } from './task-ipc.js';
 
@@ -13,7 +14,7 @@ export interface OnboardingPort {
   set(projection: OnboardingProjection): Promise<OnboardingProjection>;
 }
 
-export async function routeIpc(request: unknown, onboarding: OnboardingPort, proposal?: ProposalIpcPort, task?: TaskReadPort, artifact?: ArtifactReadPort, decision?: DecisionReadPort, history?: HistoryReadPort, changes?: ProjectChangeReadPort, acceptance?: AcceptanceReadPort): Promise<IpcResponse> {
+export async function routeIpc(request: unknown, onboarding: OnboardingPort, proposal?: ProposalIpcPort, task?: TaskReadPort, artifact?: ArtifactReadPort, decision?: DecisionReadPort, history?: HistoryReadPort, changes?: ProjectChangeReadPort, acceptance?: AcceptanceReadPort, auditExport?: AuditExportPort): Promise<IpcResponse> {
   const valid: IpcRequest = validateRequest(request);
   if (valid.channel === 'onboarding:get') return { onboarding: await onboarding.get() };
   if (valid.channel === 'onboarding:set') return { onboarding: await onboarding.set(valid.payload) };
@@ -48,6 +49,10 @@ export async function routeIpc(request: unknown, onboarding: OnboardingPort, pro
   if (valid.channel === 'acceptance:list') {
     if (!acceptance) throw new Error('Acceptance IPC port is unavailable.');
     return { acceptance: projectAcceptanceForRenderer(acceptance, valid.payload) };
+  }
+  if (valid.channel === 'audit-export:create') {
+    if (!auditExport) throw new Error('Audit export IPC port is unavailable.');
+    return { auditExport: projectAuditExportForRenderer(auditExport, { ...valid.payload, generatedAt: new Date().toISOString() }) };
   }
   if (!proposal) throw new Error('Proposal IPC port is unavailable.');
   const onboardingProjection = await onboarding.get();

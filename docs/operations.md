@@ -28,6 +28,14 @@ H1 stores application data under a current-user application directory selected b
 
 The paths are resolved through platform APIs and normalized. Repository files never store application secrets or mutable runtime state. Windows Credential Manager stores secret values; only opaque references enter SQLite.
 
+## TASK-304 local recovery evidence
+
+The local recovery service reads `status`, `events`, and `result` for every
+ambiguous Attempt. A durable terminal result is recorded as truth; a missing
+result remains `RECONCILING` with dispatch disabled and puts the desktop in
+degraded read-only mode. Local audit export stores an immutable, checksummed,
+redacted scope manifest; it is diagnostic evidence, not a credential export.
+
 ## Startup sequence
 
 1. Acquire a per-user application instance lock.

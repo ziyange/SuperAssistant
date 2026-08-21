@@ -9,6 +9,8 @@ import type { TaskCard } from './task-center.js';
 import { DecisionCenter, type DecisionCenterModel } from './decision-center.js';
 import { TaskHistory, type TaskHistoryModel } from './task-history.js';
 import { ProjectChanges, type ProjectChangesModel } from './project-changes.js';
+import { AuditExport } from './audit-export.js';
+import { DegradedState } from './degraded-state.js';
 
 export function App() {
   const [current, setCurrent] = useState<Destination>('super-assistant');
@@ -49,5 +51,5 @@ export function App() {
     });
   };
 
-  return <main><Navigation current={current} onNavigate={setCurrent} /><h1>{current === 'super-assistant' ? 'Super Assistant' : current}</h1>{current === 'project-center' ? <><ProjectCenter projects={[]} /><ProjectChanges changes={changes} /></> : current === 'task-center' ? <><TaskCenter tasks={tasks} /><TaskHistory history={history} /></> : current === 'super-assistant' ? <><ProposalReview objective="Side-effecting plan review" classification="SIDE_EFFECTING" preflight="STALE" onConfirm={() => undefined} />{decisions.map((decision) => <DecisionCenter key={decision.decisionId} decision={decision} />)}</> : <Onboarding completed={completed} onComplete={completeOnboarding} />}</main>;
+  return <main><Navigation current={current} onNavigate={setCurrent} /><h1>{current === 'super-assistant' ? 'Super Assistant' : current}</h1>{current === 'project-center' ? <><ProjectCenter projects={[]} /><ProjectChanges changes={changes} /><AuditExport /></> : current === 'task-center' ? <><TaskCenter tasks={tasks} /><TaskHistory history={history} /></> : current === 'super-assistant' ? <><DegradedState reason="Adapter status is unavailable until reconciliation completes." /><ProposalReview objective="Side-effecting plan review" classification="SIDE_EFFECTING" preflight="STALE" onConfirm={() => undefined} />{decisions.map((decision) => <DecisionCenter key={decision.decisionId} decision={decision} />)}</> : <Onboarding completed={completed} onComplete={completeOnboarding} />}</main>;
 }

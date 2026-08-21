@@ -133,4 +133,9 @@ Grant identifiers, storage references, raw logs, and provider-native fields.
 
 H1 verification includes IPC negative tests, Credential Manager integration tests, path/symlink containment tests, Grant scope tests, fake App Server malformed-frame tests, redaction tests, and worktree cancellation/quarantine tests. H2 adds multi-worker race and event-ingestion abuse tests. H3 adds tenant-isolation, RBAC, quorum approval, audit export, retention, and vault rotation tests.
 
+H1 local audit export is scoped to an authorized local Workspace and Project,
+is checksummed, and recursively redacts credential-like fields before storage
+or renderer projection. Adapter/model failure changes the application to
+truthful read-only diagnostics; it does not grant an alternate write channel.
+
 Related contracts: [architecture](architecture.md), [SAI](api/sai.md), [Codex Adapter](adapters/codex.md), and [operations](operations.md).

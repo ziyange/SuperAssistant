@@ -12,6 +12,7 @@ const api: SuperAssistantDesktopApi = {
   ,listHistory: (input) => ipcRenderer.invoke('history:list', input)
   ,listProjectChanges: (input) => ipcRenderer.invoke('project-change:list', input)
   ,listAcceptance: (taskId) => ipcRenderer.invoke('acceptance:list', { taskId })
+  ,createAuditExport: (input) => ipcRenderer.invoke('audit-export:create', input)
 };
 
 contextBridge.exposeInMainWorld('superAssistant', Object.freeze(api));

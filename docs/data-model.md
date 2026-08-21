@@ -197,6 +197,15 @@ Outbox stores durable commands in the same transaction as domain intent. Inbox s
 
 Stores private upstream identifiers, protocol version, worker instance, and reconciliation cursor. It is inaccessible to UI/product modules and never changes product identity.
 
+## H1 recovery and local audit export
+
+`audit_exports` is an immutable local record containing the Workspace and
+Project scope, generation time, governed-record count, SHA-256 checksum, and
+redacted serialized records. It contains no credential value, token, password,
+or secret. Recovery observations are not permissions: a missing durable result
+keeps an ExecutionAttempt in `RECONCILING` and never creates a replacement
+Attempt or dispatch authorization.
+
 ## Relationships
 
 ```text

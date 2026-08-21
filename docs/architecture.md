@@ -144,6 +144,11 @@ Agent question
 - Main-process crash: SQLite transaction atomicity prevents partial state/outbox writes; startup runs integrity and reconciliation scans.
 - Adapter crash or App Server exit: active ExecutionAttempt becomes `UNKNOWN`; worker restart negotiates compatibility and reconciles before any redispatch.
 - Duplicate or out-of-order event: Inbox key and per-ExecutionAttempt sequence reject duplicates and hold gaps for reconciliation.
+
+During recovery the main process reads App Server `status`, `events`, and
+`result` through the Adapter boundary before enabling any new dispatch. The
+renderer may show local projections and audit diagnostics in degraded mode, but
+does not surface a retry action for `UNKNOWN` or `RECONCILING` work.
 - Database busy or disk full: fail closed before side effects, surface an operational incident, and preserve the last committed state.
 - Cancellation: remains `CANCELLING` until the process is terminated, terminal evidence is recorded, and leases are released.
 - Super Assistant model/network outage: already authorized independent ExecutionAttempts may continue; new AI planning and automatic replanning are unavailable; read-only views remain usable.

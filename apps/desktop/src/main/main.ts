@@ -3,7 +3,7 @@ import { app, BrowserWindow, ipcMain, type IpcMainInvokeEvent } from 'electron';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import type Database from 'better-sqlite3';
-import { createFoundationDatabase, SqliteAcceptanceRepository, SqliteArtifactRepository, SqliteDecisionRepository, SqliteHistoryRepository, SqliteProjectChangeRepository, SqliteTaskProjectionQuery } from '@super-assistant/persistence';
+import { createFoundationDatabase, SqliteAcceptanceRepository, SqliteArtifactRepository, SqliteAuditExportRepository, SqliteDecisionRepository, SqliteHistoryRepository, SqliteProjectChangeRepository, SqliteTaskProjectionQuery } from '@super-assistant/persistence';
 import { routeIpc, type OnboardingPort } from './ipc-router.js';
 import { createWindowOptions, isAllowedNavigation } from './window-policy.js';
 
@@ -33,9 +33,10 @@ app.whenReady().then(async () => {
   const historyPort = new SqliteHistoryRepository(database);
   const changePort = new SqliteProjectChangeRepository(database);
   const acceptancePort = new SqliteAcceptanceRepository(database);
+  const auditExportPort = new SqliteAuditExportRepository(database);
   const routeTrustedIpc = (event: IpcMainInvokeEvent, channel: string, payload: unknown) => {
     if (!senderIsTrusted(event.senderFrame?.url ?? '')) throw new Error('Untrusted IPC sender.');
-    return routeIpc({ channel, payload }, onboardingPort, undefined, taskPort, artifactPort, decisionPort, historyPort, changePort, acceptancePort);
+    return routeIpc({ channel, payload }, onboardingPort, undefined, taskPort, artifactPort, decisionPort, historyPort, changePort, acceptancePort, auditExportPort);
   };
   ipcMain.handle('onboarding:get', (event, payload) => {
     return routeTrustedIpc(event, 'onboarding:get', payload);
@@ -51,6 +52,7 @@ app.whenReady().then(async () => {
   ipcMain.handle('history:list', (event, payload) => routeTrustedIpc(event, 'history:list', payload));
   ipcMain.handle('project-change:list', (event, payload) => routeTrustedIpc(event, 'project-change:list', payload));
   ipcMain.handle('acceptance:list', (event, payload) => routeTrustedIpc(event, 'acceptance:list', payload));
+  ipcMain.handle('audit-export:create', (event, payload) => routeTrustedIpc(event, 'audit-export:create', payload));
   await createWindow();
 });
 

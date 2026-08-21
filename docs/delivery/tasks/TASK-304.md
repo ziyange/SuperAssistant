@@ -50,6 +50,7 @@ read-only state and locally verifiable scoped audit export.
 - packages/persistence/src/repositories/audit-export-repository.ts
 - packages/persistence/src/index.ts
 - packages/persistence/tests/audit-export-repository.test.ts
+- packages/persistence/tests/migration-runner.test.ts
 - apps/desktop/src/main/recovery-service.ts
 - apps/desktop/src/main/audit-export-ipc.ts
 - apps/desktop/src/main/ipc-router.ts
@@ -76,7 +77,14 @@ read-only state and locally verifiable scoped audit export.
 
 - Any file not explicitly listed in Allowed Files.
 - Redispatch from `UNKNOWN` or `RECONCILING`, destructive audit deletion,
-  secret export, remote service deployment, or silent degraded write behavior.
+secret export, remote service deployment, or silent degraded write behavior.
+
+## Approved Revision
+
+- 2026-08-21: add the exact migration-runner regression test required to
+  assert migration `009` and its rollback boundary. This correction does not
+  widen product behavior or the Task's requirements; it keeps the required
+  schema migration covered by the repository's existing test seam.
 
 ## Interfaces / Contracts
 

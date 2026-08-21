@@ -1,5 +1,5 @@
 /* eslint-disable no-unused-vars -- projection is a type-only interface parameter. */
-export const IPC_CHANNELS = ['onboarding:get', 'onboarding:set', 'proposal:classify', 'proposal:preflight', 'task:get', 'task:list', 'artifact:get', 'decision:get', 'decision:list', 'history:list', 'project-change:list', 'acceptance:list'] as const;
+export const IPC_CHANNELS = ['onboarding:get', 'onboarding:set', 'proposal:classify', 'proposal:preflight', 'task:get', 'task:list', 'artifact:get', 'decision:get', 'decision:list', 'history:list', 'project-change:list', 'acceptance:list', 'audit-export:create'] as const;
 
 export type IpcChannel = (typeof IPC_CHANNELS)[number];
 
@@ -10,6 +10,7 @@ export type DecisionRendererProjection = Readonly<{ decisionId: string; taskId: 
 export type HistoryRendererProjection = Readonly<{ activity: readonly Readonly<{ activityId: string; attemptId: string; sequence: number; eventType: string; occurredAt: string }>[]; human: readonly Readonly<{ historyId: string; decisionId?: string; actorId: string; action: string; occurredAt: string }>[] }>;
 export type ProjectChangeRendererProjection = Readonly<{ changeId: string; taskId: string; resourceKey: string; baselineRevision: string; resultRevision: string; status: string; originalChangeId?: string; createdAt: string }>;
 export type AcceptanceRendererProjection = Readonly<{ evidenceId: string; workItemId: string; attemptId: string; artifactVersionId: string; evaluatorId: string; outcome: 'ACCEPTED' | 'REJECTED'; createdAt: string }>;
+export type AuditExportRendererProjection = Readonly<{ manifest: Readonly<{ generatedAt: string; recordCount: number; checksum: string }>; records: readonly Record<string, unknown>[] }>;
 
 export type IpcRequest =
   | Readonly<{ channel: 'onboarding:get'; payload: Record<string, never> }>
@@ -23,7 +24,8 @@ export type IpcRequest =
   | Readonly<{ channel: 'decision:list'; payload: Readonly<{ taskId: string }> }>
   | Readonly<{ channel: 'history:list'; payload: Readonly<{ workspaceId: string; projectId: string; taskId: string }> }>
   | Readonly<{ channel: 'project-change:list'; payload: Readonly<{ workspaceId: string; projectId: string }> }>
-  | Readonly<{ channel: 'acceptance:list'; payload: Readonly<{ taskId: string }> }>;
+  | Readonly<{ channel: 'acceptance:list'; payload: Readonly<{ taskId: string }> }>
+  | Readonly<{ channel: 'audit-export:create'; payload: Readonly<{ workspaceId: string; projectId: string }> }>;
 
 export type IpcResponse =
   | Readonly<{ onboarding: OnboardingProjection; classification?: 'READ_ONLY' | 'SIDE_EFFECTING'; preflight?: 'READY' | 'STALE' }>
@@ -34,7 +36,8 @@ export type IpcResponse =
   | Readonly<{ decisions: readonly DecisionRendererProjection[] }>
   | Readonly<{ history: HistoryRendererProjection }>
   | Readonly<{ changes: readonly ProjectChangeRendererProjection[] }>
-  | Readonly<{ acceptance: readonly AcceptanceRendererProjection[] }>;
+  | Readonly<{ acceptance: readonly AcceptanceRendererProjection[] }>
+  | Readonly<{ auditExport: AuditExportRendererProjection }>;
 
 export interface SuperAssistantDesktopApi {
   getOnboarding(): Promise<IpcResponse>;
@@ -47,6 +50,7 @@ export interface SuperAssistantDesktopApi {
   listHistory?(input: Readonly<{ workspaceId: string; projectId: string; taskId: string }>): Promise<IpcResponse>;
   listProjectChanges?(input: Readonly<{ workspaceId: string; projectId: string }>): Promise<IpcResponse>;
   listAcceptance?(taskId: string): Promise<IpcResponse>;
+  createAuditExport?(input: Readonly<{ workspaceId: string; projectId: string }>): Promise<IpcResponse>;
 }
 
 declare global {
