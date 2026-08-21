@@ -23,7 +23,8 @@ recovery implementation.
   records closeout and [archive evidence](archive/phase-001/README.md).
 - PHASE-002 is archived locally; its [evidence](archive/phase-002/README.md)
   records the user-approved TASK-202 real-smoke exception.
-- TASK-301–305 are approved and PHASE-003 is the next implementation phase.
+- PHASE-003 is archived locally with its approved real-smoke exception; the
+  next implementation phase is PHASE-004.
 
 ## Design and implementation plans
 

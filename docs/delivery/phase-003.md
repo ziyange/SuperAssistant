@@ -1,6 +1,6 @@
 # PHASE-003: Decision, audit, and recovery
 
-- State: Planned
+- State: Archived locally with approved real-smoke exception
 - Horizon: H1 completion
 - Branch family: `codex/phase-003-*`
 - Archive path: `docs/archive/phase-003/`
