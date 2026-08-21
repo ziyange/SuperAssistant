@@ -23,10 +23,13 @@ Migration, compatibility and UI evidence are recorded.
 - docs/delivery/phase-004.md
 ## Allowed Files
 - packages/domain/src/agent-template.ts
+- packages/domain/src/index.ts
 - packages/domain/tests/agent-template.test.ts
 - packages/persistence/src/sqlite/migrations/010-agent-template.sql
+- packages/persistence/src/sqlite/migration-runner.ts
 - packages/persistence/src/repositories/agent-template-repository.ts
 - packages/persistence/tests/agent-template-repository.test.ts
+- packages/persistence/tests/migration-runner.test.ts
 - apps/desktop/src/renderer/agent-template.tsx
 - apps/desktop/tests/renderer/agent-template.test.tsx
 - docs/data-model.md
@@ -35,6 +38,18 @@ Migration, compatibility and UI evidence are recorded.
 - docs/verification/reports/phase-004-task-402.md
 ## Forbidden Files
 Any file not explicitly listed; mutable template edits; H1 record rewrites.
+
+## Approved Revision
+
+- 2026-08-21: add the exact migration runner required to register migration
+  `010`; this preserves the existing transactional migration boundary and does
+  not widen product behavior.
+- 2026-08-21: add the domain package barrel needed to expose the new immutable
+  Template contract to the persistence package without a private cross-package
+  source import.
+- 2026-08-21: add the existing migration-runner regression test required to
+  advance its expected schema version to `010` and retain its invalid-migration
+  rollback fixture.
 ## Interfaces / Contracts
 Active Work Items pin Template and Function versions.
 ## Data Constraints

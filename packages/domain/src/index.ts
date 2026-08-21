@@ -1,4 +1,5 @@
 export * from './agent-state.js';
+export * from './agent-template.js';
 export * from './artifact.js';
 export * from './decision.js';
 export * from './decision-resolution.js';

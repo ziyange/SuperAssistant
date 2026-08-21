@@ -206,6 +206,13 @@ or secret. Recovery observations are not permissions: a missing durable result
 keeps an ExecutionAttempt in `RECONCILING` and never creates a replacement
 Attempt or dispatch authorization.
 
+## Agent Template version
+
+An Agent Template version is an immutable `(template_id, version)` record with
+its name and pinned Function-version references. Active Work Items retain the
+versions already approved for them; a later Template version is additive and
+cannot rewrite H1 history.
+
 ## Relationships
 
 ```text
