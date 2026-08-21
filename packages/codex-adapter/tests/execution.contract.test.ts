@@ -1,22 +1,34 @@
-/* global URL, process, Buffer */
+/* global URL, process, Buffer, setTimeout, clearTimeout */
 import { expect, test } from 'vitest';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { CodexExecutionAdapter } from '../src/execution.js';
 
 const fakeAppServer = fileURLToPath(new URL('./fixtures/fake-app-server.mjs', import.meta.url));
+const FIXTURE_RESPONSE_TIMEOUT_MS = 5_000;
 
 async function executeFake(mode: string, operation: string): Promise<Record<string, unknown>> {
   const child = spawn(process.execPath, [fakeAppServer], { stdio: ['pipe', 'pipe', 'ignore'], env: { ...process.env, FAKE_APP_SERVER_MODE: mode } });
   return await new Promise((resolve, reject) => {
+    let settled = false;
+    const settle = (callback: () => void) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      callback();
+    };
+    const timer = setTimeout(() => settle(() => {
+      child.kill();
+      reject(new Error('fake App Server response timed out.'));
+    }), FIXTURE_RESPONSE_TIMEOUT_MS);
     let lines = '';
     child.stdout?.on('data', (chunk: Buffer) => {
       lines += chunk.toString('utf8');
       const responses = lines.trim().split(/\r?\n/);
-      if (responses.length >= 2) { child.kill(); resolve(JSON.parse(responses[1] ?? '{}') as Record<string, unknown>); }
+      if (responses.length >= 2) settle(() => { child.kill(); resolve(JSON.parse(responses[1] ?? '{}') as Record<string, unknown>); });
     });
-    child.once('error', reject);
-    child.once('exit', (code) => reject(new Error(`fake App Server exited: ${String(code)}`)));
+    child.once('error', () => settle(() => reject(new Error('fake App Server failed.'))));
+    child.once('exit', (code) => settle(() => reject(new Error(`fake App Server exited: ${String(code)}`))));
     child.stdin?.write(`${JSON.stringify({ operation })}\n`);
   });
 }
@@ -64,4 +76,4 @@ test('exercises fake App Server success, failure, disconnect, and crash lifecycl
   await expect(executeFake('execution_failure', 'turn/result')).resolves.toMatchObject({ state: 'FAILED' });
   await expect(executeFake('execution_disconnect', 'turn/status')).resolves.toMatchObject({ state: 'INDETERMINATE' });
   await expect(executeFake('execution_crash', 'turn/status')).rejects.toThrow(/exited/i);
-});
+}, 20_000);

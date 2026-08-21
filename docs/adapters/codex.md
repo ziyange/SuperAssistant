@@ -31,7 +31,7 @@ Project resources
 
 Worker startup creates an instance identity, authenticates IPC, starts App Server with explicit argument arrays, performs initialization and version/capability negotiation, installs stream handlers, and reports Agent status. Standard error is captured as redacted diagnostic evidence, never parsed as the protocol.
 
-The worker supervises process exit, bounds message size and buffering, detects malformed frames, and terminates the child on protocol compromise. App Server exit during a nonterminal ExecutionAttempt emits `CONNECTION_LOST`; the control plane moves the ExecutionAttempt to `UNKNOWN`.
+The worker supervises process exit, bounds message size and buffering, detects malformed frames, and terminates the child on protocol compromise. A discovery child exit is classified only after its stdout stream is drained, so a frame already buffered by the operating system is not discarded. App Server exit during a nonterminal ExecutionAttempt emits `CONNECTION_LOST`; the control plane moves the ExecutionAttempt to `UNKNOWN`.
 
 ## Private correlation model
 
@@ -112,7 +112,7 @@ Tool approval prompts are mapped to L1-L4 policy. A prompt that is not already a
 
 ## Verification
 
-H1 requires a fake App Server contract suite for initialization, compatible/incompatible versions, start, resume, input, interrupt, cancellation, duplicate commands, duplicate/out-of-order events, malformed frames, process exit, result collection, and reconciliation. Worktree tests cover dirty source trees, symlink/path escapes, stale fencing tokens, crash quarantine, and cleanup. A real-Codex smoke test is opt-in and reports the exact installed version; it is not a substitute for the fake contract suite.
+H1 requires a fake App Server contract suite for initialization, compatible/incompatible versions, start, resume, input, interrupt, cancellation, duplicate commands, duplicate/out-of-order events, malformed frames, process exit, result collection, and reconciliation. Test-only fixture watchdogs bound one fake process operation to five seconds and aggregate lifecycle tests to twenty seconds under concurrent Windows process scheduling; these watchdogs do not alter the frozen production discovery timeout. Worktree tests cover dirty source trees, symlink/path escapes, stale fencing tokens, crash quarantine, and cleanup. A real-Codex smoke test is opt-in and reports the exact installed version; it is not a substitute for the fake contract suite.
 
 ## H1-H3 compatibility
 

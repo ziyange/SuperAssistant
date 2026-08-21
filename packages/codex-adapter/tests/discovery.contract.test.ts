@@ -1,6 +1,8 @@
 /* global URL, process, Buffer, setTimeout */
 import { describe, expect, test } from 'vitest';
 import { spawn } from 'node:child_process';
+import { EventEmitter } from 'node:events';
+import { PassThrough } from 'node:stream';
 import { fileURLToPath } from 'node:url';
 import { CodexDiscoveryAdapter } from '../src/discovery.js';
 import { normalizeDiscoveryEvent } from '../src/protocol.js';
@@ -8,6 +10,7 @@ import { CodexWorker, createReadOnlyCodexLaunch, createStdioCodexWorker, termina
 import { readStdioDiscovery } from '../src/stdio-transport.js';
 
 const fakeAppServer = fileURLToPath(new URL('./fixtures/fake-app-server.mjs', import.meta.url));
+const FIXTURE_DISCOVERY_TIMEOUT_MS = 5_000;
 function spawnFake(mode: string) {
   return spawn(process.execPath, [fakeAppServer], { stdio: ['ignore', 'pipe', 'ignore'], env: { ...process.env, FAKE_APP_SERVER_MODE: mode } });
 }
@@ -75,7 +78,7 @@ describe('read-only Codex discovery', () => {
   });
   test('creates a read-only worker whose initialized discovery comes from its own stdio child', async () => {
     const child = spawnFake('success');
-    const worker = createStdioCodexWorker(() => child, 500);
+    const worker = createStdioCodexWorker(() => child, FIXTURE_DISCOVERY_TIMEOUT_MS);
     const adapter = await worker.initialize();
     await expect(adapter.describe()).resolves.toMatchObject({ adapterVersion: '0.121.0', functions: ['develop'] });
     await worker.shutdown();
@@ -93,11 +96,19 @@ describe('read-only Codex discovery', () => {
     await waitForExit(childPid);
   });
   test.each([['success', { version: '0.121.0', authenticated: true, capabilities: ['develop'] }], ['auth_required', { version: '0.121.0', authenticated: false, capabilities: [] }]])('reads the %s fake App Server frame over stdio', async (mode, expected) => {
-    await expect(readStdioDiscovery(spawnFake(mode), 500)).resolves.toEqual(expected);
+    await expect(readStdioDiscovery(spawnFake(mode), FIXTURE_DISCOVERY_TIMEOUT_MS)).resolves.toEqual(expected);
+  });
+  test('accepts a buffered discovery frame when process exit precedes stdout drain', async () => {
+    const stdout = new PassThrough();
+    const child = Object.assign(new EventEmitter(), { stdout, kill: () => undefined });
+    const discovery = readStdioDiscovery(child as never, 500);
+    child.emit('exit', 0);
+    stdout.end('{"version":"0.121.0","authenticated":true,"capabilities":["develop"]}\n');
+    await expect(discovery).resolves.toEqual({ version: '0.121.0', authenticated: true, capabilities: ['develop'] });
   });
   test('fails closed for malformed, timeout, and exited fake App Server states', async () => {
-    await expect(readStdioDiscovery(spawnFake('malformed'), 500)).rejects.toThrow(/malformed/i);
+    await expect(readStdioDiscovery(spawnFake('malformed'), FIXTURE_DISCOVERY_TIMEOUT_MS)).rejects.toThrow(/malformed/i);
     await expect(readStdioDiscovery(spawnFake('timeout'), 20)).rejects.toThrow(/timed out/i);
-    await expect(readStdioDiscovery(spawnFake('exit'), 500)).rejects.toThrow(/exited/i);
-  });
+    await expect(readStdioDiscovery(spawnFake('exit'), FIXTURE_DISCOVERY_TIMEOUT_MS)).rejects.toThrow(/exited/i);
+  }, 20_000);
 });

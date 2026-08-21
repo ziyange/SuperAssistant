@@ -6,7 +6,13 @@ This document defines H1 local runtime lifecycle, persistence, health, observabi
 
 TASK-101 establishes these root commands: `npm run lint`, `npm run typecheck`, `npm run test:unit`, `npm run test:contract`, `npm run test:e2e`, `npm run build`, and `npm run smoke:codex`. The default smoke command exits successfully only with an explicit skipped reason unless `SUPER_ASSISTANT_ENABLE_CODEX_SMOKE=1`; TASK-101 does not implement that real smoke path. A clean dependency install uses `npm ci --ignore-scripts` until an owning Task Pack authorizes and reviews required native lifecycle scripts.
 
-Vitest workspaces provide unit and contract discovery boundaries. Vitest 3 emits a framework deprecation warning for the approved `vitest.workspace.ts` filename; replacement requires an explicit Task Pack scope change because the current Pack does not authorize a new root configuration file.
+TASK-205 makes `npm run build` deterministic: domain, persistence, then
+desktop main, preload, and renderer. The persistence build copies numbered SQL
+migrations to its emitted package assets. A runtime smoke imports the emitted
+persistence ESM entry without opening SQLite; a missing migration asset is a
+build failure, not a deferred startup surprise.
+
+Vitest workspaces provide mutually exclusive unit and contract discovery boundaries: the unit project excludes `*.contract.test.ts`, and the contract project owns those files. Vitest 3 emits a framework deprecation warning for the approved `vitest.workspace.ts` filename; replacement requires an explicit Task Pack scope change because the current Pack does not authorize a new root configuration file.
 
 ## Managed local layout
 
@@ -70,7 +76,7 @@ quarantine rather than deletion.
 
 ## Adapter and App Server supervision
 
-The main process supervises one H1 Codex Adapter Worker. The worker supervises App Server. Health includes worker process identity, negotiated versions, protocol heartbeat/observation age, App Server exit status, event backlog, and active ExecutionAttempt correlations.
+The main process supervises one H1 Codex Adapter Worker. The worker supervises App Server. Health includes worker process identity, negotiated versions, protocol heartbeat/observation age, App Server exit status, event backlog, and active ExecutionAttempt correlations. On discovery, a child exit is not actionable until its stdout stream has drained, because an already-buffered discovery frame remains valid evidence; an empty drained stream remains a distinct exit failure.
 
 Restart uses bounded exponential backoff and a circuit breaker. Reaching the breaker sets Agent Connection `UNAVAILABLE` and preserves Tasks. A worker restart never clears an ExecutionAttempt or idempotency record. Unsupported versions require an explicit compatible application/Codex upgrade; silent fallback is prohibited.
 

@@ -15,17 +15,25 @@ export function readStdioDiscovery(child: ChildProcess, timeoutMs: number): Prom
   return new Promise((resolve, reject) => {
     if (!child.stdout) return reject(new Error('Codex App Server stdio is unavailable.'));
     let settled = false;
+    let exited = false;
     const settle = (callback: () => void) => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
       callback();
     };
-    const timer = setTimeout(() => settle(() => { child.kill(); reject(new Error('Codex discovery timed out.')); }), timeoutMs);
+    let timer: ReturnType<typeof setTimeout>;
+    child.once('exit', () => {
+      exited = true;
+      if (child.stdout?.readableEnded) settle(() => reject(new Error('Codex App Server exited before discovery.')));
+    });
+    child.once('error', () => settle(() => reject(new Error('Codex App Server discovery failed.'))));
+    timer = setTimeout(() => settle(() => { child.kill(); reject(new Error('Codex discovery timed out.')); }), timeoutMs);
     child.stdout.once('data', (chunk: Buffer) => settle(() => {
       try { resolve(parseDiscoveryFrame(chunk.toString('utf8').split(/\r?\n/, 1)[0])); } catch (error) { child.kill(); reject(error); }
     }));
-    child.once('exit', () => settle(() => reject(new Error('Codex App Server exited before discovery.'))));
-    child.once('error', () => settle(() => reject(new Error('Codex App Server discovery failed.'))));
+    child.stdout.once('end', () => {
+      if (exited) settle(() => reject(new Error('Codex App Server exited before discovery.')));
+    });
   });
 }
