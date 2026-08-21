@@ -80,6 +80,10 @@ Status uses stable product labels plus precise reasons:
 
 Acceptance failure remains in the same Task and shows the failed evidence, new ExecutionAttempt or remediation WorkItem, and re-verification route.
 
+The TASK-303 Acceptance panel uses explicit `ACCEPTED`, `PENDING`, and
+`REJECTED` labels. A rejected state names the repair WorkItem; it never
+substitutes a completed label or hides missing evidence/open Decisions.
+
 ## Decision UX
 
 A Decision card always includes title, context, source Task/Agent, risk, current facts, options, impacts, recommendation, and rationale. Deadline, attachments, custom response, and Project are displayed when present.

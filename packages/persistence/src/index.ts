@@ -8,6 +8,7 @@ export * from './repositories/artifact-repository.js';
 export * from './repositories/decision-repository.js';
 export * from './repositories/history-repository.js';
 export * from './repositories/project-change-repository.js';
+export * from './repositories/acceptance-repository.js';
 export * from './queries/task-projection.js';
 export * from './repositories/execution-repository.js';
 export * from './repositories/inbox-repository.js';

@@ -11,7 +11,8 @@ const executionSql = readFileSync(fileURLToPath(new URL('./migrations/004-execut
 const artifactSql = readFileSync(fileURLToPath(new URL('./migrations/005-artifact.sql', import.meta.url)), 'utf8');
 const decisionSql = readFileSync(fileURLToPath(new URL('./migrations/006-decision.sql', import.meta.url)), 'utf8');
 const historyChangeSql = readFileSync(fileURLToPath(new URL('./migrations/007-history-change.sql', import.meta.url)), 'utf8');
-export const foundationMigrations: readonly Migration[] = [{ version: 1, name: 'foundation', sql: foundationSql }, { version: 2, name: 'project-metadata', sql: projectMetadataSql }, { version: 3, name: 'proposal-authorization', sql: proposalAuthorizationSql }, { version: 4, name: 'execution', sql: executionSql }, { version: 5, name: 'artifact', sql: artifactSql }, { version: 6, name: 'decision', sql: decisionSql }, { version: 7, name: 'history-change', sql: historyChangeSql }];
+const acceptanceSql = readFileSync(fileURLToPath(new URL('./migrations/008-acceptance.sql', import.meta.url)), 'utf8');
+export const foundationMigrations: readonly Migration[] = [{ version: 1, name: 'foundation', sql: foundationSql }, { version: 2, name: 'project-metadata', sql: projectMetadataSql }, { version: 3, name: 'proposal-authorization', sql: proposalAuthorizationSql }, { version: 4, name: 'execution', sql: executionSql }, { version: 5, name: 'artifact', sql: artifactSql }, { version: 6, name: 'decision', sql: decisionSql }, { version: 7, name: 'history-change', sql: historyChangeSql }, { version: 8, name: 'acceptance', sql: acceptanceSql }];
 
 export function applyMigrations(database: Database.Database, migrations: readonly Migration[] = foundationMigrations): void {
   database.exec('CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, name TEXT NOT NULL, applied_at TEXT NOT NULL)');

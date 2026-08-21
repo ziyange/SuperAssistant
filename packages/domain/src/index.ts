@@ -4,6 +4,7 @@ export * from './decision.js';
 export * from './decision-resolution.js';
 export * from './history.js';
 export * from './project-change.js';
+export * from './acceptance.js';
 export * from './authorization.js';
 export * from './execution-attempt.js';
 export * from './foundation.js';

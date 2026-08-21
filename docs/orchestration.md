@@ -97,6 +97,11 @@ Sequence is contiguous per ExecutionAttempt. Duplicates are ignored idempotently
 - Repeating the same objective never overwrites an ExecutionAttempt or ArtifactVersion.
 - A materially changed objective, assignee, Project, or responsibility creates a remediation WorkItem under the same Task and a new graph version approved through a ProposalVersion.
 - Acceptance failure does not create a new top-level Task. If the original objective is unchanged, it creates a new ExecutionAttempt; if the failure requires new work, it creates a remediation WorkItem. This resolves the source proposal's two repair descriptions without losing either valid case.
+
+TASK-303 derives this gate from immutable acceptance evidence. Missing
+evidence or open Decisions result in a pending state, never an optimistic
+completion. A rejected required WorkItem exposes the original WorkItem as the
+remediation parent, preserving the Task identifier and complete history.
 - Retry policy specifies maximum ExecutionAttempts, retryable error codes, exponential backoff, budget, and human escalation. A timeout with possible execution is reconciliation, not retry.
 
 ## Task status derivation

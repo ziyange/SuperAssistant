@@ -122,6 +122,13 @@ Fields: `artifact_version_id`, `logical_artifact_id`, `task_id`, WorkItem, Execu
 
 Status is `AVAILABLE | QUARANTINED | ROLLED_BACK | RETENTION_HOLD | DELETED_BY_POLICY`. New execution output creates a new version. Policy deletion removes content only after retention rules allow it and retains audit metadata.
 
+PHASE-003 `TASK-303` adds immutable acceptance evidence keyed to one Task,
+WorkItem, Attempt, ArtifactVersion, evaluator, outcome, and timestamp. An
+ArtifactVersion cannot be reused for acceptance under another WorkItem. A
+Task reaches completion only when each required WorkItem is accepted with its
+own evidence and no Decision remains open; a rejection identifies repair work
+under that same Task rather than creating another top-level Task.
+
 ### ProjectChange
 
 Fields: `change_id`, Project, Task, WorkItem, ExecutionAttempt, Agent, type, affected resource keys, baseline/result revisions, Commit/PR/config references, AuthorizationGrant, status, original ProjectChange reference, and timestamps.

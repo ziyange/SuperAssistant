@@ -1,0 +1,3 @@
+import { expect, test } from 'vitest';
+import { projectAcceptanceForRenderer } from '../../src/main/acceptance-ipc.js';
+test('projects immutable acceptance lineage without provider fields', () => { expect(projectAcceptanceForRenderer({ listForTask: () => [{ evidenceId: 'e1', taskId: 't1', workItemId: 'w1', attemptId: 'a1', artifactVersionId: 'artifact1', evaluatorId: 'inspector', outcome: 'ACCEPTED', createdAt: 'now' }] }, { taskId: 't1' })).toEqual([{ evidenceId: 'e1', workItemId: 'w1', attemptId: 'a1', artifactVersionId: 'artifact1', evaluatorId: 'inspector', outcome: 'ACCEPTED', createdAt: 'now' }]); });
