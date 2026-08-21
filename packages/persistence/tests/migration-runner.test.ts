@@ -12,13 +12,13 @@ function pathFor(name: string): string { const folder = mkdtempSync(join(tmpdir(
 describe('migration runner', () => {
   test('creates and repeats foundation migration without changing its version', () => {
     const db = new Database(pathFor('foundation.sqlite')); applyMigrations(db); applyMigrations(db);
-    expect(db.prepare('select version from schema_migrations').all()).toEqual([{ version: 1 }, { version: 2 }, { version: 3 }, { version: 4 }, { version: 5 }, { version: 6 }, { version: 7 }, { version: 8 }, { version: 9 }, { version: 10 }, { version: 11 }]);
+    expect(db.prepare('select version from schema_migrations').all()).toEqual([{ version: 1 }, { version: 2 }, { version: 3 }, { version: 4 }, { version: 5 }, { version: 6 }, { version: 7 }, { version: 8 }, { version: 9 }, { version: 10 }, { version: 11 }, { version: 12 }]);
     expect(db.prepare("select name from sqlite_master where type = 'table' and name = 'workspaces'").get()).toBeTruthy(); db.close();
   });
   test('rolls back a failed migration and leaves the prior schema usable', () => {
     const db = new Database(':memory:'); applyMigrations(db);
-    expect(() => applyMigrations(db, [{ version: 12, name: 'bad', sql: 'create table impossible (;' }])).toThrow();
-    expect(db.prepare('select version from schema_migrations').all()).toEqual([{ version: 1 }, { version: 2 }, { version: 3 }, { version: 4 }, { version: 5 }, { version: 6 }, { version: 7 }, { version: 8 }, { version: 9 }, { version: 10 }, { version: 11 }]);
+    expect(() => applyMigrations(db, [{ version: 13, name: 'bad', sql: 'create table impossible (;' }])).toThrow();
+    expect(db.prepare('select version from schema_migrations').all()).toEqual([{ version: 1 }, { version: 2 }, { version: 3 }, { version: 4 }, { version: 5 }, { version: 6 }, { version: 7 }, { version: 8 }, { version: 9 }, { version: 10 }, { version: 11 }, { version: 12 }]);
     expect(db.prepare('select count(*) as count from workspaces').get()).toEqual({ count: 0 }); db.close();
   });
 });

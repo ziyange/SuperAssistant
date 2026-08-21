@@ -174,3 +174,10 @@ The scheduler reads the durable Task-scoped graph before dispatch. It blocks an
 unmet dependency and rejects cyclic graphs before any Adapter command. Graph
 recovery uses the persisted snapshot, so a restart cannot reorder work or
 create a new top-level remediation Task.
+
+## PHASE-004 resource conflict control
+
+Before dispatch, every claim is canonicalized and acquired in one lexical lock
+order. An overlap is blocked rather than queued as a hidden write; disjoint
+claims may progress concurrently. Persisted fence checks reject stale owners,
+and release/recovery remains auditable.

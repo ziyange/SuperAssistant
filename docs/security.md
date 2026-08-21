@@ -138,4 +138,8 @@ is checksummed, and recursively redacts credential-like fields before storage
 or renderer projection. Adapter/model failure changes the application to
 truthful read-only diagnostics; it does not grant an alternate write channel.
 
+PHASE-004 resource scheduling treats canonical resource keys and fencing tokens
+as security boundaries. Conflicting writers are blocked before Adapter dispatch
+and a stale token cannot regain write authority after another owner is granted.
+
 Related contracts: [architecture](architecture.md), [SAI](api/sai.md), [Codex Adapter](adapters/codex.md), and [operations](operations.md).

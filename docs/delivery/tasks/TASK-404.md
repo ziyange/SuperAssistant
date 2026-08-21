@@ -24,8 +24,10 @@ Concurrency and recovery evidence are recorded.
 - packages/domain/src/resource-scheduler.ts
 - packages/domain/tests/resource-scheduler.test.ts
 - packages/persistence/src/sqlite/migrations/012-resource-scheduler.sql
+- packages/persistence/src/sqlite/migration-runner.ts
 - packages/persistence/src/repositories/resource-scheduler-repository.ts
 - packages/persistence/tests/resource-scheduler-repository.test.ts
+- packages/persistence/tests/migration-runner.test.ts
 - docs/data-model.md
 - docs/orchestration.md
 - docs/security.md
@@ -33,6 +35,13 @@ Concurrency and recovery evidence are recorded.
 - docs/verification/reports/phase-004-task-404.md
 ## Forbidden Files
 Any file not explicitly listed; overlapping writes; stale-token acceptance.
+
+## Approved Revision
+
+- 2026-08-21: add the exact migration runner required to register migration
+  `012` via the established transactional migration path.
+- 2026-08-21: add the migration-runner regression test required to advance the
+  expected schema to migration `012` and retain rollback coverage.
 ## Interfaces / Contracts
 Scheduler checks resource claims before dispatch and fences stale owners.
 ## Data Constraints

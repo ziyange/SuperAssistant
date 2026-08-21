@@ -220,6 +220,13 @@ directed dependency edges. Graph persistence rejects unknown nodes and cycles;
 only nodes whose incoming dependencies are accepted are schedulable. A restart
 reloads the same snapshot rather than inferring a new execution order.
 
+## PHASE-004 resource scheduler
+
+The scheduler records one active canonical resource owner and fencing token per
+resource. It grants resources in canonical lexical order, blocks overlapping
+writes before Adapter dispatch, permits disjoint claims concurrently, and
+rejects writes carrying an old token.
+
 ## Relationships
 
 ```text
