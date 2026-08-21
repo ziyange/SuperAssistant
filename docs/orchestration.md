@@ -168,3 +168,9 @@ Startup performs, in order:
 - H3 partitions scheduling by Workspace/tenant, adds RBAC and approval quorum, and may use a broker/database service. IDs, at-least-once delivery, per-ExecutionAttempt sequence, immutable approvals, and ambiguous-state non-redispatch remain unchanged.
 
 See [data model](data-model.md), [SAI](api/sai.md), and [operations](operations.md).
+# PHASE-004 Work Item DAG
+
+The scheduler reads the durable Task-scoped graph before dispatch. It blocks an
+unmet dependency and rejects cyclic graphs before any Adapter command. Graph
+recovery uses the persisted snapshot, so a restart cannot reorder work or
+create a new top-level remediation Task.

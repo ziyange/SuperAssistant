@@ -26,6 +26,7 @@ export * from './recovery.js';
 export * from './task.js';
 export * from './task-projection.js';
 export * from './work-item.js';
+export * from './work-item-graph.js';
 export * from './ports/execution-port.js';
 export * from './execution-envelope.js';
 export * from './services/project-service.js';

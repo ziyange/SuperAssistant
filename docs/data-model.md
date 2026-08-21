@@ -213,6 +213,13 @@ its name and pinned Function-version references. Active Work Items retain the
 versions already approved for them; a later Template version is additive and
 cannot rewrite H1 history.
 
+## Work Item graph
+
+A Task may own one immutable DAG snapshot of Work Item node identifiers and
+directed dependency edges. Graph persistence rejects unknown nodes and cycles;
+only nodes whose incoming dependencies are accepted are schedulable. A restart
+reloads the same snapshot rather than inferring a new execution order.
+
 ## Relationships
 
 ```text
