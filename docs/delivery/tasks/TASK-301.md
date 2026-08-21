@@ -41,17 +41,23 @@ resolution resumes its originating work once.
 ## Allowed Files
 
 - packages/domain/src/decision.ts
+- packages/domain/src/decision-resolution.ts
 - packages/domain/src/question-router.ts
 - packages/domain/src/ports/decision-repository.ts
 - packages/domain/src/index.ts
 - packages/domain/tests/decision.test.ts
+- packages/domain/tests/decision-resolution.test.ts
 - packages/domain/tests/question-router.test.ts
 - packages/persistence/src/sqlite/migrations/006-decision.sql
 - packages/persistence/src/sqlite/migration-runner.ts
 - packages/persistence/src/repositories/decision-repository.ts
+- packages/persistence/src/repositories/outbox-repository.ts
 - packages/persistence/src/index.ts
 - packages/persistence/tests/decision-repository.test.ts
+- packages/persistence/tests/migration-runner.test.ts
+- packages/persistence/tests/outbox-inbox.test.ts
 - apps/desktop/src/main/decision-ipc.ts
+- apps/desktop/src/main/outbox-dispatcher.ts
 - apps/desktop/src/main/ipc-router.ts
 - apps/desktop/src/main/ipc-schemas.ts
 - apps/desktop/src/main/main.ts
@@ -59,8 +65,12 @@ resolution resumes its originating work once.
 - apps/desktop/src/shared/ipc-contract.ts
 - apps/desktop/src/renderer/decision-center.tsx
 - apps/desktop/src/renderer/App.tsx
+- apps/desktop/src/renderer/task-detail.tsx
 - apps/desktop/tests/main/decision-ipc.test.ts
+- apps/desktop/tests/main/ipc-router.test.ts
+- apps/desktop/tests/main/orchestrator.test.ts
 - apps/desktop/tests/renderer/decision-center.test.tsx
+- apps/desktop/tests/renderer/task-detail.test.tsx
 - docs/data-model.md
 - docs/security.md
 - docs/orchestration.md
@@ -97,6 +107,16 @@ are required.
 - Deduplicate by stable Decision scope and question fingerprint.
 - Resume once after resolution and keep duplicate resolutions harmless.
 - Project the same Decision record in Assistant and Task surfaces.
+- The migration-runner and IPC-router test files are included to keep the
+  existing migration and strict IPC regression suites aligned with this
+  Decision contract; no unrelated test behavior may change.
+- The Decision-resolution, outbox, and dispatcher files are included for the
+  narrowly bounded resume-once transaction: it must reject `UNKNOWN` and
+  `RECONCILING` Attempts, persist the first resolution, and emit one resume
+  command. No scheduling, acceptance, or Task lifecycle behavior is expanded.
+- Task Detail and its renderer test are included solely to render the same
+  Decision identifier and state supplied to Super Assistant; they may not
+  create, copy, or independently mutate a Decision.
 
 ## Test Requirements
 

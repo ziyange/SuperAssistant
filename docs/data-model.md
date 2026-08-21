@@ -108,6 +108,14 @@ Fields: `decision_id`, `task_id`, source WorkItem/Agent, risk level, facts, opti
 
 Status is `OPEN | RESOLVED | CANCELLED`. Timeout produces reminders/escalation metadata and does not auto-resolve. Super Assistant and Task Detail read the same row.
 
+PHASE-003 `TASK-301` establishes the first durable slice: Workspace, Project,
+Task, WorkItem, question, L3/L4 level, stable fingerprint, immutable first
+resolution, resolver, and timestamps. Its resolution transaction reads the
+originating Attempt and creates one durable `resume` Outbox command only when
+the Attempt is not `UNKNOWN` or `RECONCILING`. The later Decision content and
+Human History work adds the remaining presentation and audit fields without
+creating a second Decision authority.
+
 ### ArtifactVersion
 
 Fields: `artifact_version_id`, `logical_artifact_id`, `task_id`, WorkItem, ExecutionAttempt, logical name, immutable ordinal, type, MIME/format, display mode, storage locator, byte size, SHA-256 digest, inherited policy scope, status, and timestamps.

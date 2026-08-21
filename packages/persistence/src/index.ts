@@ -5,6 +5,7 @@ export * from './repositories/project-repository.js';
 export * from './repositories/proposal-repository.js';
 export * from './repositories/authorization-repository.js';
 export * from './repositories/artifact-repository.js';
+export * from './repositories/decision-repository.js';
 export * from './queries/task-projection.js';
 export * from './repositories/execution-repository.js';
 export * from './repositories/inbox-repository.js';

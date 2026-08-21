@@ -122,6 +122,12 @@ Agent questions enter the [L1-L4 policy](security.md#authorization-and-l1-l4-rou
 
 Resolving a Decision uses optimistic concurrency and records one Human History entry. The resolution transaction closes the Decision and emits at most one resume Outbox command. Deadline processing may notify or escalate but never auto-accept an option.
 
+The initial PHASE-003 Decision repository enforces this command boundary in
+one SQLite transaction: it rejects a missing, `UNKNOWN`, or `RECONCILING`
+originating Attempt before writing a resolution; a repeated resolution key
+returns the persisted outcome without another Outbox row. A dispatcher invokes
+the stable Adapter `resume` operation only after that row has been claimed.
+
 ## Resource conflict and fencing
 
 Resource keys are normalized hierarchical identifiers such as repository, worktree, branch, module, database schema, generated asset, credential scope, and external service object. A ProposalVersion declares read/write intent. Conflicting writes are serialized or assigned isolated workspaces.

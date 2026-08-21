@@ -86,6 +86,12 @@ A Decision card always includes title, context, source Task/Agent, risk, current
 
 L3/L4 cards state that the AI recommendation is not authorization. Important Decisions receive configured reminders. Emergency timeout keeps the Task paused/blocked and never preselects or auto-submits an option. Resolving a Decision from Super Assistant or Task Detail updates the same canonical record immediately and disables duplicate submission.
 
+The PHASE-003 initial projection exposes a safe, read-only Decision summary:
+question, L3/L4 risk, state, and the explicit non-authorization notice. It
+occupies no home-page space when no Decision is waiting and intentionally does
+not render a resolution control until a durable authorized-human identity and
+the complete Decision content contract are present.
+
 ## Activity, Human History, ArtifactVersion, and ProjectChange
 
 Activity answers “what the Agent/system did”; Human History answers “what the user approved or decided.” The UI may cross-link them but never merges their evidence stores.

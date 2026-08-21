@@ -19,3 +19,13 @@ test('dispatches only a claimed durable start message and acknowledges it after 
   expect(await dispatcher.dispatchOne()).toEqual({ messageId: 'message-1', dispatched: true });
   expect(calls).toEqual(['start:attempt-1', 'ack:message-1']);
 });
+
+test('dispatches one claimed Decision resume command and acknowledges it only after adapter acceptance', async () => {
+  const calls: string[] = [];
+  const dispatcher = new OutboxDispatcher(
+    { claimNext: () => ({ messageId: 'resume:decision-1', attemptId: 'attempt-1', kind: 'resume' as const, payload: { attemptId: 'attempt-1', decisionId: 'decision-1', resolutionId: 'resolution-1' } }), acknowledge: (messageId) => { calls.push(`ack:${messageId}`); } },
+    { start: async () => { calls.push('unexpected-start'); }, resume: async (command) => { calls.push(`resume:${command.attemptId}:${command.decisionId}`); } }
+  );
+  expect(await dispatcher.dispatchOne()).toEqual({ messageId: 'resume:decision-1', dispatched: true });
+  expect(calls).toEqual(['resume:attempt-1:decision-1', 'ack:resume:decision-1']);
+});

@@ -2,6 +2,7 @@
 import type { IpcRequest, IpcResponse, OnboardingProjection } from '../shared/ipc-contract.js';
 import { validateRequest } from './ipc-schemas.js';
 import { projectArtifactForRenderer, type ArtifactReadPort } from './artifact-ipc.js';
+import { listDecisionsForRenderer, projectDecisionForRenderer, type DecisionReadPort } from './decision-ipc.js';
 import type { ProposalIpcPort } from './proposal-ipc.js';
 import { listTasksForRenderer, projectTaskForRenderer, type TaskReadPort } from './task-ipc.js';
 
@@ -10,7 +11,7 @@ export interface OnboardingPort {
   set(projection: OnboardingProjection): Promise<OnboardingProjection>;
 }
 
-export async function routeIpc(request: unknown, onboarding: OnboardingPort, proposal?: ProposalIpcPort, task?: TaskReadPort, artifact?: ArtifactReadPort): Promise<IpcResponse> {
+export async function routeIpc(request: unknown, onboarding: OnboardingPort, proposal?: ProposalIpcPort, task?: TaskReadPort, artifact?: ArtifactReadPort, decision?: DecisionReadPort): Promise<IpcResponse> {
   const valid: IpcRequest = validateRequest(request);
   if (valid.channel === 'onboarding:get') return { onboarding: await onboarding.get() };
   if (valid.channel === 'onboarding:set') return { onboarding: await onboarding.set(valid.payload) };
@@ -25,6 +26,14 @@ export async function routeIpc(request: unknown, onboarding: OnboardingPort, pro
   if (valid.channel === 'artifact:get') {
     if (!artifact) throw new Error('Artifact IPC port is unavailable.');
     return { artifact: projectArtifactForRenderer(artifact, valid.payload) };
+  }
+  if (valid.channel === 'decision:get') {
+    if (!decision) throw new Error('Decision IPC port is unavailable.');
+    return { decision: projectDecisionForRenderer(decision, valid.payload) };
+  }
+  if (valid.channel === 'decision:list') {
+    if (!decision) throw new Error('Decision IPC port is unavailable.');
+    return { decisions: listDecisionsForRenderer(decision, valid.payload) };
   }
   if (!proposal) throw new Error('Proposal IPC port is unavailable.');
   const onboardingProjection = await onboarding.get();

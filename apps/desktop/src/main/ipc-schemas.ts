@@ -42,5 +42,11 @@ export function validateRequest(value: unknown): IpcRequest {
     && typeof value.payload.checksum === 'string' && /^sha256:[a-f0-9]{64}$/.test(value.payload.checksum)) {
     return { channel: 'artifact:get', payload: { artifactVersionId: value.payload.artifactVersionId, authorizationGrantId: value.payload.authorizationGrantId, checksum: value.payload.checksum } };
   }
+  if (value.channel === 'decision:get' && hasOnlyKeys(value.payload, ['decisionId']) && typeof value.payload.decisionId === 'string' && value.payload.decisionId.length > 0 && value.payload.decisionId.length <= 128) {
+    return { channel: 'decision:get', payload: { decisionId: value.payload.decisionId } };
+  }
+  if (value.channel === 'decision:list' && hasOnlyKeys(value.payload, ['taskId']) && typeof value.payload.taskId === 'string' && value.payload.taskId.length > 0 && value.payload.taskId.length <= 128) {
+    return { channel: 'decision:list', payload: { taskId: value.payload.taskId } };
+  }
   throw new Error('IPC channel or payload is not allowed.');
 }

@@ -7,6 +7,8 @@ const api: SuperAssistantDesktopApi = {
   getTask: (taskId) => ipcRenderer.invoke('task:get', { taskId }),
   listTasks: () => ipcRenderer.invoke('task:list', {}),
   getArtifact: (input) => ipcRenderer.invoke('artifact:get', input)
+  ,getDecision: (decisionId) => ipcRenderer.invoke('decision:get', { decisionId })
+  ,listDecisions: (taskId) => ipcRenderer.invoke('decision:list', { taskId })
 };
 
 contextBridge.exposeInMainWorld('superAssistant', Object.freeze(api));
