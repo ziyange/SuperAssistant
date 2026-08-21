@@ -16,5 +16,8 @@ Task Packs are execution permissions, not design substitutes. Every pack names e
 | TASK-202 | PHASE-002 | APPROVED | App Server execution lifecycle |
 | TASK-203 | PHASE-002 | APPROVED | Task UI and basic Artifact evidence |
 | TASK-204 | PHASE-002 | APPROVED | Integrate, write back, prepare PHASE-003, and archive PHASE-002 |
+| TASK-205 | PHASE-002 | APPROVED | Restore Electron runtime package boundaries before TASK-203 data wiring |
+| TASK-206 | PHASE-002 | APPROVED | Stabilize Codex fake App Server contract timing |
+| TASK-207 | PHASE-002 | APPROVED | Separate unit and contract test selection |
 
 Status transitions require validation and human confirmation. A draft is not executable. Approved content is frozen for execution; changes create a reviewed revision before work resumes.

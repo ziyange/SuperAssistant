@@ -35,6 +35,14 @@ TASK-101 establishes npm workspaces `@super-assistant/desktop`, `@super-assistan
 
 The root uses Node `22.19.x`, npm `10.7.x`, strict TypeScript, ESLint, Vitest, Playwright, Vite, and a committed npm lockfile. Dependency lifecycle scripts are disabled for the initial lockfile installation. Electron and SQLite native dependencies are declared for later approved packs, but TASK-101 does not execute their lifecycle scripts, create a database, or expose application behavior.
 
+TASK-205 establishes the desktop runtime boundary: domain and persistence emit
+ESM plus declarations to `dist`; Electron main, preload, and renderer emit to
+separate desktop artifact directories. Production main-process imports resolve
+only the emitted package entries. Development transforms use explicit source
+aliases, while renderer bundles remain unable to import persistence or Node
+runtime modules. Persistence migration SQL is copied with its emitted module;
+missing assets fail the runtime import smoke closed.
+
 ## Modules and ownership
 
 The H1 control plane is a modular monolith. Module boundaries are logical and testable even when deployed in one main process.
