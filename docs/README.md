@@ -1,8 +1,9 @@
 # Super Assistant documentation
 
-This repository contains accepted document-first baselines for `PHASE-000`,
-`PHASE-001` and `PHASE-002`. `PHASE-003` is next for Decision, audit and
-recovery implementation.
+This repository contains accepted document-first baselines for `PHASE-000`
+through `PHASE-003`. `PHASE-004` is in final local acceptance; its next-phase
+Task Packs are prepared but do not authorize PHASE-005 implementation until
+the PHASE-004 archive gate is recorded.
 
 ## Authority map
 
@@ -23,8 +24,10 @@ recovery implementation.
   records closeout and [archive evidence](archive/phase-001/README.md).
 - PHASE-002 is archived locally; its [evidence](archive/phase-002/README.md)
   records the user-approved TASK-202 real-smoke exception.
-- PHASE-003 is archived locally with its approved real-smoke exception; the
-  next implementation phase is PHASE-004.
+- PHASE-003 is archived locally with its approved real-smoke exception.
+- PHASE-004 implementation evidence is under review in
+  `docs/verification/reports/phase-004-task-40*.md`; PHASE-005
+  `TASK-501`–`TASK-505` are APPROVED and await the PHASE-004 archive gate.
 
 ## Design and implementation plans
 

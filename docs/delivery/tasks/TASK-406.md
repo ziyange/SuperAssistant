@@ -53,6 +53,7 @@ PHASE-004 archive and handoff evidence are complete.
 - docs/delivery/phase-005.md
 - docs/delivery/tasks/README.md
 - docs/delivery/tasks/TASK-406.md
+- docs/delivery/tasks/TASK-407.md
 - docs/delivery/tasks/TASK-501.md
 - docs/delivery/tasks/TASK-502.md
 - docs/delivery/tasks/TASK-503.md
@@ -97,3 +98,11 @@ Resource conflict, unknown execution and unapproved follow-on packs block archiv
 ## Output Required
 
 Return archive evidence and PHASE-005 readiness proof.
+
+## Approved Revision
+
+- 2026-08-21: user authorized continuous implementation. Add the exact
+  `TASK-407.md` supplemental acceptance pack after finding that the stated
+  thirty-scenario PHASE-004 DAG gate had no isolated evidence pack. The
+  supplement is limited to deterministic DAG/resource/quality test evidence;
+  it does not authorize PHASE-005 implementation.

@@ -31,5 +31,11 @@ Task Packs are execution permissions, not design substitutes. Every pack names e
 | TASK-404 | PHASE-004 | APPROVED | Schedule fenced resources |
 | TASK-405 | PHASE-004 | APPROVED | Independent quality evidence |
 | TASK-406 | PHASE-004 | APPROVED | Accept PHASE-004 and prepare PHASE-005 |
+| TASK-407 | PHASE-004 | APPROVED | Prove deterministic DAG acceptance scenarios |
+| TASK-501 | PHASE-005 | APPROVED | Persist immutable monitoring events |
+| TASK-502 | PHASE-005 | APPROVED | Collect authenticated monitoring signals |
+| TASK-503 | PHASE-005 | APPROVED | Normalize and aggregate monitoring signals |
+| TASK-504 | PHASE-005 | APPROVED | Bound automated follow-up work |
+| TASK-505 | PHASE-005 | APPROVED | Accept PHASE-005 and prepare PHASE-006 |
 
 Status transitions require validation and human confirmation. A draft is not executable. Approved content is frozen for execution; changes create a reviewed revision before work resumes.

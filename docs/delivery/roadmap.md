@@ -19,8 +19,8 @@ The roadmap designs the full product trajectory now while constraining implement
 | [PHASE-001](phase-001.md) | Platform foundation | Contract freeze, secure desktop shell, SQLite control plane, Project/worktree, Codex discovery | TASK-100 opens phase; TASK-101–105 implement; TASK-106 closes |
 | [PHASE-002](phase-002.md) | Codex single-task loop | Proposal, authorization, execution, progress, cancel, basic Artifact | TASK-201–203 drafted now; approve during PHASE-001 |
 | [PHASE-003](phase-003.md) | Decision, audit, and recovery | Question Router, Decision, Change Log, acceptance, restart recovery | Packs authored and approved during PHASE-002 |
-| [PHASE-004](phase-004.md) | Multi-agent quality loop | Stable SAI, templates, DAG, Testing/Inspector, resource fencing | Packs authored and approved during PHASE-003 |
-| [PHASE-005](phase-005.md) | Continuous monitoring loop | Collectors, triggers, aggregation, cooldown, budget, follow-up Tasks | Packs authored and approved during PHASE-004 |
+| [PHASE-004](phase-004.md) | Multi-agent quality loop | Stable SAI, templates, DAG, Testing/Inspector, resource fencing | Local acceptance in progress; PHASE-005 packs validated and approved |
+| [PHASE-005](phase-005.md) | Continuous monitoring loop | Collectors, triggers, aggregation, cooldown, budget, follow-up Tasks | Ready once PHASE-004 is archived |
 | [PHASE-006](phase-006.md) | Domain and adapter expansion | Operations/data/HR/enterprise agents, adapters, visual output | Packs authored and approved during PHASE-005 |
 | [PHASE-007](phase-007.md) | Team and enterprise governance | Membership, RBAC, multi-party approval, isolation, export, retention | Packs authored and approved during PHASE-006 |
 
