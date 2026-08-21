@@ -24,5 +24,6 @@ Task Packs are execution permissions, not design substitutes. Every pack names e
 | TASK-303 | PHASE-003 | APPROVED | Enforce acceptance and original-Task remediation |
 | TASK-304 | PHASE-003 | APPROVED | Recover after restart and export local audit |
 | TASK-305 | PHASE-003 | APPROVED | Accept H1 and prepare PHASE-004 |
+| TASK-306 | PHASE-003 | APPROVED | Align desktop React test runtime |
 
 Status transitions require validation and human confirmation. A draft is not executable. Approved content is frozen for execution; changes create a reviewed revision before work resumes.
