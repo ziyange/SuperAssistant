@@ -172,6 +172,12 @@ A stale Connection is treated as `UNAVAILABLE`, never optimistically connected. 
 
 Activity stores normalized Agent and system events keyed by ExecutionAttempt and sequence. Human History stores ProposalVersion confirmations and Decision resolutions keyed by actor and source version. They remain distinct, append-only, and cross-referenceable by Task/Decision IDs.
 
+PHASE-003 `TASK-302` persists both streams separately with append-only SQLite
+triggers. Activity ordering is unique by `(attempt_id, sequence)`; Human
+History preserves actor, action, source version, and timestamp. ProjectChange
+uses the same append-only rule: compensation inserts a linked successor that
+references the original Change and never rewrites historical revision lineage.
+
 ### WorkItemDependency
 
 Stores `predecessor_id`, `successor_id`, type (`SEQUENCE | ACCEPTANCE | DATA`), required outcome, and graph version. A transaction validates acyclicity before activating a ProposalVersion.

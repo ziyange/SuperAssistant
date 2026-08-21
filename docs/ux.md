@@ -96,6 +96,11 @@ the complete Decision content contract are present.
 
 Activity answers “what the Agent/system did”; Human History answers “what the user approved or decided.” The UI may cross-link them but never merges their evidence stores.
 
+TASK-302 renders Agent Activity and Human History as distinct semantic regions.
+Project changes expose revision lineage and label a compensation with its
+original Change identifier; empty projections state that no evidence is
+available rather than inferring success.
+
 ArtifactVersions show logical name, version, producer WorkItem/ExecutionAttempt, type, digest, time, status, and preview/download policy. Retries never replace earlier versions. Unknown or active content is download-only or quarantined. Project rollback displays the original and compensating ProjectChanges together; history is never visually erased.
 
 ## Data visualization

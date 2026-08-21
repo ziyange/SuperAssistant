@@ -126,6 +126,11 @@ The PHASE-003 Decision-resume transaction fails closed for an absent,
 Attempt or re-run a side effect; the single persisted resume command is the
 only permitted continuation after an idempotent resolution.
 
+TASK-302 history and ProjectChange read ports require the caller's Workspace,
+Project, and Task scope as query predicates. Renderer projections contain only
+safe event, actor, revision, and compensation metadata; they omit credentials,
+Grant identifiers, storage references, raw logs, and provider-native fields.
+
 H1 verification includes IPC negative tests, Credential Manager integration tests, path/symlink containment tests, Grant scope tests, fake App Server malformed-frame tests, redaction tests, and worktree cancellation/quarantine tests. H2 adds multi-worker race and event-ingestion abuse tests. H3 adds tenant-isolation, RBAC, quorum approval, audit export, retention, and vault rotation tests.
 
 Related contracts: [architecture](architecture.md), [SAI](api/sai.md), [Codex Adapter](adapters/codex.md), and [operations](operations.md).

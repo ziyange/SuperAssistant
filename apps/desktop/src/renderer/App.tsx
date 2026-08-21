@@ -7,12 +7,16 @@ import { ProposalReview } from './proposal-review.js';
 import { TaskCenter } from './task-center.js';
 import type { TaskCard } from './task-center.js';
 import { DecisionCenter, type DecisionCenterModel } from './decision-center.js';
+import { TaskHistory, type TaskHistoryModel } from './task-history.js';
+import { ProjectChanges, type ProjectChangesModel } from './project-changes.js';
 
 export function App() {
   const [current, setCurrent] = useState<Destination>('super-assistant');
   const [completed, setCompleted] = useState(false);
   const [tasks, setTasks] = useState<readonly TaskCard[]>([]);
   const [decisions, setDecisions] = useState<readonly DecisionCenterModel[]>([]);
+  const [history] = useState<TaskHistoryModel>({ activity: [], human: [] });
+  const [changes] = useState<readonly ProjectChangesModel[]>([]);
 
   useEffect(() => {
     void window.superAssistant?.getOnboarding().then((response) => {
@@ -45,5 +49,5 @@ export function App() {
     });
   };
 
-  return <main><Navigation current={current} onNavigate={setCurrent} /><h1>{current === 'super-assistant' ? 'Super Assistant' : current}</h1>{current === 'project-center' ? <ProjectCenter projects={[]} /> : current === 'task-center' ? <TaskCenter tasks={tasks} /> : current === 'super-assistant' ? <><ProposalReview objective="Side-effecting plan review" classification="SIDE_EFFECTING" preflight="STALE" onConfirm={() => undefined} />{decisions.map((decision) => <DecisionCenter key={decision.decisionId} decision={decision} />)}</> : <Onboarding completed={completed} onComplete={completeOnboarding} />}</main>;
+  return <main><Navigation current={current} onNavigate={setCurrent} /><h1>{current === 'super-assistant' ? 'Super Assistant' : current}</h1>{current === 'project-center' ? <><ProjectCenter projects={[]} /><ProjectChanges changes={changes} /></> : current === 'task-center' ? <><TaskCenter tasks={tasks} /><TaskHistory history={history} /></> : current === 'super-assistant' ? <><ProposalReview objective="Side-effecting plan review" classification="SIDE_EFFECTING" preflight="STALE" onConfirm={() => undefined} />{decisions.map((decision) => <DecisionCenter key={decision.decisionId} decision={decision} />)}</> : <Onboarding completed={completed} onComplete={completeOnboarding} />}</main>;
 }

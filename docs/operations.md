@@ -125,6 +125,11 @@ H1 operational metrics include:
 
 Metrics remain local in H1. Export or telemetry requires an explicit later policy and opt-in authorization.
 
+History and ProjectChange records are retained as local audit evidence. A
+rollback is represented as an additional compensating record with both prior
+and result revisions; operations must never mutate or delete the original
+evidence to represent restoration.
+
 ## Incident classes and runbooks
 
 ### Ambiguous execution

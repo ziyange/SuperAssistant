@@ -48,5 +48,11 @@ export function validateRequest(value: unknown): IpcRequest {
   if (value.channel === 'decision:list' && hasOnlyKeys(value.payload, ['taskId']) && typeof value.payload.taskId === 'string' && value.payload.taskId.length > 0 && value.payload.taskId.length <= 128) {
     return { channel: 'decision:list', payload: { taskId: value.payload.taskId } };
   }
+  if (value.channel === 'history:list' && hasOnlyKeys(value.payload, ['workspaceId', 'projectId', 'taskId']) && typeof value.payload.workspaceId === 'string' && typeof value.payload.projectId === 'string' && typeof value.payload.taskId === 'string' && value.payload.workspaceId.length > 0 && value.payload.workspaceId.length <= 128 && value.payload.projectId.length > 0 && value.payload.projectId.length <= 128 && value.payload.taskId.length > 0 && value.payload.taskId.length <= 128) {
+    return { channel: 'history:list', payload: { workspaceId: String(value.payload.workspaceId), projectId: String(value.payload.projectId), taskId: String(value.payload.taskId) } };
+  }
+  if (value.channel === 'project-change:list' && hasOnlyKeys(value.payload, ['workspaceId', 'projectId']) && typeof value.payload.workspaceId === 'string' && typeof value.payload.projectId === 'string' && value.payload.workspaceId.length > 0 && value.payload.workspaceId.length <= 128 && value.payload.projectId.length > 0 && value.payload.projectId.length <= 128) {
+    return { channel: 'project-change:list', payload: { workspaceId: String(value.payload.workspaceId), projectId: String(value.payload.projectId) } };
+  }
   throw new Error('IPC channel or payload is not allowed.');
 }

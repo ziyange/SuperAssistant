@@ -3,6 +3,7 @@ import type { IpcRequest, IpcResponse, OnboardingProjection } from '../shared/ip
 import { validateRequest } from './ipc-schemas.js';
 import { projectArtifactForRenderer, type ArtifactReadPort } from './artifact-ipc.js';
 import { listDecisionsForRenderer, projectDecisionForRenderer, type DecisionReadPort } from './decision-ipc.js';
+import { projectChangesForRenderer, projectHistoryForRenderer, type HistoryReadPort, type ProjectChangeReadPort } from './history-ipc.js';
 import type { ProposalIpcPort } from './proposal-ipc.js';
 import { listTasksForRenderer, projectTaskForRenderer, type TaskReadPort } from './task-ipc.js';
 
@@ -11,7 +12,7 @@ export interface OnboardingPort {
   set(projection: OnboardingProjection): Promise<OnboardingProjection>;
 }
 
-export async function routeIpc(request: unknown, onboarding: OnboardingPort, proposal?: ProposalIpcPort, task?: TaskReadPort, artifact?: ArtifactReadPort, decision?: DecisionReadPort): Promise<IpcResponse> {
+export async function routeIpc(request: unknown, onboarding: OnboardingPort, proposal?: ProposalIpcPort, task?: TaskReadPort, artifact?: ArtifactReadPort, decision?: DecisionReadPort, history?: HistoryReadPort, changes?: ProjectChangeReadPort): Promise<IpcResponse> {
   const valid: IpcRequest = validateRequest(request);
   if (valid.channel === 'onboarding:get') return { onboarding: await onboarding.get() };
   if (valid.channel === 'onboarding:set') return { onboarding: await onboarding.set(valid.payload) };
@@ -34,6 +35,14 @@ export async function routeIpc(request: unknown, onboarding: OnboardingPort, pro
   if (valid.channel === 'decision:list') {
     if (!decision) throw new Error('Decision IPC port is unavailable.');
     return { decisions: listDecisionsForRenderer(decision, valid.payload) };
+  }
+  if (valid.channel === 'history:list') {
+    if (!history) throw new Error('History IPC port is unavailable.');
+    return { history: projectHistoryForRenderer(history, valid.payload) };
+  }
+  if (valid.channel === 'project-change:list') {
+    if (!changes) throw new Error('Project Change IPC port is unavailable.');
+    return { changes: projectChangesForRenderer(changes, valid.payload) };
   }
   if (!proposal) throw new Error('Proposal IPC port is unavailable.');
   const onboardingProjection = await onboarding.get();
