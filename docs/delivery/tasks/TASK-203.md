@@ -43,14 +43,19 @@ Build the H1 Task Center and Task detail projection for one required Work Item, 
 - packages/domain/tests/artifact.test.ts
 - packages/domain/tests/task-projection.test.ts
 - packages/persistence/src/sqlite/migrations/005-artifact.sql
+- packages/persistence/src/sqlite/migration-runner.ts
 - packages/persistence/src/repositories/artifact-repository.ts
 - packages/persistence/src/queries/task-projection.ts
 - packages/persistence/src/index.ts
 - packages/persistence/tests/artifact-repository.test.ts
+- packages/persistence/tests/migration-runner.test.ts
 - packages/persistence/tests/task-projection.test.ts
 - apps/desktop/src/main/artifact-ipc.ts
 - apps/desktop/src/main/task-ipc.ts
 - apps/desktop/src/main/ipc-router.ts
+- apps/desktop/src/main/ipc-schemas.ts
+- apps/desktop/src/main/main.ts
+- apps/desktop/src/preload/index.ts
 - apps/desktop/src/shared/ipc-contract.ts
 - apps/desktop/src/renderer/task-center.tsx
 - apps/desktop/src/renderer/task-detail.tsx
@@ -62,6 +67,8 @@ Build the H1 Task Center and Task detail projection for one required Work Item, 
 - apps/desktop/tests/renderer/task-detail.test.tsx
 - apps/desktop/tests/renderer/artifact-view.test.tsx
 - apps/desktop/tests/e2e/task-lifecycle.spec.ts
+- apps/desktop/tests/e2e/onboarding.spec.ts
+- apps/desktop/tests/e2e/proposal-confirmation.spec.ts
 - docs/data-model.md
 - docs/security.md
 - docs/ux.md
@@ -117,6 +124,25 @@ Projection, Artifact security, renderer, and Playwright suites pass; facts refle
 
 This approved revision follows TASK-202 migration `004-execution`; execution
 waits for PHASE-001 archival and preceding PHASE-002 Pack PASS evidence.
+
+## Approved scope expansion
+
+The user authorized `packages/persistence/src/sqlite/migration-runner.ts` and
+`packages/persistence/tests/migration-runner.test.ts` on 2026-08-14 solely to
+register and verify the already-approved `005-artifact.sql` migration.
+
+The user authorized `apps/desktop/src/main/ipc-schemas.ts` and
+`apps/desktop/src/main/main.ts` on 2026-08-14 solely to validate and register
+the Task and Artifact read-only IPC channels defined by this Task Pack.
+
+The user authorized `apps/desktop/src/preload/index.ts` on 2026-08-14 solely
+to expose the same validated Task and Artifact read-only IPC operations.
+
+The user authorized `apps/desktop/tests/e2e/onboarding.spec.ts` and
+`apps/desktop/tests/e2e/proposal-confirmation.spec.ts` on 2026-08-21 solely
+to align their navigation assertions with the approved H1 shell: reload starts
+at Super Assistant and the stale Proposal Review is on that page, not Task
+Center. No product behavior is changed by this expansion.
 
 ## Output Required
 

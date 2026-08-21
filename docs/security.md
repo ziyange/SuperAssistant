@@ -42,6 +42,10 @@ H2 supports additional OS credential backends behind the same broker contract. H
 - Subscriptions return sanitized domain events, never raw worker/App Server frames.
 - Navigation, new windows, permissions, external URL opening, and downloads are deny-by-default and allowlisted.
 - Rendered Markdown and ArtifactVersion previews use sanitization and a restrictive Content Security Policy; active HTML is never trusted.
+- The renderer build uses an explicit domain-only source alias and has no
+  persistence or Node runtime alias. Electron main/preload load emitted ESM
+  artifacts; missing package assets fail closed before a privileged process can
+  start.
 
 Worker IPC uses an application-start nonce delivered through an inherited private handle, protocol major-version negotiation, maximum frame size, strict message schemas, and immediate disconnect on authentication or framing failure. Local TCP listeners are not used for H1 control IPC.
 

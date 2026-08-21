@@ -8,7 +8,8 @@ const foundationSql = readFileSync(fileURLToPath(new URL('./migrations/001-found
 const projectMetadataSql = readFileSync(fileURLToPath(new URL('./migrations/002-project-metadata.sql', import.meta.url)), 'utf8');
 const proposalAuthorizationSql = readFileSync(fileURLToPath(new URL('./migrations/003-proposal-authorization.sql', import.meta.url)), 'utf8');
 const executionSql = readFileSync(fileURLToPath(new URL('./migrations/004-execution.sql', import.meta.url)), 'utf8');
-export const foundationMigrations: readonly Migration[] = [{ version: 1, name: 'foundation', sql: foundationSql }, { version: 2, name: 'project-metadata', sql: projectMetadataSql }, { version: 3, name: 'proposal-authorization', sql: proposalAuthorizationSql }, { version: 4, name: 'execution', sql: executionSql }];
+const artifactSql = readFileSync(fileURLToPath(new URL('./migrations/005-artifact.sql', import.meta.url)), 'utf8');
+export const foundationMigrations: readonly Migration[] = [{ version: 1, name: 'foundation', sql: foundationSql }, { version: 2, name: 'project-metadata', sql: projectMetadataSql }, { version: 3, name: 'proposal-authorization', sql: proposalAuthorizationSql }, { version: 4, name: 'execution', sql: executionSql }, { version: 5, name: 'artifact', sql: artifactSql }];
 
 export function applyMigrations(database: Database.Database, migrations: readonly Migration[] = foundationMigrations): void {
   database.exec('CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, name TEXT NOT NULL, applied_at TEXT NOT NULL)');

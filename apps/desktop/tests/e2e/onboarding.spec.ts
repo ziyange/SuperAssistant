@@ -30,6 +30,7 @@ test('default page provides bounded navigation and H1 onboarding', async ({ page
   await page.getByRole('button', { name: 'Start Task' }).click();
   await expect(page.getByText('Onboarding complete')).toBeVisible();
   await page.reload();
+  await page.getByRole('button', { name: 'Settings' }).click();
   await expect(page.getByText('Onboarding complete')).toBeVisible();
   await expect(page.evaluate(() => {
     const pageGlobal = globalThis as Record<string, unknown>;

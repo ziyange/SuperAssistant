@@ -30,5 +30,17 @@ export function validateRequest(value: unknown): IpcRequest {
   if (value.channel === 'proposal:preflight' && hasOnlyKeys(value.payload, ['approved', 'current']) && isRecord(value.payload.approved) && isRecord(value.payload.current)) {
     return { channel: 'proposal:preflight', payload: { approved: value.payload.approved, current: value.payload.current } };
   }
+  if (value.channel === 'task:get' && hasOnlyKeys(value.payload, ['taskId']) && typeof value.payload.taskId === 'string' && value.payload.taskId.length > 0 && value.payload.taskId.length <= 128) {
+    return { channel: 'task:get', payload: { taskId: value.payload.taskId } };
+  }
+  if (value.channel === 'task:list' && Object.keys(value.payload).length === 0) {
+    return { channel: 'task:list', payload: {} };
+  }
+  if (value.channel === 'artifact:get' && hasOnlyKeys(value.payload, ['artifactVersionId', 'authorizationGrantId', 'checksum'])
+    && typeof value.payload.artifactVersionId === 'string' && value.payload.artifactVersionId.length > 0 && value.payload.artifactVersionId.length <= 128
+    && typeof value.payload.authorizationGrantId === 'string' && value.payload.authorizationGrantId.length > 0 && value.payload.authorizationGrantId.length <= 128
+    && typeof value.payload.checksum === 'string' && /^sha256:[a-f0-9]{64}$/.test(value.payload.checksum)) {
+    return { channel: 'artifact:get', payload: { artifactVersionId: value.payload.artifactVersionId, authorizationGrantId: value.payload.authorizationGrantId, checksum: value.payload.checksum } };
+  }
   throw new Error('IPC channel or payload is not allowed.');
 }

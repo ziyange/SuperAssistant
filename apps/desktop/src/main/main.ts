@@ -1,13 +1,16 @@
 /* global process */
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, ipcMain, type IpcMainInvokeEvent } from 'electron';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import type Database from 'better-sqlite3';
+import { createFoundationDatabase, SqliteArtifactRepository, SqliteTaskProjectionQuery } from '@super-assistant/persistence';
 import { routeIpc, type OnboardingPort } from './ipc-router.js';
 import { createWindowOptions, isAllowedNavigation } from './window-policy.js';
 
 let onboarding = { completed: false };
 const onboardingPort: OnboardingPort = { get: async () => onboarding, set: async (next) => (onboarding = { completed: next.completed }) };
 const moduleDirectory = dirname(fileURLToPath(import.meta.url));
+let database: Database.Database | undefined;
 
 function senderIsTrusted(senderUrl: string): boolean {
   return senderUrl.startsWith('file:') || senderUrl.startsWith(process.env.VITE_DEV_SERVER_URL ?? 'http://127.0.0.1:5173');
@@ -23,16 +26,26 @@ async function createWindow(): Promise<void> {
 }
 
 app.whenReady().then(async () => {
-  ipcMain.handle('onboarding:get', (event, payload) => {
+  database = createFoundationDatabase(join(app.getPath('userData'), 'super-assistant.sqlite'));
+  const taskPort = new SqliteTaskProjectionQuery(database);
+  const artifactPort = new SqliteArtifactRepository(database);
+  const routeTrustedIpc = (event: IpcMainInvokeEvent, channel: string, payload: unknown) => {
     if (!senderIsTrusted(event.senderFrame?.url ?? '')) throw new Error('Untrusted IPC sender.');
-    return routeIpc({ channel: 'onboarding:get', payload }, onboardingPort);
+    return routeIpc({ channel, payload }, onboardingPort, undefined, taskPort, artifactPort);
+  };
+  ipcMain.handle('onboarding:get', (event, payload) => {
+    return routeTrustedIpc(event, 'onboarding:get', payload);
   });
   ipcMain.handle('onboarding:set', (event, payload) => {
-    if (!senderIsTrusted(event.senderFrame?.url ?? '')) throw new Error('Untrusted IPC sender.');
-    return routeIpc({ channel: 'onboarding:set', payload }, onboardingPort);
+    return routeTrustedIpc(event, 'onboarding:set', payload);
   });
+  ipcMain.handle('task:get', (event, payload) => routeTrustedIpc(event, 'task:get', payload));
+  ipcMain.handle('task:list', (event, payload) => routeTrustedIpc(event, 'task:list', payload));
+  ipcMain.handle('artifact:get', (event, payload) => routeTrustedIpc(event, 'artifact:get', payload));
   await createWindow();
 });
+
+app.on('before-quit', () => database?.close());
 
 app.on('web-contents-created', (_event, contents) => contents.setWindowOpenHandler(() => ({ action: 'deny' })));
 app.on('browser-window-created', (_event, window) => window.webContents.on('will-navigate', (event, target) => { if (!isAllowedNavigation(target, 'file://')) event.preventDefault(); }));
