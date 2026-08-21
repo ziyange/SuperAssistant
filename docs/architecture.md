@@ -83,6 +83,10 @@ H1 emits task and decision notifications. H2 adds normalized signals, aggregatio
 
 Implements SAI through the [Codex Adapter](adapters/codex.md). It supervises App Server, creates Task worktrees, translates events, performs reconciliation, enforces cancellation, and publishes normalized evidence. Codex-specific identifiers remain private adapter correlation data.
 
+PHASE-004 Adapter onboarding begins with deterministic SAI conformance: the
+eight baseline operations and compatible major version are verified before an
+Adapter becomes available to the control plane.
+
 ## Ports and trust boundaries
 
 - Renderer IPC: typed request/response and subscription methods; main process revalidates identity, schema, state version, and authorization.

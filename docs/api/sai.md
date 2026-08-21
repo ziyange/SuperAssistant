@@ -121,6 +121,13 @@ If `execution_may_have_started` is true, the platform must enter `UNKNOWN` regar
 - Removal uses advertise-deprecation, dual support, minimum-supported-version advance, then removal in a new major version.
 - Capability negotiation returns operation support, event types, limits, maximum payload size, reconciliation support, and ArtifactVersion mechanisms.
 
+### PHASE-004 SAI 1.0 conformance baseline
+
+The local conformance kit accepts only `1.x.y` peers that advertise all eight
+baseline operation names. A missing operation is `CAPABILITY_UNAVAILABLE`; a
+different major version is `VERSION_UNSUPPORTED`. Both results keep the Adapter
+unavailable and do not infer a substitute provider capability.
+
 ## Security and policy
 
 The adapter verifies that command identity, AuthorizationGrant reference, ProposalVersion digest, Project snapshot, Function version, and ResourceLease fences match the prepared execution. Failure is closed and auditable. Adapter output is untrusted until schema validation, redaction, and Inbox application complete. See [security](../security.md).
