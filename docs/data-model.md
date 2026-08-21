@@ -227,6 +227,13 @@ resource. It grants resources in canonical lexical order, blocks overlapping
 writes before Adapter dispatch, permits disjoint claims concurrently, and
 rejects writes carrying an old token.
 
+## Quality evidence
+
+Quality evidence is immutable and records Task, Work Item, executor Agent,
+evaluator Agent, quality role and outcome. A database constraint and domain
+validation require evaluator and executor to differ. Rejection references a
+remediation Work Item under the original Task.
+
 ## Relationships
 
 ```text

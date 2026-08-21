@@ -142,3 +142,9 @@ Related facts: [architecture](architecture.md), [security](security.md), [orches
 Agent Template views show the immutable Template version and every pinned
 Function version. They do not imply that a newer Template version changed an
 active or historical Work Item.
+
+## Quality evidence
+
+Quality views identify the Testing or Inspector role, evaluator, outcome, and
+the original Work Item needing repair. Rejection never presents a new top-level
+Task or a completion state.

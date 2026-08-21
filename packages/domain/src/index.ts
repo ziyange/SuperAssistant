@@ -21,6 +21,7 @@ export * from './proposal.js';
 export * from './preflight.js';
 export * from './routing.js';
 export * from './question-router.js';
+export * from './quality-evidence.js';
 export * from './resource-lease.js';
 export * from './recovery.js';
 export * from './task.js';

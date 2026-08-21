@@ -142,4 +142,8 @@ PHASE-004 resource scheduling treats canonical resource keys and fencing tokens
 as security boundaries. Conflicting writers are blocked before Adapter dispatch
 and a stale token cannot regain write authority after another owner is granted.
 
+PHASE-004 quality evidence rejects self-verification. Executor identity and
+quality evaluator identity are durable provenance fields, so an Agent cannot
+forge its own required Inspector acceptance.
+
 Related contracts: [architecture](architecture.md), [SAI](api/sai.md), [Codex Adapter](adapters/codex.md), and [operations](operations.md).

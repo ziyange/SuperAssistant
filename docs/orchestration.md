@@ -181,3 +181,10 @@ Before dispatch, every claim is canonicalized and acquired in one lexical lock
 order. An overlap is blocked rather than queued as a hidden write; disjoint
 claims may progress concurrently. Persisted fence checks reject stale owners,
 and release/recovery remains auditable.
+
+## PHASE-004 independent quality gate
+
+Testing and Inspector evidence must originate from an Agent distinct from the
+executor. A rejection cannot complete or replace the Task: it creates or
+reopens remediation inside the original Task graph and remains attributable to
+the evaluator.

@@ -37,10 +37,13 @@ Independent evidence and remediation tests pass.
 ## Allowed Files
 
 - packages/domain/src/quality-evidence.ts
+- packages/domain/src/index.ts
 - packages/domain/tests/quality-evidence.test.ts
 - packages/persistence/src/sqlite/migrations/013-quality-evidence.sql
+- packages/persistence/src/sqlite/migration-runner.ts
 - packages/persistence/src/repositories/quality-evidence-repository.ts
 - packages/persistence/tests/quality-evidence-repository.test.ts
+- packages/persistence/tests/migration-runner.test.ts
 - apps/desktop/src/renderer/quality-evidence.tsx
 - apps/desktop/tests/renderer/quality-evidence.test.tsx
 - apps/desktop/tests/e2e/quality-remediation.spec.ts
@@ -54,6 +57,13 @@ Independent evidence and remediation tests pass.
 ## Forbidden Files
 
 Any file not explicitly listed; executor-authored inspector evidence; replacement top-level Tasks.
+
+## Approved Revision
+
+- 2026-08-21: add the exact domain barrel and migration runner needed to expose
+  the public evidence contract and register migration `013` transactionally.
+- 2026-08-21: add the migration-runner regression test required to advance the
+  expected schema to migration `013` and retain rollback coverage.
 
 ## Interfaces / Contracts
 
