@@ -19,5 +19,10 @@ Task Packs are execution permissions, not design substitutes. Every pack names e
 | TASK-205 | PHASE-002 | APPROVED | Restore Electron runtime package boundaries before TASK-203 data wiring |
 | TASK-206 | PHASE-002 | APPROVED | Stabilize Codex fake App Server contract timing |
 | TASK-207 | PHASE-002 | APPROVED | Separate unit and contract test selection |
+| TASK-301 | PHASE-003 | APPROVED | Route questions and persist one Decision |
+| TASK-302 | PHASE-003 | APPROVED | Add append-only history, changes and rollback |
+| TASK-303 | PHASE-003 | APPROVED | Enforce acceptance and original-Task remediation |
+| TASK-304 | PHASE-003 | APPROVED | Recover after restart and export local audit |
+| TASK-305 | PHASE-003 | APPROVED | Accept H1 and prepare PHASE-004 |
 
 Status transitions require validation and human confirmation. A draft is not executable. Approved content is frozen for execution; changes create a reviewed revision before work resumes.
