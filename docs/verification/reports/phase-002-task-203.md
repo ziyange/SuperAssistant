@@ -3,8 +3,7 @@
 Date: 2026-08-21
 
 Evidence level: local; isolated fake execution for Playwright
-Task status: implementation and local gates passed; not yet committed or
-archived.
+Task status: completed locally in commit `dd0434d`; not archived.
 
 ## Delivered evidence
 

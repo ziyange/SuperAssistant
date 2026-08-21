@@ -3,8 +3,7 @@
 Date: 2026-08-21
 
 Evidence level: local fake App Server contract
-Task status: implementation and local gates passed; not yet committed or
-archived.
+Task status: completed locally in commit `1c8497b`; not archived.
 
 ## Root cause and fix
 

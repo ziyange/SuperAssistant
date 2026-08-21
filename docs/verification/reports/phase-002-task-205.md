@@ -2,8 +2,8 @@
 
 ## Decision
 
-`TASK-205` has local build-boundary evidence. TASK-203 may consume the emitted
-workspace package boundary after its remaining Task-level gates pass.
+`TASK-205` completed locally in commit `1aa9c8e`. TASK-203 may consume the
+emitted workspace package boundary.
 
 ## Evidence
 
@@ -27,7 +27,8 @@ workspace package boundary after its remaining Task-level gates pass.
 - No database was opened, no Adapter was launched, and no product state or
   authorization record was created by this Pack.
 
-## Remaining gate
+## Final gates
 
-The complete Strict runtime-trace and documentation-link gates must be run with
-the current execution evidence before TASK-205 receives final acceptance.
+The documentation-link, Task Pack, traceability, schema, and build
+runtime-trace gates subsequently passed with exit `0`; remote CI remains
+planned until a real run is recorded.
