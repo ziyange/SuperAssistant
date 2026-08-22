@@ -1,6 +1,6 @@
 # PHASE-005: Continuous monitoring loop
 
-- State: Ready after PHASE-004 archive
+- State: Ready to open
 - Horizon: H2 completion
 - Branch family: `codex/phase-005-*`
 - Archive path: `docs/archive/phase-005/`

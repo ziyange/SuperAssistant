@@ -1,9 +1,8 @@
 # Super Assistant documentation
 
 This repository contains accepted document-first baselines for `PHASE-000`
-through `PHASE-003`. `PHASE-004` is in final local acceptance; its next-phase
-Task Packs are prepared but do not authorize PHASE-005 implementation until
-the PHASE-004 archive gate is recorded.
+through `PHASE-004`. `PHASE-005` is ready to open in a fresh isolated
+worktree; its approved Task Packs do not authorize any later-phase work.
 
 ## Authority map
 
@@ -25,9 +24,10 @@ the PHASE-004 archive gate is recorded.
 - PHASE-002 is archived locally; its [evidence](archive/phase-002/README.md)
   records the user-approved TASK-202 real-smoke exception.
 - PHASE-003 is archived locally with its approved real-smoke exception.
-- PHASE-004 implementation evidence is under review in
-  `docs/verification/reports/phase-004-task-40*.md`; PHASE-005
-  `TASK-501`–`TASK-505` are APPROVED and await the PHASE-004 archive gate.
+- PHASE-004 is archived locally with deterministic multi-agent, fencing and
+  quality-loop evidence; its [archive](archive/phase-004/README.md) records
+  the inherited real-smoke limitation. PHASE-005 `TASK-501`–`TASK-505` are
+  APPROVED and ready for a fresh phase worktree.
 
 ## Design and implementation plans
 

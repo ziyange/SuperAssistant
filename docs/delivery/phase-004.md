@@ -1,6 +1,6 @@
 # PHASE-004: Multi-Agent quality loop
 
-- State: Local acceptance in progress
+- State: Archived locally
 - Horizon: H2
 - Branch family: `codex/phase-004-*`
 - Archive path: `docs/archive/phase-004/`
@@ -56,7 +56,7 @@ H1 accepted; SAI version and compatibility policy approved; canonical resource m
 - Non-conflicting Work Items run concurrently and recover deterministically.
 - Testing/Inspector rejection remains in the original Task and produces remediation.
 - Every result is attributable to an Agent, Function, version, Attempt, and authorization.
-- PHASE-005 Task Packs are approved and their validation evidence is recorded.
+- PHASE-005 Task Packs are approved, validated and ready for a fresh worktree.
 
 ## Archive evidence
 
