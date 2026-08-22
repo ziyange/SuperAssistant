@@ -55,7 +55,9 @@ and no PHASE-005 code is introduced.
 ## Allowed Files
 
 - packages/domain/tests/phase-004-dag-acceptance.test.ts
+- docs/delivery/tasks/README.md
 - docs/delivery/tasks/TASK-407.md
+- docs/delivery/tasks/TASK-408.md
 - docs/verification/reports/phase-004-task-407.md
 - docs/delivery/permission-audit.log
 - docs/delivery/execution-trace.json
@@ -101,3 +103,10 @@ stop for a separate bounded remediation pack.
 
 Write a focused scenario count and full-gate evidence to
 `docs/verification/reports/phase-004-task-407.md`.
+
+## Approved Revision
+
+- 2026-08-22: `resource-21-parent-resource-blocks-descendant-write` reproduced
+  a hierarchy-conflict defect. Continuous implementation authorization permits
+  exact `TASK-408.md`; TASK-407 retains the failing evidence and does not
+  itself authorize production changes.

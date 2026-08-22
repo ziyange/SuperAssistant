@@ -32,6 +32,7 @@ Task Packs are execution permissions, not design substitutes. Every pack names e
 | TASK-405 | PHASE-004 | APPROVED | Independent quality evidence |
 | TASK-406 | PHASE-004 | APPROVED | Accept PHASE-004 and prepare PHASE-005 |
 | TASK-407 | PHASE-004 | APPROVED | Prove deterministic DAG acceptance scenarios |
+| TASK-408 | PHASE-004 | APPROVED | Enforce hierarchical resource conflicts |
 | TASK-501 | PHASE-005 | APPROVED | Persist immutable monitoring events |
 | TASK-502 | PHASE-005 | APPROVED | Collect authenticated monitoring signals |
 | TASK-503 | PHASE-005 | APPROVED | Normalize and aggregate monitoring signals |
