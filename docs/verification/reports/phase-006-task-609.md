@@ -17,3 +17,21 @@ execution documents; their implementation remains unavailable until PHASE-006
 is accepted and PHASE-007 is explicitly opened. This satisfies the rolling
 handoff documentation condition, but does not change the TASK-606 BLOCKED
 condition or permit PHASE-006 archive.
+
+## Full local regression evidence
+
+After restoring the exact lockfile dependencies and running the required build
+before the emitted-artifact unit assertion, the following local gates passed:
+
+- `npm run lint`
+- `npm run typecheck`
+- `npm run build`
+- `npm run test:unit` (all discovered unit tests, including the Gemini probe
+  and safe Artifact renderer)
+- `npm run test:contract` (4 files, 29 tests)
+- `npm run test:e2e` (7 Playwright scenarios)
+
+The initial unit failure in a fresh worktree was attributable to the explicit
+runtime-package test prerequisite: generated `dist` artifacts did not yet
+exist. Rebuilding before that test made the suite pass. This is a local build
+ordering precondition, not a product failure or a Gemini workaround.
