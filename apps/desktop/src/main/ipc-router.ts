@@ -8,13 +8,14 @@ import { projectAcceptanceForRenderer, type AcceptanceReadPort } from './accepta
 import { projectAuditExportForRenderer, type AuditExportPort } from './audit-export-ipc.js';
 import type { ProposalIpcPort } from './proposal-ipc.js';
 import { listTasksForRenderer, projectTaskForRenderer, type TaskReadPort } from './task-ipc.js';
+import { projectMonitoringStatusForRenderer, type MonitoringStatusReadPort } from './monitoring-status-ipc.js';
 
 export interface OnboardingPort {
   get(): Promise<OnboardingProjection>;
   set(projection: OnboardingProjection): Promise<OnboardingProjection>;
 }
 
-export async function routeIpc(request: unknown, onboarding: OnboardingPort, proposal?: ProposalIpcPort, task?: TaskReadPort, artifact?: ArtifactReadPort, decision?: DecisionReadPort, history?: HistoryReadPort, changes?: ProjectChangeReadPort, acceptance?: AcceptanceReadPort, auditExport?: AuditExportPort): Promise<IpcResponse> {
+export async function routeIpc(request: unknown, onboarding: OnboardingPort, proposal?: ProposalIpcPort, task?: TaskReadPort, artifact?: ArtifactReadPort, decision?: DecisionReadPort, history?: HistoryReadPort, changes?: ProjectChangeReadPort, acceptance?: AcceptanceReadPort, auditExport?: AuditExportPort, monitoring?: MonitoringStatusReadPort): Promise<IpcResponse> {
   const valid: IpcRequest = validateRequest(request);
   if (valid.channel === 'onboarding:get') return { onboarding: await onboarding.get() };
   if (valid.channel === 'onboarding:set') return { onboarding: await onboarding.set(valid.payload) };
@@ -53,6 +54,10 @@ export async function routeIpc(request: unknown, onboarding: OnboardingPort, pro
   if (valid.channel === 'audit-export:create') {
     if (!auditExport) throw new Error('Audit export IPC port is unavailable.');
     return { auditExport: projectAuditExportForRenderer(auditExport, { ...valid.payload, generatedAt: new Date().toISOString() }) };
+  }
+  if (valid.channel === 'monitoring:status') {
+    if (!monitoring) throw new Error('Monitoring status IPC port is unavailable.');
+    return { monitoring: projectMonitoringStatusForRenderer(monitoring, valid.payload) };
   }
   if (!proposal) throw new Error('Proposal IPC port is unavailable.');
   const onboardingProjection = await onboarding.get();

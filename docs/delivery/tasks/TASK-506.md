@@ -28,6 +28,8 @@ Accessible monitoring state and SCN-MONITOR-BOUNDS evidence pass locally.
 - apps/desktop/src/shared/ipc-contract.ts
 - apps/desktop/src/main/monitoring-status-ipc.ts
 - apps/desktop/src/main/ipc-router.ts
+- apps/desktop/src/main/ipc-schemas.ts
+- apps/desktop/src/main/main.ts
 - apps/desktop/src/preload/index.ts
 - apps/desktop/src/renderer/monitoring-status.tsx
 - apps/desktop/src/renderer/App.tsx
@@ -63,3 +65,11 @@ Users can inspect monitoring health without secrets, and deterministic storm evi
 Unavailable or malformed monitoring state fails closed and renders truthful diagnostics.
 ## Output Required
 Report read-only projection, storm scenario, and authorization-boundary evidence.
+
+## Approved Revision
+
+- 2026-08-22: the established secure IPC pattern validates every renderer
+  channel in `ipc-schemas.ts` and registers it in `main.ts`; both exact paths
+  are required to make this read-only projection reachable. The projection
+  must show an unavailable collector truthfully rather than inventing live
+  queue telemetry.

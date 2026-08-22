@@ -156,4 +156,9 @@ budget limits before it can create a Proposal. A blocked decision is immutable
 audit evidence; an allowed decision remains subject to the ordinary
 ProposalVersion and AuthorizationGrant boundary and is never an authorization.
 
+The PHASE-005 monitoring-status IPC channel is read-only and schema-bounded to
+a Project identifier. Its renderer projection contains counts and collector
+availability only; it cannot disclose raw payloads or create a Proposal, Grant,
+Task, or external effect.
+
 Related contracts: [architecture](architecture.md), [SAI](api/sai.md), [Codex Adapter](adapters/codex.md), and [operations](operations.md).

@@ -197,3 +197,7 @@ in that order. `COOLDOWN`, `CONCURRENCY`, and `BUDGET` denials are durable,
 immutable audit decisions. Passing this gate only permits Proposal creation;
 the normal ProposalVersion, preflight, and AuthorizationGrant path remains
 mandatory before any Task or external effect.
+
+Monitoring health is an observational projection of immutable evidence. A
+missing collector is reported as `UNAVAILABLE`, not treated as an empty or
+healthy queue; this read-only status query has no transition authority.

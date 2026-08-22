@@ -134,6 +134,7 @@ Every state uses text and iconography, not color alone. Focus order, keyboard ac
 
 - H1 optimizes a single-user Codex development loop and exposes the complete safe ProposalVersion/Task/Decision/evidence model.
 - H2 adds Agent templates, parallel multi-Agent graphs, monitoring, event aggregation, cooldown and budget surfaces without adding top-level navigation.
+- PHASE-005 exposes monitoring health inside Project Center. It shows only raw-evidence, aggregate, and blocked-follow-up counts plus a truthful collector state; raw payloads, credentials, and an automatic follow-up action are never rendered.
 - H3 adds Workspace switcher, membership, RBAC, multi-party approvals, audit export, and retention controls inside the existing five destinations. Existing Task/Decision/ArtifactVersion URLs and product labels remain stable; adapter-specific concepts remain hidden.
 
 Related facts: [architecture](architecture.md), [security](security.md), [orchestration](orchestration.md), and [operations](operations.md).

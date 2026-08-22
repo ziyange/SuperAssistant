@@ -56,5 +56,6 @@ export function validateRequest(value: unknown): IpcRequest {
   }
   if (value.channel === 'acceptance:list' && hasOnlyKeys(value.payload, ['taskId']) && typeof value.payload.taskId === 'string' && value.payload.taskId.length > 0 && value.payload.taskId.length <= 128) return { channel: 'acceptance:list', payload: { taskId: value.payload.taskId } };
   if (value.channel === 'audit-export:create' && hasOnlyKeys(value.payload, ['workspaceId', 'projectId']) && typeof value.payload.workspaceId === 'string' && value.payload.workspaceId.length > 0 && value.payload.workspaceId.length <= 128 && typeof value.payload.projectId === 'string' && value.payload.projectId.length > 0 && value.payload.projectId.length <= 128) return { channel: 'audit-export:create', payload: { workspaceId: value.payload.workspaceId, projectId: value.payload.projectId } };
+  if (value.channel === 'monitoring:status' && hasOnlyKeys(value.payload, ['projectId']) && typeof value.payload.projectId === 'string' && value.payload.projectId.length > 0 && value.payload.projectId.length <= 128) return { channel: 'monitoring:status', payload: { projectId: value.payload.projectId } };
   throw new Error('IPC channel or payload is not allowed.');
 }

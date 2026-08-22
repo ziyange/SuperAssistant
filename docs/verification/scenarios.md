@@ -70,6 +70,11 @@ Declare overlapping and non-overlapping canonical resources across concurrent Wo
 
 Replay duplicate events and an event storm across collector, webhook, and scheduler sources; prove raw evidence retention, deduplication, aggregation, cooldown, budget, rate, and concurrency limits plus one policy-compliant follow-up.
 
+PHASE-005 deterministic evidence includes 100 same-key events in one five-minute
+window producing one aggregate, then cooldown, concurrency, and budget denials
+before any Proposal/Grant path. The Project Center projection shows only
+redacted counts and truthful collector availability.
+
 ## H3 domain and enterprise
 
 ### SCN-DOMAIN-CONFORMANCE

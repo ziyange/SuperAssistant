@@ -11,6 +11,8 @@ import { TaskHistory, type TaskHistoryModel } from './task-history.js';
 import { ProjectChanges, type ProjectChangesModel } from './project-changes.js';
 import { AuditExport } from './audit-export.js';
 import { DegradedState } from './degraded-state.js';
+import { MonitoringStatus } from './monitoring-status.js';
+import type { MonitoringStatusRendererProjection } from '../shared/ipc-contract.js';
 
 export function App() {
   const [current, setCurrent] = useState<Destination>('super-assistant');
@@ -19,10 +21,17 @@ export function App() {
   const [decisions, setDecisions] = useState<readonly DecisionCenterModel[]>([]);
   const [history] = useState<TaskHistoryModel>({ activity: [], human: [] });
   const [changes] = useState<readonly ProjectChangesModel[]>([]);
+  const [monitoring, setMonitoring] = useState<MonitoringStatusRendererProjection>();
 
   useEffect(() => {
     void window.superAssistant?.getOnboarding().then((response) => {
       if ('onboarding' in response) setCompleted(response.onboarding.completed);
+    });
+  }, []);
+
+  useEffect(() => {
+    void window.superAssistant?.getMonitoringStatus?.('default-project').then((response) => {
+      if ('monitoring' in response) setMonitoring(response.monitoring);
     });
   }, []);
 
@@ -51,5 +60,5 @@ export function App() {
     });
   };
 
-  return <main><Navigation current={current} onNavigate={setCurrent} /><h1>{current === 'super-assistant' ? 'Super Assistant' : current}</h1>{current === 'project-center' ? <><ProjectCenter projects={[]} /><ProjectChanges changes={changes} /><AuditExport /></> : current === 'task-center' ? <><TaskCenter tasks={tasks} /><TaskHistory history={history} /></> : current === 'super-assistant' ? <><DegradedState reason="Adapter status is unavailable until reconciliation completes." /><ProposalReview objective="Side-effecting plan review" classification="SIDE_EFFECTING" preflight="STALE" onConfirm={() => undefined} />{decisions.map((decision) => <DecisionCenter key={decision.decisionId} decision={decision} />)}</> : <Onboarding completed={completed} onComplete={completeOnboarding} />}</main>;
+  return <main><Navigation current={current} onNavigate={setCurrent} /><h1>{current === 'super-assistant' ? 'Super Assistant' : current}</h1>{current === 'project-center' ? <><ProjectCenter projects={[]} /><MonitoringStatus status={monitoring} /><ProjectChanges changes={changes} /><AuditExport /></> : current === 'task-center' ? <><TaskCenter tasks={tasks} /><TaskHistory history={history} /></> : current === 'super-assistant' ? <><DegradedState reason="Adapter status is unavailable until reconciliation completes." /><ProposalReview objective="Side-effecting plan review" classification="SIDE_EFFECTING" preflight="STALE" onConfirm={() => undefined} />{decisions.map((decision) => <DecisionCenter key={decision.decisionId} decision={decision} />)}</> : <Onboarding completed={completed} onComplete={completeOnboarding} />}</main>;
 }
