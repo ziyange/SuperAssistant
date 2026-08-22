@@ -152,3 +152,6 @@ An Adapter manifest is versioned, declares only the eight stable SAI operations,
 uses an opaque `cred:` reference, and maps only recognized product errors. A
 syntactically valid but incomplete manifest remains `DISABLED` through
 conformance; invalid capability or credential metadata fails closed.
+
+Legacy adapter compatibility evaluates only the stable SAI version and eight
+operations. Any upstream drift maps to a product-language disabled state.

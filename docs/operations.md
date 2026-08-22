@@ -213,6 +213,10 @@ or any substitution of UI cache for control-plane truth.
 Adapter onboarding is fail-closed: only a valid manifest and complete SAI
 conformance may mark an Adapter enabled.
 
+Legacy compatibility is a pre-dispatch safety gate. A changed upstream version
+or missing stable operation blocks affected work instead of falling back to
+terminal parsing or provider-specific UI text.
+
 HR support operations preserve classification and human-decision evidence;
 no automated retry or retention process may convert an HR recommendation into
 an employment action.
