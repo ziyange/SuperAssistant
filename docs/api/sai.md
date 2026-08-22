@@ -145,3 +145,10 @@ The machine-readable [SAI envelope schema](sai-envelope.schema.json) is the PHAS
 Proposal digest is the SHA-256 of RFC 8785 canonical JSON, formatted as `sha256:<lowercase-hex>`. A Grant is atomically consumed exactly once when it creates the initial Attempt. A same-objective retry requires a new Grant and new Attempt after the previous Attempt is terminal or proven `NOT_STARTED`; `UNKNOWN` and `RECONCILING` are never retry states. A material objective or responsibility change creates a remediation WorkItem under the existing Task; an acceptance failure never creates another top-level Task.
 
 H1 validates exactly one Project, one Codex Agent, and one required WorkItem while storing graph-capable records. H3 may add `actor_id` and `tenant_id` as additive fields; existing scope and authority fields remain mandatory and cannot be reinterpreted.
+
+## PHASE-006 Adapter manifest
+
+An Adapter manifest is versioned, declares only the eight stable SAI operations,
+uses an opaque `cred:` reference, and maps only recognized product errors. A
+syntactically valid but incomplete manifest remains `DISABLED` through
+conformance; invalid capability or credential metadata fails closed.

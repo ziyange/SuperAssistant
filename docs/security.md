@@ -162,3 +162,6 @@ availability only; it cannot disclose raw payloads or create a Proposal, Grant,
 Task, or external effect.
 
 Related contracts: [architecture](architecture.md), [SAI](api/sai.md), [Codex Adapter](adapters/codex.md), and [operations](operations.md).
+
+PHASE-006 Adapter manifests contain opaque credential references only. Invalid
+or incomplete capability metadata cannot enable an Adapter.

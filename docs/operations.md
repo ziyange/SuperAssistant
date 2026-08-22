@@ -209,3 +209,6 @@ The local Project Center records a bounded health projection for support:
 evidence, aggregate, and denied-follow-up counts plus collector availability.
 `UNAVAILABLE` requires operator diagnosis and never causes an automatic retry
 or any substitution of UI cache for control-plane truth.
+
+Adapter onboarding is fail-closed: only a valid manifest and complete SAI
+conformance may mark an Adapter enabled.
