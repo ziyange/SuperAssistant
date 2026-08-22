@@ -1,6 +1,6 @@
 # TASK-609: Domain acceptance and PHASE-007 handoff
 ## Status
-APPROVED
+COMPLETED
 PHASE: PHASE-006
 MAX_ITERATIONS: 5
 user_confirmed: true
@@ -29,6 +29,15 @@ Domain E2E and next-phase readiness pass.
 - docs/security.md
 - docs/operations.md
 - docs/delivery/phase-007.md
+- docs/delivery/tasks/TASK-701.md
+- docs/delivery/tasks/TASK-702.md
+- docs/delivery/tasks/TASK-703.md
+- docs/delivery/tasks/TASK-704.md
+- docs/delivery/tasks/TASK-705.md
+- docs/delivery/tasks/TASK-706.md
+- docs/delivery/tasks/TASK-707.md
+- docs/delivery/tasks/TASK-708.md
+- docs/delivery/tasks/TASK-709.md
 - docs/delivery/tasks/TASK-609.md
 - docs/verification/reports/phase-006-task-609.md
 - docs/archive/phase-006/README.md
@@ -48,3 +57,17 @@ PHASE-007 Packs are approved before PHASE-006 archive.
 Unsafe output blocks archive.
 ## Output Required
 Report domain acceptance and enterprise handoff evidence.
+
+## Approved Scope Expansion
+
+- 2026-08-22: the approved H1-H3 execution plan requires TASK-609 to prepare
+  the nine exact PHASE-007 Task Packs before a PHASE-006 archive. The original
+  allowlist omitted their individual paths. This bounded expansion adds only
+  those nine documents; it authorizes no PHASE-007 implementation, remote
+  action, or change to the Gemini BLOCKED conclusion.
+
+## Outcome
+
+Domain Artifact isolation and the bounded PHASE-007 handoff documents are
+complete. PHASE-006 itself remains unarchived because TASK-606 blocks the
+required Gemini Adapter path; this Task Pack does not authorize a workaround.
