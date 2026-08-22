@@ -22,9 +22,14 @@ Aggregation and lineage evidence pass.
 - docs/operations.md
 ## Allowed Files
 - packages/domain/src/event-aggregation.ts
+- packages/domain/src/index.ts
 - packages/domain/tests/event-aggregation.test.ts
 - packages/persistence/src/repositories/event-aggregation-repository.ts
+- packages/persistence/src/index.ts
+- packages/persistence/src/sqlite/migrations/015-event-aggregation.sql
+- packages/persistence/src/sqlite/migration-runner.ts
 - packages/persistence/tests/event-aggregation-repository.test.ts
+- packages/persistence/tests/migration-runner.test.ts
 - docs/data-model.md
 - docs/orchestration.md
 - docs/delivery/tasks/TASK-503.md
@@ -45,3 +50,10 @@ Equivalent events form one group without lost evidence.
 Overaggregation fails safe.
 ## Output Required
 Report aggregation evidence.
+
+## Approved Revision
+
+- 2026-08-22: durable correlation groups and source lineage require one
+  forward-only SQLite migration, its established registration path, public
+  cross-package exports, and migration regression evidence. These exact paths
+  are added; no Task creation or raw-evidence deletion is authorized.

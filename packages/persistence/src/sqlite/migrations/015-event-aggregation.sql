@@ -1,0 +1,2 @@
+CREATE TABLE event_aggregation_groups (group_id TEXT PRIMARY KEY, project_id TEXT NOT NULL, correlation_key TEXT NOT NULL, window_started_at TEXT NOT NULL);
+CREATE TABLE event_aggregation_lineage (group_id TEXT NOT NULL, raw_event_id TEXT NOT NULL, PRIMARY KEY(group_id, raw_event_id), FOREIGN KEY(group_id) REFERENCES event_aggregation_groups(group_id), FOREIGN KEY(raw_event_id) REFERENCES raw_monitoring_events(event_id));

@@ -16,3 +16,4 @@ export * from './repositories/inbox-repository.js';
 export * from './repositories/outbox-repository.js';
 export * from './repositories/resource-lease-repository.js';
 export * from './repositories/monitoring-event-repository.js';
+export * from './repositories/event-aggregation-repository.js';
