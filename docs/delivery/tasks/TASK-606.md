@@ -1,6 +1,6 @@
 # TASK-606: Gemini compatibility probe
 ## Status
-APPROVED
+COMPLETED
 PHASE: PHASE-006
 MAX_ITERATIONS: 3
 user_confirmed: true
@@ -44,6 +44,12 @@ Missing reconciliation/status/events/result blocks production adapter.
 Probe failure blocks TASK-607.
 ## Output Required
 Report fixed-version capability matrix.
+
+## Outcome
+
+BLOCKED for production: the authorized fixed-version probe completed and
+established that the required public durable `status`, `result`, and
+reconciliation operations are absent. TASK-607 remains non-executable.
 
 ## Approved Revision
 

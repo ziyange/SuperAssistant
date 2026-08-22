@@ -223,3 +223,12 @@ incident review; a viewer never expands it into active renderer content.
 HR support operations preserve classification and human-decision evidence;
 no automated retry or retention process may convert an HR recommendation into
 an employment action.
+
+## PHASE-006 Gemini Core 0.55.1 probe
+
+The exact Core package exposes local send, cancellation, event replay, and
+stream reattachment primitives, but no public durable `status`, `result`, or
+`reconcile` query for an external ExecutionAttempt. Gemini remains DISABLED.
+Operations must not infer a terminal state from process exit, session files, or
+terminal text; an adapter may be enabled only after a future approved design
+can prove all SAI operations across restart and reconciliation.
