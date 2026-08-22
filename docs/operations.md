@@ -212,3 +212,7 @@ or any substitution of UI cache for control-plane truth.
 
 Adapter onboarding is fail-closed: only a valid manifest and complete SAI
 conformance may mark an Adapter enabled.
+
+HR support operations preserve classification and human-decision evidence;
+no automated retry or retention process may convert an HR recommendation into
+an employment action.

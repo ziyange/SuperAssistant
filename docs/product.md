@@ -164,3 +164,6 @@ Proposal and never becomes an automatic Template mode.
 
 Operations analysis conclusions retain metric, dataset version and observation
 time. Correlation is displayed as correlation, never as a causal claim.
+
+HR workflows classify sensitive data before processing. Employment decisions
+remain human L4 Decisions and cannot be executed by an Agent recommendation.

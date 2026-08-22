@@ -168,3 +168,7 @@ or incomplete capability metadata cannot enable an Adapter.
 
 Domain Template classification is mandatory. `ANALYSIS` may create a cited
 recommendation; it cannot produce an automatic side effect or bypass a Grant.
+
+HR data is sensitive by default. An unclassified record is rejected, and an
+employment action requires an explicit L4 human Decision in addition to any
+ordinary authorization boundary.
