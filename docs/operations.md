@@ -196,3 +196,11 @@ Raw monitoring events are immutable evidence. The default retention policy is
 aggregates. Audit records, referenced evidence and legal-hold records are
 excluded from automatic cleanup. TASK-501 persists evidence only; it does not
 implement a deletion worker or override these retention protections.
+
+## PHASE-005 follow-up protection baseline
+
+Monitoring follow-up denials are retained as immutable audit decisions. The
+runtime checks cooldown, concurrency, and budget before Proposal creation, and
+operators must investigate sustained denials as a signal of event storms or
+capacity pressure; no operator override may create a Task or side effect
+without the normal Proposal and Grant evidence.

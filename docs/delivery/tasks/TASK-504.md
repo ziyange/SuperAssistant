@@ -25,7 +25,10 @@ Budget and authorization evidence pass.
 - packages/domain/src/follow-up-budget.ts
 - packages/domain/tests/follow-up-budget.test.ts
 - packages/persistence/src/repositories/follow-up-budget-repository.ts
+- packages/persistence/src/sqlite/migrations/016-follow-up-budget.sql
+- packages/persistence/src/sqlite/migration-runner.ts
 - packages/persistence/tests/follow-up-budget-repository.test.ts
+- packages/persistence/tests/migration-runner.test.ts
 - docs/security.md
 - docs/orchestration.md
 - docs/operations.md
@@ -47,3 +50,9 @@ Over-limit calls are blocked or delayed and never mutate without Grant.
 Automation storms fail closed.
 ## Output Required
 Report limits and authorization evidence.
+
+## Approved Revision
+
+- 2026-08-22: auditable cooldown and budget decisions require one exact
+  forward-only persistence migration plus its registration and regression
+  path. No authorization bypass or automatic Task creation is included.

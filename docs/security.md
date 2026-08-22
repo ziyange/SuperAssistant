@@ -151,4 +151,9 @@ identity. Monitoring payloads are stored with a SHA-256 digest for integrity;
 collectors and later viewers must continue to apply the repository redaction,
 size, MIME, and access controls before rendering any payload content.
 
+PHASE-005 automated follow-up evaluates cooldown, active-concurrency, and
+budget limits before it can create a Proposal. A blocked decision is immutable
+audit evidence; an allowed decision remains subject to the ordinary
+ProposalVersion and AuthorizationGrant boundary and is never an authorization.
+
 Related contracts: [architecture](architecture.md), [SAI](api/sai.md), [Codex Adapter](adapters/codex.md), and [operations](operations.md).

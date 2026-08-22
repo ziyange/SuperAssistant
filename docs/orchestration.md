@@ -188,3 +188,12 @@ Testing and Inspector evidence must originate from an Agent distinct from the
 executor. A rejection cannot complete or replace the Task: it creates or
 reopens remediation inside the original Task graph and remains attributable to
 the evaluator.
+
+## PHASE-005 bounded monitoring follow-up
+
+Before creating a monitoring-derived Proposal, the orchestrator checks the
+correlation key's cooldown, active follow-up concurrency, and Workspace budget
+in that order. `COOLDOWN`, `CONCURRENCY`, and `BUDGET` denials are durable,
+immutable audit decisions. Passing this gate only permits Proposal creation;
+the normal ProposalVersion, preflight, and AuthorizationGrant path remains
+mandatory before any Task or external effect.
