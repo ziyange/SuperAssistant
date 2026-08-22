@@ -39,5 +39,14 @@ Task Packs are execution permissions, not design substitutes. Every pack names e
 | TASK-504 | PHASE-005 | APPROVED | Bound automated follow-up work |
 | TASK-505 | PHASE-005 | APPROVED | Accept PHASE-005 and prepare PHASE-006 |
 | TASK-506 | PHASE-005 | APPROVED | Expose bounded monitoring state and prove storm limits |
+| TASK-601 | PHASE-006 | APPROVED | Generic adapter manifest and conformance gate |
+| TASK-602 | PHASE-006 | APPROVED | Domain template and classification contracts |
+| TASK-603 | PHASE-006 | APPROVED | Operations Data Agent lineage |
+| TASK-604 | PHASE-006 | APPROVED | HR Agent security boundary |
+| TASK-605 | PHASE-006 | APPROVED | Legacy adapter compatibility |
+| TASK-606 | PHASE-006 | APPROVED | Gemini fixed-version compatibility probe |
+| TASK-607 | PHASE-006 | APPROVED | Gemini Core SAI Adapter |
+| TASK-608 | PHASE-006 | APPROVED | Enterprise internal Agent scope |
+| TASK-609 | PHASE-006 | APPROVED | Domain acceptance and enterprise handoff |
 
 Status transitions require validation and human confirmation. A draft is not executable. Approved content is frozen for execution; changes create a reviewed revision before work resumes.
