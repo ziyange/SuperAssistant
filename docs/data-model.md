@@ -286,3 +286,6 @@ A Task may span Projects through WorkItems. Every WorkItem belongs to exactly on
 - SQLite-specific row IDs, paths, and SQL expressions are not present in SAI or renderer contracts, preserving a future service database migration.
 
 See [architecture](architecture.md), [security](security.md), and [orchestration](orchestration.md) for ownership and enforcement.
+
+PHASE-006 DomainTemplate versions are immutable records of Template identifier,
+Function version and data classification. They do not grant execution authority.

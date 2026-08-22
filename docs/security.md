@@ -165,3 +165,6 @@ Related contracts: [architecture](architecture.md), [SAI](api/sai.md), [Codex Ad
 
 PHASE-006 Adapter manifests contain opaque credential references only. Invalid
 or incomplete capability metadata cannot enable an Adapter.
+
+Domain Template classification is mandatory. `ANALYSIS` may create a cited
+recommendation; it cannot produce an automatic side effect or bypass a Grant.

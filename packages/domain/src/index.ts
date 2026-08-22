@@ -15,6 +15,7 @@ export * from './monitoring-event.js';
 export * from './event-aggregation.js';
 export * from './monitoring-status.js';
 export * from './adapter-manifest.js';
+export * from './domain-template.js';
 export * from './ports/foundation-repository.js';
 export * from './ports/artifact-repository.js';
 export * from './ports/decision-repository.js';

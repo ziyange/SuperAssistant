@@ -157,3 +157,7 @@ H2 adds multiple Agent roles, DAG scheduling, resource conflict fencing, continu
 - Each side-effecting application Task uses an isolated worktree and a bounded resource lease.
 - Product facts, engineering facts, delivery plans, Task Packs, verification evidence, and phase archives remain separate but traceable.
 - A phase archives only after its requirements pass, facts are written back, evidence is recorded, and the next phase's Task Packs are approved.
+
+PHASE-006 domain Templates pin a versioned Function and a data classification.
+They can analyze and cite facts; any action remains a separately authorized
+Proposal and never becomes an automatic Template mode.
