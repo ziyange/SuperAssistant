@@ -289,3 +289,6 @@ See [architecture](architecture.md), [security](security.md), and [orchestration
 
 PHASE-006 DomainTemplate versions are immutable records of Template identifier,
 Function version and data classification. They do not grant execution authority.
+
+OperationsAnalysis projections retain the metric, numeric result, dataset
+version and observed timestamp needed to trace every displayed conclusion.

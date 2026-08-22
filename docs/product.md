@@ -161,3 +161,6 @@ H2 adds multiple Agent roles, DAG scheduling, resource conflict fencing, continu
 PHASE-006 domain Templates pin a versioned Function and a data classification.
 They can analyze and cite facts; any action remains a separately authorized
 Proposal and never becomes an automatic Template mode.
+
+Operations analysis conclusions retain metric, dataset version and observation
+time. Correlation is displayed as correlation, never as a causal claim.

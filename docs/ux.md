@@ -120,6 +120,10 @@ Use the smallest view that answers the question:
 
 Insufficient comparison data produces an explicit “insufficient data” state rather than inference. Correlation is never labeled causation. Refresh cadence and observation time are visible for dynamic data.
 
+PHASE-006 Operations analysis shows its dataset version and observation time
+beside every metric. It uses a read-only projection and never offers an action
+control in the analysis view.
+
 ## Degraded and recovery states
 
 When the Super Assistant model or network is unavailable, the UI remains usable for read-only Agent, Project, Task, Decision, Activity, and ArtifactVersion views. Already authorized independent work may continue. New AI planning, Agent creation, and replanning are disabled with a reason and recovery action.
