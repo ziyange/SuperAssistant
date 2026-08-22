@@ -292,3 +292,6 @@ Function version and data classification. They do not grant execution authority.
 
 OperationsAnalysis projections retain the metric, numeric result, dataset
 version and observed timestamp needed to trace every displayed conclusion.
+
+Internal Agent access records bind an Agent data domain to its requested domain
+and an opaque credential reference; the reference is not a secret value.

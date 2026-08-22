@@ -172,3 +172,7 @@ recommendation; it cannot produce an automatic side effect or bypass a Grant.
 HR data is sensitive by default. An unclassified record is rejected, and an
 employment action requires an explicit L4 human Decision in addition to any
 ordinary authorization boundary.
+
+Internal Agent authorization intersects declared Agent and requested data
+domains. Cross-domain access and non-opaque credential material fail closed
+before an Adapter can receive a command.
