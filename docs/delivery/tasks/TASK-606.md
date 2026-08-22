@@ -21,6 +21,8 @@ Conformance result is PASS or documented BLOCKED without weakening SAI.
 - docs/security.md
 - docs/operations.md
 ## Allowed Files
+- package.json
+- package-lock.json
 - packages/codex-adapter/tests/gemini-probe.test.ts
 - docs/adapters/gemini.md
 - docs/operations.md
@@ -42,3 +44,11 @@ Missing reconciliation/status/events/result blocks production adapter.
 Probe failure blocks TASK-607.
 ## Output Required
 Report fixed-version capability matrix.
+
+## Approved Revision
+
+- 2026-08-22: user authorized a one-time exact dependency probe after the
+  initial blocked evidence. `@google/gemini-cli-core@0.55.1` may be added only
+  through the lockfile, then exercised by deterministic fixture tests. This
+  revision does not authorize production Adapter code, terminal-text parsing,
+  credentials, `--yolo`, or any weakening of SAI.
