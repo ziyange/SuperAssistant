@@ -176,3 +176,6 @@ ordinary authorization boundary.
 Internal Agent authorization intersects declared Agent and requested data
 domains. Cross-domain access and non-opaque credential material fail closed
 before an Adapter can receive a command.
+
+Artifact viewers never execute untrusted content. Malicious HTML is displayed
+only as escaped metadata under Download-only or Quarantined policy.

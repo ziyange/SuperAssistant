@@ -8,3 +8,10 @@ test('shows quarantined Artifact evidence as non-executable metadata', () => {
   expect(screen.getByText('Artifact quarantined')).toBeTruthy();
   expect(screen.queryByRole('button')).toBeNull();
 });
+
+test('renders malicious HTML as download-only metadata without active content', () => {
+  render(<ArtifactView artifact={{ logicalName: '<script>alert(1)</script>', mimeType: 'text/html', checksum: 'sha256:def', state: 'DOWNLOAD_ONLY' }} />);
+  expect(screen.getByText('Download only')).toBeTruthy();
+  expect(screen.queryByRole('button')).toBeNull();
+  expect(document.querySelector('script')).toBeNull();
+});

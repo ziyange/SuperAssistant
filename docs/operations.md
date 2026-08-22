@@ -217,6 +217,9 @@ Legacy compatibility is a pre-dispatch safety gate. A changed upstream version
 or missing stable operation blocks affected work instead of falling back to
 terminal parsing or provider-specific UI text.
 
+Unsafe Artifact output remains quarantined or download-only during support and
+incident review; a viewer never expands it into active renderer content.
+
 HR support operations preserve classification and human-decision evidence;
 no automated retry or retention process may convert an HR recommendation into
 an employment action.
