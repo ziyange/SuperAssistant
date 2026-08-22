@@ -189,3 +189,10 @@ Repository delivery follows [ADR-005](decisions/ADR-005-rolling-task-packs.md): 
 - H3 adds tenant-partitioned services, managed queues/object storage/vault, RBAC operations, approval quorum, audit export, backup regions, and retention enforcement. Migration preserves H1 public IDs and audit meaning; remote operation cannot weaken ambiguous-state, credential, or authorization controls.
 
 Related facts: [architecture](architecture.md), [data model](data-model.md), [security](security.md), and [Codex Adapter](adapters/codex.md).
+## PHASE-005 monitoring retention baseline
+
+Raw monitoring events are immutable evidence. The default retention policy is
+30 days for raw events, 90 days for normalized events, and 365 days for
+aggregates. Audit records, referenced evidence and legal-hold records are
+excluded from automatic cleanup. TASK-501 persists evidence only; it does not
+implement a deletion worker or override these retention protections.

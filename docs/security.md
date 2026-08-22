@@ -146,4 +146,9 @@ PHASE-004 quality evidence rejects self-verification. Executor identity and
 quality evaluator identity are durable provenance fields, so an Agent cannot
 forge its own required Inspector acceptance.
 
+PHASE-005 raw monitoring evidence is immutable and idempotent by source
+identity. Monitoring payloads are stored with a SHA-256 digest for integrity;
+collectors and later viewers must continue to apply the repository redaction,
+size, MIME, and access controls before rendering any payload content.
+
 Related contracts: [architecture](architecture.md), [SAI](api/sai.md), [Codex Adapter](adapters/codex.md), and [operations](operations.md).

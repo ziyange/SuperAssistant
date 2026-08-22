@@ -23,11 +23,14 @@ Event persistence, retention facts and migration evidence pass.
 - docs/delivery/phase-005.md
 ## Allowed Files
 - packages/domain/src/monitoring-event.ts
+- packages/domain/src/index.ts
 - packages/domain/tests/monitoring-event.test.ts
 - packages/persistence/src/sqlite/migrations/014-monitoring-events.sql
 - packages/persistence/src/sqlite/migration-runner.ts
 - packages/persistence/src/repositories/monitoring-event-repository.ts
+- packages/persistence/src/index.ts
 - packages/persistence/tests/monitoring-event-repository.test.ts
+- packages/persistence/tests/migration-runner.test.ts
 - docs/data-model.md
 - docs/security.md
 - docs/operations.md
@@ -49,3 +52,9 @@ Duplicate source keys do not duplicate evidence.
 Data loss fails closed.
 ## Output Required
 Report event persistence and retention evidence.
+
+## Approved Revision
+
+- 2026-08-22: add the exact domain and persistence barrel exports required by
+  the established cross-package repository pattern, plus the migration-runner
+  regression test required to prove version `014` registration and rollback.

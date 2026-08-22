@@ -43,6 +43,17 @@ The approved model contains twelve named persistent records. Their names are sta
 
 `Function` is an additional core entity because Agent capability, input/output compatibility, side-effect classification, and version pinning cannot be represented safely as unversioned Agent metadata. `Capability`, dependency, Activity/Human History, Inbox/Outbox, and adapter correlation are supporting records.
 
+### PHASE-005 migration 014 monitoring events
+
+`TASK-501` adds forward-only migration `014-monitoring-events`. A
+`RawMonitoringEvent` retains Workspace, Project, source identity, source
+idempotency key, occurrence time, type, raw payload, and a lower-case SHA-256
+payload digest. `(source_id, source_key)` is unique, so repeated delivery
+returns the original immutable raw record. A `NormalizedMonitoringEvent` is
+bound to one RawEvent and a positive schema version; a raw event has at most
+one normalized record per schema version. Both tables reject updates and
+deletes through immutable triggers.
+
 ### Workspace
 
 Fields: `workspace_id`, `owner_id`, `name`, `status`, locale, timezone, creation/update timestamps, and `row_version`.
