@@ -26,8 +26,9 @@ worktree; its approved Task Packs do not authorize any later-phase work.
 - PHASE-003 is archived locally with its approved real-smoke exception.
 - PHASE-004 is archived locally with deterministic multi-agent, fencing and
   quality-loop evidence; its [archive](archive/phase-004/README.md) records
-  the inherited real-smoke limitation. PHASE-005 `TASK-501`–`TASK-505` are
-  APPROVED and ready for a fresh phase worktree.
+  the inherited real-smoke limitation. PHASE-005 is archived locally with
+  bounded monitoring and read-only health evidence; PHASE-006 `TASK-601`–
+  `TASK-609` are approved and ready for a fresh phase worktree.
 
 ## Design and implementation plans
 

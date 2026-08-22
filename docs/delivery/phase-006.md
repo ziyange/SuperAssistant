@@ -1,6 +1,6 @@
 # PHASE-006: Domain and Adapter expansion
 
-- State: Planned
+- State: Ready to open
 - Horizon: H3
 - Branch family: `codex/phase-006-*`
 - Archive path: `docs/archive/phase-006/`
