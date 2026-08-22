@@ -36,6 +36,16 @@ PHASE-005 archive and PHASE-006 readiness are complete.
 - docs/delivery/phase-006.md
 - docs/delivery/tasks/README.md
 - docs/delivery/tasks/TASK-505.md
+- docs/delivery/tasks/TASK-506.md
+- docs/delivery/tasks/TASK-601.md
+- docs/delivery/tasks/TASK-602.md
+- docs/delivery/tasks/TASK-603.md
+- docs/delivery/tasks/TASK-604.md
+- docs/delivery/tasks/TASK-605.md
+- docs/delivery/tasks/TASK-606.md
+- docs/delivery/tasks/TASK-607.md
+- docs/delivery/tasks/TASK-608.md
+- docs/delivery/tasks/TASK-609.md
 - docs/verification/reports/phase-005-task-505.md
 - docs/archive/phase-005/README.md
 - docs/archive/phase-005/task-pack-snapshots.md
@@ -59,3 +69,12 @@ Monitoring exits pass and PHASE-006 packs are approved.
 Unknown signal origin or unapproved next packs blocks archive.
 ## Output Required
 Return archive evidence and PHASE-006 readiness proof.
+
+## Approved Revision
+
+- 2026-08-22: acceptance review found that TASK-501 through TASK-504 did not
+  create the required accessible monitoring projection or a storm-level
+  lifecycle scenario. TASK-506 is an exact remediation Pack; PHASE-005 must
+  remain unarchived until it passes. This closeout Pack also owns exact
+  PHASE-006 Pack creation, validation, and approval evidence. No PHASE-006
+  implementation is authorized by this revision.

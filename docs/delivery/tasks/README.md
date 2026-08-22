@@ -38,5 +38,6 @@ Task Packs are execution permissions, not design substitutes. Every pack names e
 | TASK-503 | PHASE-005 | APPROVED | Normalize and aggregate monitoring signals |
 | TASK-504 | PHASE-005 | APPROVED | Bound automated follow-up work |
 | TASK-505 | PHASE-005 | APPROVED | Accept PHASE-005 and prepare PHASE-006 |
+| TASK-506 | PHASE-005 | APPROVED | Expose bounded monitoring state and prove storm limits |
 
 Status transitions require validation and human confirmation. A draft is not executable. Approved content is frozen for execution; changes create a reviewed revision before work resumes.
