@@ -224,11 +224,27 @@ HR support operations preserve classification and human-decision evidence;
 no automated retry or retention process may convert an HR recommendation into
 an employment action.
 
-## PHASE-006 Gemini Core 0.55.1 probe
+## PHASE-006 external DSH Adapter profile
 
-The exact Core package exposes local send, cancellation, event replay, and
-stream reattachment primitives, but no public durable `status`, `result`, or
-`reconcile` query for an external ExecutionAttempt. Gemini remains DISABLED.
-Operations must not infer a terminal state from process exit, session files, or
-terminal text; an adapter may be enabled only after a future approved design
-can prove all SAI operations across restart and reconciliation.
+Gemini Core `0.55.1` remains a completed compatibility block: its public
+surface does not prove durable external `status`, `result`, or reconciliation,
+so Gemini remains Disabled. [ADR-007](decisions/ADR-007-external-dsh-adapter.md)
+adopts DSH as the replacement dedicated Adapter path.
+
+DSH runs one supervised process and session root per ExecutionAttempt. Its
+public `stdio` JSON-RPC frames and local session observations are evidence, not
+control-plane truth. The Adapter journals normalized frames and derives the
+only routable lifecycle result from platform records; a missing frame, process,
+session record, or profile mismatch retains `UNKNOWN/RECONCILING` and blocks
+redispatch. The process shutdown ladder is JSON-RPC shutdown, EOF, terminate,
+then kill, with Lease fencing and evidence before terminal cancellation.
+
+DSH Shell, filesystem, network, and plugin operations remain available only
+through the Super Assistant Tool Broker. It validates the bound Proposal,
+Grant, Project snapshot, worktree/Lease fence, capability target rule, and
+budget, then records redacted request and result evidence. Plugin execution
+also requires an approved identity, version, source digest, permission
+declaration, and passing compatibility profile; DSH cannot self-install,
+update, or enable plugins. Changed DSH commit, protocol/package identity,
+server information, or profile digest disables affected Functions until a
+fixture-only compatibility probe passes.

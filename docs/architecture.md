@@ -87,6 +87,18 @@ PHASE-004 Adapter onboarding begins with deterministic SAI conformance: the
 eight baseline operations and compatible major version are verified before an
 Adapter becomes available to the control plane.
 
+### PHASE-006 DeepSeek Harness Adapter
+
+The DSH Adapter is a separately owned Super Assistant package that invokes the
+local DSH public SDK/protocol over `stdio`; it never modifies the DSH workspace.
+One supervised DSH process, session root, and task worktree belong to one
+ExecutionAttempt. DSH observations are untrusted adapter evidence: the platform
+journal and SQLite remain authoritative for lifecycle state, sequences, results,
+and reconciliation. DSH Shell, filesystem, network, and plugin functions are
+available only through the Super Assistant Tool Broker, which verifies the
+Proposal, Grant, snapshot, Lease fence, capability rule, and budget before
+recording a redacted effect.
+
 ## Ports and trust boundaries
 
 - Renderer IPC: typed request/response and subscription methods; main process revalidates identity, schema, state version, and authorization.
@@ -177,6 +189,7 @@ Breaking changes require additive-read/dual-read migration, explicit deprecation
 - [Security](security.md)
 - [SAI](api/sai.md)
 - [Codex Adapter](adapters/codex.md)
+- DSH Adapter (introduced only after its compatibility probe passes)
 - [Orchestration](orchestration.md)
 - [UX](ux.md)
 - [Operations](operations.md)

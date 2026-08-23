@@ -44,8 +44,10 @@ Task Packs are execution permissions, not design substitutes. Every pack names e
 | TASK-603 | PHASE-006 | APPROVED | Operations Data Agent lineage |
 | TASK-604 | PHASE-006 | APPROVED | HR Agent security boundary |
 | TASK-605 | PHASE-006 | APPROVED | Legacy adapter compatibility |
-| TASK-606 | PHASE-006 | APPROVED | Gemini fixed-version compatibility probe |
-| TASK-607 | PHASE-006 | APPROVED | Gemini Core SAI Adapter |
+| TASK-606 | PHASE-006 | COMPLETED | Gemini fixed-version compatibility block retained as evidence |
+| TASK-607 | PHASE-006 | REJECTED | Superseded by ADR-007; Gemini Core cannot prove the required lifecycle |
+| TASK-610 | PHASE-006 | DRAFT | DSH public-profile compatibility probe |
+| TASK-611 | PHASE-006 | RESERVED | Production DSH SAI Adapter, only after TASK-610 passes |
 | TASK-608 | PHASE-006 | APPROVED | Enterprise internal Agent scope |
 | TASK-609 | PHASE-006 | APPROVED | Domain acceptance and enterprise handoff |
 

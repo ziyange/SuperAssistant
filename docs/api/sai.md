@@ -155,3 +155,12 @@ conformance; invalid capability or credential metadata fails closed.
 
 Legacy adapter compatibility evaluates only the stable SAI version and eight
 operations. Any upstream drift maps to a product-language disabled state.
+
+The PHASE-006 DSH Adapter maps public `stdio` JSON-RPC observations behind this
+same surface. It owns one DSH process per ExecutionAttempt and treats upstream
+sessions, notifications, and process exit as non-authoritative evidence. The
+platform journal derives `status`, `events`, and `result`; an ambiguous interval
+is `UNKNOWN/RECONCILING`, never a new dispatch. DSH Shell, filesystem, network,
+and plugin capabilities use an Adapter-owned Tool Broker: each request must
+prove a pinned Function, immutable Proposal, current Grant, Project snapshot,
+Lease fence, policy rule, and budget before it is released and journaled.

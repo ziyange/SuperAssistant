@@ -1,13 +1,16 @@
-# TASK-607: Gemini SAI Adapter
+# TASK-607: Gemini SAI Adapter (superseded)
 ## Status
-APPROVED
+REJECTED
 PHASE: PHASE-006
 MAX_ITERATIONS: 6
 user_confirmed: true
 ## Requirement IDs
 REQ-077, REQ-078, REQ-090, REQ-091
 ## Objective
-Implement the Gemini Core Adapter only after TASK-606 passes.
+Do not implement Gemini Core. TASK-606 established that its public surface
+cannot provide durable external `status`, `result`, and reconciliation evidence.
+This Pack is superseded by [ADR-007](../../decisions/ADR-007-external-dsh-adapter.md)
+and the DSH compatibility probe in TASK-610.
 ## Context Pack
 - docs/api/sai.md
 - docs/adapters/gemini.md
@@ -41,6 +44,6 @@ Run fake contract, conformance, opt-in smoke, lint, typecheck, build and governa
 ## Acceptance Criteria
 All eight operations and failure modes conform.
 ## Risks
-TASK-606 failure keeps this Pack blocked.
+This Pack is rejected; preserve the TASK-606 evidence and do not execute it.
 ## Output Required
 Report adapter evidence.

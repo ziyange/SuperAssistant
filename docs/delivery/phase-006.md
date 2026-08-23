@@ -21,6 +21,8 @@ Stable SAI conformance, monitoring pipeline, template model, evidence model, and
 
 - Curated domain Agent Templates and versioned Function schemas.
 - Additional adapters selected by documented business value and conformance readiness.
+- DSH as the required second dedicated Adapter, with process-per-Attempt
+  ownership, a platform journal bridge, and brokered Shell/filesystem/network/plugin capabilities.
 - Generic adapter onboarding, health, capability, credential, and policy mapping.
 - Domain Artifact viewers and safe visualization metadata.
 - Domain-specific test fixtures, redaction, retention, and human-decision policies.
@@ -36,6 +38,8 @@ Extends catalog schemas and Artifact render contracts while retaining stable Exe
 ## Risks and controls
 
 - Capability overclaim: adapter conformance plus policy intersection.
+- DSH runtime/profile drift or unbrokered tool request: disable affected
+  Functions, retain evidence, and require a passing compatibility probe.
 - Domain data exposure: credential/data scopes, redaction, retention, and safe renderers.
 - Inconsistent UX: shared Function, Proposal, Decision, and Artifact patterns.
 - Schema drift: versioned inputs/outputs and compatibility fixtures.

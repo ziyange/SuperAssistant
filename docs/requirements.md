@@ -1019,6 +1019,7 @@
   - A new Adapter remains Disabled until every mandatory suite passes for its declared upstream version.
   - Adapter-specific terms remain behind its boundary.
   - Enabling the Adapter exposes only Functions supported by the compatible upstream version.
+  - PHASE-006's required DSH Adapter exposes Shell, filesystem, network, and plugin Functions only through a broker that validates the bound Proposal, Grant, Project snapshot, Lease fence, policy target rule, and budget, and writes redacted effect evidence.
 - Verification: `SCN-ADAPTER-CONFORMANCE — New runtimes earn routability through the common contract` — register passing, failing, partial-Function, and terminology-leaking Adapter fixtures.
 - Phase: `PHASE-006`
 - Status: `baselined`
@@ -1032,6 +1033,7 @@
   - Compatible upgrades continue using the new declared version after synchronization.
   - New Tasks cannot select incompatible Functions.
   - Active work continues on its bound version when safe or becomes Blocked with a replan requirement when continuation cannot be proven.
+  - DSH commit, protocol/package identity, server information, and capability-profile digest drift disables affected Functions until the compatibility probe passes again.
 - Verification: `SCN-ADAPTER-UPGRADE — Breaking upstream change fails closed` — apply compatible, Function-removal, schema-change, and behavior-change upgrade fixtures to pending and active work.
 - Phase: `PHASE-006`
 - Status: `baselined`
