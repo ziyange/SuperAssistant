@@ -1,6 +1,6 @@
 # TASK-610: DSH compatibility probe
 ## Status
-APPROVED
+COMPLETED
 PHASE: PHASE-006
 MAX_ITERATIONS: 4
 user_confirmed: true
@@ -68,3 +68,11 @@ Run the focused Vitest probe, `npm run lint`, `npm run typecheck`, `npm run test
 DSH's evolving public profile may be incompatible or insufficient. Any missing proof, untrusted output, process ambiguity, or accidental external effect keeps DSH Disabled and blocks TASK-611.
 ## Output Required
 `docs/verification/reports/phase-006-task-610.md` with runtime identity, protocol/profile evidence, command exit codes, eight-operation matrix, capability non-effect declaration, failures, and explicit PASS or BLOCKED conclusion.
+
+## Outcome
+
+PASS for the constrained compatibility profile only. The probe observed DSH
+commit `141eb6fef83422698aef7a981029e843e8161534` and public protocol package
+`0.1.0-rc.8`, rejected drift and malformed frames, and reaped all fixture
+processes. DSH remains Disabled: this result authorizes preparation of
+TASK-611, not a production Adapter or any capability effect.

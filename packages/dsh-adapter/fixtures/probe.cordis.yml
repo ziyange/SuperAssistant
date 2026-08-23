@@ -1,0 +1,7 @@
+# Fixture-only DSH profile. It declares brokered capabilities but never loads a
+# provider, credential, plugin, shell, filesystem, or network tool.
+capabilities:
+  shell: broker-required
+  filesystem: broker-required
+  network: broker-required
+  plugin: broker-required
