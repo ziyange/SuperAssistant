@@ -60,14 +60,21 @@ redispatch.
 
 ## Tool and security model
 
-The stock `examples/jsonrpc-agent/cordis.yml` is not permitted in production:
-it enables bash, filesystem write/edit, subagents, and persistent session state.
-TASK-606R will only inspect it as evidence. Production requires a separate,
-Super-Assistant-owned DSH profile/configuration with no direct shell, file,
-network, plugin-installation, credential, or UI capability. A later DSH tool
-broker exposes only explicitly authorized operations; every requested side
-effect re-enters Proposal, Grant, Project snapshot, ResourceLease, and
-worktree checks before execution.
+The stock `examples/jsonrpc-agent/cordis.yml` is not used as the production
+profile because its tool policy is broader than Super Assistant's execution
+authority. DSH Shell, filesystem, network, and plugin capabilities are allowed
+when a pinned Function and immutable Proposal explicitly declare them. A
+Super-Assistant-owned DSH profile/configuration routes each capability through
+the DSH tool broker. Before any effect, the broker verifies the current Grant,
+Project snapshot, ResourceLease fence, worktree containment, capability allow
+list, target/path/host rule, and applicable budget. It journals the approved
+request and normalized result. Undeclared or stale operations fail closed.
+
+Plugin loading is also an authorized capability: an approved plugin identity,
+version, source digest, permission declaration, and compatibility probe are
+required before the profile loads it. The adapter does not install, update, or
+enable a plugin from model output. DSH's own configuration remains nonsecret
+and cannot carry a credential value.
 
 `DEEPSEEK_API_KEY` is resolved by a Super Assistant credential broker into the
 child process only when a pinned Function requires it. It is excluded from the
@@ -104,8 +111,10 @@ evidence; a mismatch is a disabled Adapter, not a fallback.
 
 - No Super Assistant source change touches `E:\Programs\deepseek-harness`.
 - The probe uses an exact local runtime identity and rejects drift.
-- No probe fixture exposes a credential or causes a filesystem, shell, network,
-  plugin, or model side effect.
+- No probe fixture exposes a credential, installs a plugin, makes a network or
+  model call, or causes an unbrokered filesystem or shell effect.
+- A later production profile permits Shell, filesystem, network, and approved
+  plugins only through the auditable DSH tool broker.
 - All eight SAI operations have an explicit mapping; the platform, not DSH,
   owns durable status, result, sequence, and reconciliation truth.
 - An uncertain DSH interval stays `UNKNOWN/RECONCILING` and prevents
