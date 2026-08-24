@@ -1,5 +1,13 @@
 # Super Assistant data model
 
+## PHASE-007 Team authority foundation
+
+`team_workspace_records` is the PostgreSQL authority record for a Team
+Workspace. `team_workspace_events` is append-oriented and scoped by Workspace
+with a unique monotonically assigned sequence per Workspace. The Task-711
+repository does not use Team-mode SQLite as a write fallback; authority loss
+returns an unavailable state for both protected reads and writes.
+
 SQLite is the H1 authoritative store. External identifiers are UUIDv7 strings; timestamps are UTC ISO-8601 with millisecond precision; mutable records use an integer `row_version` for optimistic concurrency. Enumerations are stored as uppercase stable codes. JSON payloads carry a schema version and are validated before persistence.
 
 ### PHASE-001 migration 001 foundation slice

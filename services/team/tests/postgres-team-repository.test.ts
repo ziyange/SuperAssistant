@@ -1,0 +1,38 @@
+import { expect, test } from 'vitest';
+import process from 'node:process';
+import { Pool } from 'pg';
+import { PostgresTeamRepository } from '../src/postgres/team-repository.js';
+import { initializeIntegratedTeamSchema } from '../src/postgres/schema.js';
+
+test('persists one Team workspace and ordered scoped events through a transaction', async () => {
+  const calls: string[] = [];
+  const rows = new Map<string, { workspaceId: string; name: string; ownerActor: string }>();
+  const repository = new PostgresTeamRepository({
+    async query(text: string, values: readonly unknown[] = []) {
+      calls.push(text);
+      if (text.startsWith('insert into team_workspace_records')) {
+        rows.set(values[0] as string, { workspaceId: values[0] as string, name: values[1] as string, ownerActor: values[2] as string });
+        return { rows: [] };
+      }
+      if (text.startsWith('select workspace_id')) return { rows: [...rows.values()].filter(row => row.workspaceId === values[0]) };
+      return { rows: [] };
+    }
+  });
+  await repository.createWorkspace({ workspaceId: 'team-1', name: 'Team One', ownerActor: 'actor-1' });
+  expect(await repository.getWorkspace('team-1')).toEqual({ workspaceId: 'team-1', name: 'Team One', ownerActor: 'actor-1' });
+  expect(calls[0]).toContain('on conflict (workspace_id) do nothing');
+});
+
+test.runIf(process.env.SUPER_ASSISTANT_TEAM_TEST_DATABASE_URL !== undefined)('uses a disposable PostgreSQL authority database', async () => {
+  const pool = new Pool({ connectionString: process.env.SUPER_ASSISTANT_TEAM_TEST_DATABASE_URL });
+  try {
+    await initializeIntegratedTeamSchema(pool);
+    await pool.query('truncate table team_workspace_events, team_workspace_records');
+    const repository = new PostgresTeamRepository(pool);
+    await repository.createWorkspace({ workspaceId: 'team-live', name: 'Live Team', ownerActor: 'actor-live' });
+    expect(await repository.getWorkspace('team-live')).toEqual({ workspaceId: 'team-live', name: 'Live Team', ownerActor: 'actor-live' });
+  } finally {
+    await pool.query('drop table if exists team_workspace_events, team_workspace_records');
+    await pool.end();
+  }
+});

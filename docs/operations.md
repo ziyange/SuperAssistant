@@ -9,6 +9,10 @@ requires PostgreSQL 17 deployment, backup/restore, Team authority-loss and
 identity/JWKS failure evidence. A Team outage blocks Team writes; local cache
 must not substitute as authority.
 
+TASK-711 rehearsed schema initialization and Workspace persistence against a
+disposable local PostgreSQL 16.4 database, then dropped that database. This is
+not PostgreSQL 17 acceptance evidence and does not authorize a Team deployment.
+
 ## Repository validation commands
 
 TASK-101 establishes these root commands: `npm run lint`, `npm run typecheck`, `npm run test:unit`, `npm run test:contract`, `npm run test:e2e`, `npm run build`, and `npm run smoke:codex`. The default smoke command exits successfully only with an explicit skipped reason unless `SUPER_ASSISTANT_ENABLE_CODEX_SMOKE=1`; TASK-101 does not implement that real smoke path. A clean dependency install uses `npm ci --ignore-scripts` until an owning Task Pack authorizes and reviews required native lifecycle scripts.

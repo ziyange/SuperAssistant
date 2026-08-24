@@ -11,6 +11,13 @@ authorization before data access. Team-mode SQLite is cache-only; it cannot
 accept commands or become authority while PostgreSQL is unavailable. See
 [PHASE-007 integration recovery](delivery/phase-007-integration-recovery.md).
 
+TASK-711 supplies the first integrated slice: a PostgreSQL Team workspace
+repository, forward-only Team tables, a transactional wrapper and an HTTP/SSE
+adapter that receives identity from an authentication boundary rather than from
+caller headers. It intentionally does not implement OIDC, role evaluation or
+production PostgreSQL 17 deployment; TASK-712, TASK-713 and TASK-717 own those
+respective acceptance gates.
+
 ## Architecture principles
 
 1. The control-plane database, never a model conversation, owns durable state.

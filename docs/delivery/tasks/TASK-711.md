@@ -1,6 +1,6 @@
 # TASK-711: PostgreSQL Team authority and API foundation
 ## Status
-APPROVED
+COMPLETED
 PHASE: PHASE-007
 MAX_ITERATIONS: 6
 user_confirmed: true
@@ -34,6 +34,7 @@ Transactional Team persistence, API envelopes, migration/recovery rehearsal and 
 - docs/data-model.md
 - docs/operations.md
 - docs/delivery/tasks/TASK-711.md
+- docs/delivery/tasks/README.md
 - docs/verification/reports/phase-007-task-711.md
 ## Forbidden Files
 Any fallback that makes SQLite authoritative in Team mode; plaintext credentials; remote deployment action.
@@ -51,3 +52,10 @@ One Team Workspace has one PostgreSQL authority; API and stream behavior are tra
 Partial migration or cache authority split blocks the Task.
 ## Output Required
 PostgreSQL/API/recovery evidence.
+
+## Approved Scope Expansion
+
+- 2026-08-24: the user explicitly authorized TASK-711 completion; completion
+  writeback requires exactly `docs/delivery/tasks/README.md` so the execution
+  registry cannot disagree with this completed Pack. No implementation scope is
+  added.
