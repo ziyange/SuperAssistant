@@ -1,6 +1,6 @@
 # TASK-708: Governed notifications
 ## Status
-APPROVED
+COMPLETED
 PHASE: PHASE-007
 MAX_ITERATIONS: 5
 user_confirmed: true
@@ -26,6 +26,7 @@ Quiet-hours, aggregation, deep-link and access-control tests pass.
 - apps/desktop/tests/renderer/notification-settings.test.tsx
 - docs/ux.md
 - docs/delivery/tasks/TASK-708.md
+- docs/delivery/tasks/README.md
 - docs/verification/reports/phase-007-task-708.md
 ## Forbidden Files
 Any file not explicitly listed; access bypass; unbounded notification fanout.
@@ -43,3 +44,9 @@ Quiet hours suppress normal messages and retain Emergency audit evidence.
 Authorization uncertainty suppresses delivery.
 ## Output Required
 Notification governance evidence.
+
+## Approved Scope Expansion
+
+- 2026-08-24: completion writeback requires exactly
+  `docs/delivery/tasks/README.md` so the execution registry reflects this Pack.
+  No implementation scope is added.
