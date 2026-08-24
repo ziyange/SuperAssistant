@@ -1,6 +1,6 @@
 # PHASE-007: Team and enterprise governance
 
-- State: Planned
+- State: Reopened — integrated enterprise delivery required
 - Horizon: H3 completion
 - Branch family: `codex/phase-007-*`
 - Archive path: `docs/archive/phase-007/`
@@ -45,6 +45,14 @@ Every command and event gains actor and tenant/workspace context under a backwar
 ## Test strategy
 
 Role-matrix property tests, cross-tenant negative tests, concurrent approval/idempotency tests, credential-isolation process tests, audit completeness/export verification, retention clock tests, legal-hold tests, and enterprise Playwright flows.
+
+## Reopening disposition
+
+TASK-709 rejected an H3 completion claim because the first PHASE-007 Packs
+proved isolated rules rather than an integrated enterprise control plane. The
+recovery sequence in [PHASE-007 integration recovery](phase-007-integration-recovery.md)
+is now the only execution route to acceptance. `TASK-709` is historical
+non-acceptance evidence; it does not authorize archive or release.
 
 ## Entry conditions
 

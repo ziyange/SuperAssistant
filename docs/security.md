@@ -2,6 +2,14 @@
 
 Super Assistant is a local control plane that can execute code, mutate repositories, use credentials, and call external systems. Local-first reduces network exposure but does not make renderer content, Agent output, repositories, plugins, IPC peers, or local processes trusted.
 
+## PHASE-007 recovery constraint
+
+H3 is not accepted from in-memory policy evaluation alone. Every Team command,
+query and subscription must derive actor/workspace from a verified OIDC session
+and authorize it before protected data access. Credential and Grant references
+remain opaque; a durable quorum is atomic with Grant issuance and consumption.
+Any failed identity, authorization or Team-authority check fails closed.
+
 ## Security objectives
 
 - Human authority over every material side effect.

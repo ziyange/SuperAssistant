@@ -112,6 +112,14 @@ Each REQ appears exactly once. `Phase` is the first phase that must fully accept
 
 ## Cross-requirement lifecycle-scenario coverage
 
+## PHASE-007 recovery execution mapping
+
+This execution correction does not duplicate REQ rows or change their phase.
+It replaces the rejected acceptance route: REQ-081 is integrated by
+TASK-711, TASK-712 and TASK-715; REQ-082–084 by TASK-713 and TASK-715;
+REQ-085–086 by TASK-714 and TASK-715; REQ-087–089 by TASK-715 and TASK-716;
+and H3-wide quality evidence by TASK-717 before TASK-718 can close the phase.
+
 The following scenarios supplement the one-row-per-REQ table. They are required phase-gate evidence, not replacement requirement identifiers.
 
 | Lifecycle scenario | Phase | Initial Task Pack state | Acceptance focus |

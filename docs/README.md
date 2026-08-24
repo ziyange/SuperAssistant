@@ -28,8 +28,9 @@ worktree; its approved Task Packs do not authorize any later-phase work.
   quality-loop evidence; its [archive](archive/phase-004/README.md) records
   the inherited real-smoke limitation. PHASE-005 is archived locally with
   bounded monitoring and read-only health evidence. PHASE-006 is archived
-  locally with domain, DSH adapter and Artifact-isolation evidence; PHASE-007
-  Packs are approved but its implementation has not opened.
+  locally with domain, DSH adapter and Artifact-isolation evidence. PHASE-007
+  is reopened after TASK-709 rejected unsupported H3 acceptance; see the
+  [integration recovery plan](delivery/phase-007-integration-recovery.md).
 
 ## Design and implementation plans
 

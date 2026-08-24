@@ -2,6 +2,15 @@
 
 This document is the engineering source of truth for system shape, ownership, boundaries, and H1-H3 evolution. Product behavior is implemented only through the contracts linked below; accepted decisions are indexed in [architecture decisions](decisions/README.md).
 
+## PHASE-007 recovery constraint
+
+The first PHASE-007 implementation supplied rules but not a complete Team
+control plane. The reopened architecture requires PostgreSQL-backed Team
+authority behind typed HTTPS JSON and SSE ports, with server-side identity and
+authorization before data access. Team-mode SQLite is cache-only; it cannot
+accept commands or become authority while PostgreSQL is unavailable. See
+[PHASE-007 integration recovery](delivery/phase-007-integration-recovery.md).
+
 ## Architecture principles
 
 1. The control-plane database, never a model conversation, owns durable state.

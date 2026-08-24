@@ -14,6 +14,14 @@
 - Dependencies list requirement identifiers whose contracts must exist before the requirement can be accepted. `None` means no product-requirement dependency.
 - Risks use Low, Medium, High, or Critical and name the principal failure mode.
 
+## PHASE-007 integration recovery status
+
+REQ-081 through REQ-089 and their applicable quality requirements remain
+baselined, not accepted. TASK-709 established that isolated domain rules are
+insufficient acceptance evidence. Their integrated execution route is
+TASK-711 through TASK-718 in
+[the PHASE-007 integration recovery plan](delivery/phase-007-integration-recovery.md).
+
 ## Workspace, Project, Agent, Function, and onboarding requirements
 
 ## REQ-001: Single-user Workspace ownership

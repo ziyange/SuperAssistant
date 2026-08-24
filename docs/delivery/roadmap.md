@@ -22,7 +22,7 @@ The roadmap designs the full product trajectory now while constraining implement
 | [PHASE-004](phase-004.md) | Multi-agent quality loop | Stable SAI, templates, DAG, Testing/Inspector, resource fencing | Archived locally; PHASE-005 packs validated and approved |
 | [PHASE-005](phase-005.md) | Continuous monitoring loop | Collectors, triggers, aggregation, cooldown, budget, follow-up Tasks | Archived locally; PHASE-006 packs approved |
 | [PHASE-006](phase-006.md) | Domain and adapter expansion | Operations/data/HR/enterprise agents, adapters, visual output | Archived locally; DSH broker boundary passed and PHASE-007 packs approved |
-| [PHASE-007](phase-007.md) | Team and enterprise governance | Membership, RBAC, multi-party approval, isolation, export, retention | Packs approved during PHASE-006; not yet opened |
+| [PHASE-007](phase-007.md) | Team and enterprise governance | Membership, RBAC, multi-party approval, isolation, export, retention | Reopened after TASK-709 rejected unsupported acceptance; integrated recovery Packs are required |
 
 ## Cross-phase invariants
 
