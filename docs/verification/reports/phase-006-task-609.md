@@ -1,6 +1,6 @@
 # PHASE-006 TASK-609 local verification report
 
-Status: partial, PHASE archive blocked.
+Status: partial at original closeout; superseded locally by TASK-617.
 
 Artifact viewer regression verifies malicious HTML remains download-only
 metadata without a button or script element. PHASE-006 cannot archive because
@@ -35,3 +35,11 @@ The initial unit failure in a fresh worktree was attributable to the explicit
 runtime-package test prerequisite: generated `dist` artifacts did not yet
 exist. Rebuilding before that test made the suite pass. This is a local build
 ordering precondition, not a product failure or a Gemini workaround.
+
+## Superseding acceptance amendment
+
+ADR-007 and completed TASK-610 through TASK-616 provide the accepted DSH
+adapter path. The prior Gemini block remains historical evidence, but it no
+longer blocks PHASE-006. TASK-617 records PHASE-006 as `PASS` locally. No real
+DSH model, credential, or capability operation was run, and remote CI remains
+planned.

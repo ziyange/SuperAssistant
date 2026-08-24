@@ -53,6 +53,7 @@ Task Packs are execution permissions, not design substitutes. Every pack names e
 | TASK-614 | PHASE-006 | COMPLETED | Refresh DSH public-profile compatibility evidence |
 | TASK-615 | PHASE-006 | COMPLETED | Public SDK server lifecycle under immutable Guard |
 | TASK-616 | PHASE-006 | COMPLETED | Public ToolRuntime Guard dispatch conformance |
+| TASK-617 | PHASE-006 | COMPLETED | DSH acceptance, archive correction, and PHASE-007 handoff |
 | TASK-608 | PHASE-006 | COMPLETED | Enterprise internal Agent scope |
 | TASK-609 | PHASE-006 | APPROVED | Domain acceptance and enterprise handoff |
 
