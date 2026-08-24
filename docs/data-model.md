@@ -60,6 +60,16 @@ Fields: `workspace_id`, `owner_id`, `name`, `status`, locale, timezone, creation
 
 Status is `ACTIVE | LOCKED | ARCHIVED`. H1 has one active local Workspace. `LOCKED` permits recovery/read-only access but no new side effect; `ARCHIVED` is historical. H2 retains the same scope for more Agents. H3 adds memberships and roles without changing existing ownership or identifiers.
 
+### Team authority migration
+
+For a Team Workspace, PostgreSQL records `team_workspaces(workspace_id,
+payload)` and append-only `team_audit(audit_id, payload)` under one Team
+authority. A local export is backed up, imported with idempotent primary-key
+upserts, then validated by record count and deterministic SHA-256 digest before
+the authority state may change from `LOCAL` to `TEAM`. A validation failure
+retains or restores `LOCAL`; no SQLite/PostgreSQL dual write is permitted. The
+service does not expose writable Team commands before `TEAM` cutover proof.
+
 ### Agent
 
 Fields: `agent_id`, `workspace_id`, runtime/adapter reference, name, category, labels, `agent_version`, Connection, Availability, health expiry, enabled flag, and `row_version`.

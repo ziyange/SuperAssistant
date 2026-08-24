@@ -11,15 +11,16 @@
     "packages/domain",
     "packages/persistence",
     "packages/codex-adapter",
-    "packages/dsh-adapter"
+    "packages/dsh-adapter",
+    "services/team"
   ],
   "scripts": {
-    "lint": "eslint --max-warnings 0 --no-error-on-unmatched-pattern apps packages --ext .ts,.tsx,.mjs",
+    "lint": "eslint --max-warnings 0 --no-error-on-unmatched-pattern apps packages services --ext .ts,.tsx,.mjs",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test:unit": "vitest run --passWithNoTests --project unit",
     "test:contract": "vitest run --passWithNoTests --project contract",
     "test:e2e": "playwright test --pass-with-no-tests",
-    "build": "npm run build --workspace @super-assistant/domain && npm run build --workspace @super-assistant/persistence && npm run build --workspace @super-assistant/desktop",
+    "build": "npm run build --workspace @super-assistant/domain && npm run build --workspace @super-assistant/persistence && npm run build --workspace @super-assistant/desktop && npm run build --workspace @super-assistant/team-service",
     "smoke:codex": "node -e \"const c=require('node:child_process');if(process.env.SUPER_ASSISTANT_ENABLE_CODEX_SMOKE!=='1'){console.log('SKIPPED: set SUPER_ASSISTANT_ENABLE_CODEX_SMOKE=1 to enable the explicit Codex smoke.');process.exit(0)}const r=c.spawnSync(process.env.ComSpec||'cmd.exe',['/d','/s','/c','codex.CMD exec --ephemeral --sandbox read-only --skip-git-repo-check --color never -C tests/fixtures/codex-smoke-repository -'],{encoding:'utf8',timeout:120000,input:'Reply with exactly SMOKE_OK. Do not modify files or invoke tools.'});process.stdout.write(r.stdout||'');process.stderr.write(r.stderr||'');if(r.error)throw r.error;if(r.status!==0||!/(^|\\n)SMOKE_OK\\s*$/m.test(r.stdout||'')){process.exit(1)}\""
   },
   "devDependencies": {
@@ -28,6 +29,7 @@
     "@testing-library/react": "16.3.2",
     "@types/better-sqlite3": "9.6.0",
     "@types/node": "22.15.30",
+    "@types/pg": "8.23.1",
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.4",
     "@typescript-eslint/eslint-plugin": "8.34.1",

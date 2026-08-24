@@ -1,0 +1,13 @@
+{
+  "name": "@super-assistant/team-service",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "build": "tsc -p tsconfig.build.json"
+  },
+  "dependencies": {
+    "pg": "8.23.0"
+  }
+}

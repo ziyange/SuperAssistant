@@ -99,6 +99,16 @@ available only through the Super Assistant Tool Broker, which verifies the
 Proposal, Grant, snapshot, Lease fence, capability rule, and budget before
 recording a redacted effect.
 
+### PHASE-007 Team Service authority
+
+`@super-assistant/team-service` is a self-hosted Node service that owns Team
+Workspace state through PostgreSQL. Its public boundary is HTTPS JSON
+commands/queries plus SSE authority events; it refuses Team mutations until the
+one-way migration has completed backup, idempotent import, count/hash
+validation and explicit cutover. Local SQLite remains authoritative for Local
+Workspaces and may be a Team client cache only; it never dual-writes, elects
+authority or becomes writable when Team Service is unavailable.
+
 ## Ports and trust boundaries
 
 - Renderer IPC: typed request/response and subscription methods; main process revalidates identity, schema, state version, and authorization.
