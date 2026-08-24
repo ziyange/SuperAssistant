@@ -115,6 +115,15 @@ Grant. Consumption is a compare-and-set update constrained by Grant reference,
 Workspace, requester, Proposal digest and an unconsumed state. A failed or
 replayed consumption cannot authorize a second effect.
 
+### PHASE-007 retention deletion authority
+
+Retention execution is destructive and therefore never accepts a syntactic
+reference as authority. A dedicated immutable retention Grant binds the actor,
+Workspace, exact governed record, policy version and expiry. PostgreSQL consumes
+that Grant with the delete transaction; a replay, scope mismatch, expiry or
+legal hold fails closed. The deletion creates append-only retention audit
+evidence and never mutates prior audit history.
+
 ## Secure Electron IPC
 
 - `contextIsolation: true`, renderer sandbox enabled, and `nodeIntegration: false` are mandatory.

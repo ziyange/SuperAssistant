@@ -1,6 +1,6 @@
 # TASK-714: Governed audit export and retention operations
 ## Status
-APPROVED
+IN_PROGRESS
 PHASE: PHASE-007
 MAX_ITERATIONS: 6
 user_confirmed: true
@@ -27,10 +27,12 @@ Audit API/export verification, record inventory, retention dry-run/execution, le
 - services/team/src/retention-operation-service.ts
 - services/team/src/team-api.ts
 - services/team/src/postgres/team-repository.ts
+- services/team/src/postgres/schema.ts
 - services/team/tests/governed-record-inventory.test.ts
 - services/team/tests/team-audit-export-service.test.ts
 - services/team/tests/retention-operation-service.test.ts
 - services/team/tests/audit-retention-api.contract.test.ts
+- services/team/tests/postgres-team-repository.test.ts
 - docs/data-model.md
 - docs/security.md
 - docs/operations.md
@@ -52,3 +54,20 @@ All governed records are accounted for; unqualified deletion is impossible and a
 Incomplete inventory or non-verifiable export blocks the Task.
 ## Output Required
 Audit/retention operation evidence.
+
+## Approved scope expansion
+
+- Approval: user authorization on 2026-08-24.
+- Reason: durable governed inventory, legal-hold/retention state and
+  backup/restore evidence require PostgreSQL authority tables and the existing
+  disposable repository integration fixture.
+- Added paths: `services/team/src/postgres/schema.ts` and
+  `services/team/tests/postgres-team-repository.test.ts`.
+
+## Gate status
+
+- Recorded 2026-08-25: implementation evidence is complete, but the complete
+  deterministic unit suite remains blocked by the unrelated
+  `packages/dsh-adapter/tests/dsh-loader-guard.test.ts` five-second timeout.
+  The test passes in isolation but fails under the full suite; it is outside
+  this Pack's explicit allowlist and must be handled by a dedicated DSH Task.

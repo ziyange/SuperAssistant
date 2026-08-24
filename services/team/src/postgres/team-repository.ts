@@ -5,13 +5,17 @@ import type { TeamApprovalPolicy, TeamApprovalResult, TeamApprovalStore } from '
 import type { CredentialReferenceRecord, CredentialReferenceStore } from '../credential-reference-service.js';
 import type { TeamGrantConsumption, TeamGrantIssue, TeamGrantRecord, TeamGrantStore } from '../team-grant-service.js';
 import type { TeamRoleAssignment, TeamRoleAssignmentStore } from '../team-authorization.js';
+import type { GovernedRecord } from '../governed-record-inventory.js';
+import type { GovernedRecordReader } from '../team-audit-export-service.js';
+import { TeamAuditExportService } from '../team-audit-export-service.js';
+import { RetentionOperationService, type RetentionOperationStore, type RetentionRecord } from '../retention-operation-service.js';
 
 export interface TeamWorkspaceRecord { workspaceId: string; name: string; ownerActor: string }
 export interface TeamWorkspaceEvent { eventId: string; workspaceId: string; sequence: number; eventType: string; payload: Readonly<Record<string, unknown>> }
 export interface TeamSessionRecord { sessionRef: string; actor: string; workspaceId: string; expiresAt: number; revokedAt?: number }
 export interface TeamMembershipRecord { workspaceId: string; subject: string; role: string }
 
-export class PostgresTeamRepository implements TeamRoleAssignmentStore, CredentialReferenceStore, TeamGrantStore, TeamApprovalStore {
+export class PostgresTeamRepository implements TeamRoleAssignmentStore, CredentialReferenceStore, TeamGrantStore, TeamApprovalStore, GovernedRecordReader, RetentionOperationStore {
   constructor(private readonly database: TeamTransactionDatabase, private readonly now: () => number = () => Date.now()) {}
   async createWorkspace(record: TeamWorkspaceRecord): Promise<void> {
     await this.database.query('insert into team_workspace_records (workspace_id, name, owner_actor) values ($1, $2, $3) on conflict (workspace_id) do nothing', [record.workspaceId, record.name, record.ownerActor]);
@@ -83,6 +87,35 @@ export class PostgresTeamRepository implements TeamRoleAssignmentStore, Credenti
       const approvers = (approverRows.rows as { approver: string }[]).map(row => row.approver);
       await transaction.query('insert into team_grants (grant_ref, workspace_id, requester, proposal_digest, approvers, issued_at) values ($1, $2, $3, $4, $5::jsonb, $6)', [grantRef, policy.workspaceId, policy.requester, input.proposalDigest, JSON.stringify(approvers), this.now()]);
       return { state: 'GRANTED', grantRef, approvals };
+    });
+  }
+
+  async listGovernedRecords(workspaceId: string): Promise<readonly GovernedRecord[]> {
+    const result = await this.database.query('select record_id as id, record_class as class, payload from team_governed_records where workspace_id = $1 and deleted_at is null order by record_class, record_id', [workspaceId]);
+    return result.rows as GovernedRecord[];
+  }
+  async exportAudit(input: Readonly<{ actor: string; workspaceId: string; from: number; to: number }>): Promise<Readonly<Record<string, unknown>>> {
+    return new TeamAuditExportService(this).export(input);
+  }
+  async executeRetention(input: Readonly<{ actor: string; workspaceId: string; recordId: string; policyVersion: string; authorizationRef: string }>): Promise<{ deleted: true }> {
+    return new RetentionOperationService(this).execute({ ...input, now: this.now() });
+  }
+  async inspect(recordId: string): Promise<RetentionRecord | undefined> {
+    const result = await this.database.query('select record_id as "recordId", workspace_id as "workspaceId", expires_at as "expiresAt", state_known as "stateKnown", exists(select 1 from team_legal_holds h where h.record_id = r.record_id and h.active) as "legalHold" from team_governed_records r where record_id = $1 and deleted_at is null', [recordId]);
+    const row = result.rows[0] as (Omit<RetentionRecord, 'expiresAt'> & { expiresAt: number | string }) | undefined;
+    return row === undefined ? undefined : { ...row, expiresAt: Number(row.expiresAt) };
+  }
+  async recordDryRun(input: Readonly<{ actor: string; workspaceId: string; recordId: string; policyVersion: string; now: number }>): Promise<void> {
+    await this.database.query('insert into team_retention_dry_runs (record_id, policy_version, actor, executed_at) values ($1, $2, $3, $4) on conflict do nothing', [input.recordId, input.policyVersion, input.actor, input.now]);
+  }
+  async executeAuthorizedDelete(input: Readonly<{ actor: string; workspaceId: string; recordId: string; policyVersion: string; authorizationRef: string; now: number }>): Promise<{ deleted: true }> {
+    return withinTeamTransaction(this.database, async transaction => {
+      const grant = await transaction.query('update team_retention_grants set consumed_at = $6 where grant_ref = $1 and workspace_id = $2 and record_id = $3 and policy_version = $4 and actor = $5 and expires_at >= $6 and consumed_at is null and exists (select 1 from team_retention_dry_runs where record_id = $3 and policy_version = $4) returning grant_ref', [input.authorizationRef, input.workspaceId, input.recordId, input.policyVersion, input.actor, input.now]);
+      if (grant.rows.length === 0) throw new Error('RETENTION_EXECUTION_DENIED');
+      const result = await transaction.query('update team_governed_records set deleted_at = $3 where record_id = $1 and workspace_id = $2 and deleted_at is null and state_known and expires_at <= $3 and not exists (select 1 from team_legal_holds where record_id = $1 and active) returning record_id', [input.recordId, input.workspaceId, input.now]);
+      if (result.rows.length === 0) throw new Error('RETENTION_EXECUTION_DENIED');
+      await transaction.query('insert into team_retention_audit (audit_id, record_id, workspace_id, authorization_ref, actor, action, executed_at) values ($1, $2, $3, $4, $5, $6, $7)', [randomUUID(), input.recordId, input.workspaceId, input.authorizationRef, input.actor, 'DELETE', input.now]);
+      return { deleted: true };
     });
   }
 }

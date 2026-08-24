@@ -25,6 +25,12 @@ the approval-record primary key makes each approver distinct and the Grant's
 Proposal-digest uniqueness makes quorum issuance single-shot. No table accepts
 a credential value or bearer token.
 
+`team_governed_records` supplies a Workspace-scoped retention/export inventory;
+`team_legal_holds` always dominates expiry. `team_retention_dry_runs` preserves
+policy evidence, `team_retention_grants` binds one destructive action to an
+actor, record, policy and expiry, and `team_retention_audit` appends its result.
+The Grant's `consumed_at` compare-and-set prevents a second deletion.
+
 SQLite is the H1 authoritative store. External identifiers are UUIDv7 strings; timestamps are UTC ISO-8601 with millisecond precision; mutable records use an integer `row_version` for optimistic concurrency. Enumerations are stored as uppercase stable codes. JSON payloads carry a schema version and are validated before persistence.
 
 ### PHASE-001 migration 001 foundation slice

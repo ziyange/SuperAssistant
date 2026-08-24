@@ -22,6 +22,11 @@ operator must not replace that transaction boundary with unrelated pool-level
 queries. PostgreSQL 17 deployment and backup/restore acceptance remain TASK-717
 work.
 
+TASK-714 rehearses governed inventory, tamper-detectable export, legal-hold
+preservation and one scoped retention deletion in a disposable PostgreSQL 16.4
+database, then drops it. This is local compatibility evidence; PostgreSQL 17
+backup/restore acceptance remains TASK-717 work.
+
 Team session support validates current session state on every request. Operators
 must treat JWKS retrieval/validation failure, expired sessions and revocation
 as fail-closed Team authorization failures; no cache grants a write fallback.
