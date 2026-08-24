@@ -1,5 +1,6 @@
 /* eslint-disable no-unused-vars -- Team API port parameter names are public contract vocabulary. */
 import type { TeamWorkspaceRecord, TeamWorkspaceEvent } from './postgres/team-repository.js';
+import type { TeamSessionRef, TeamSessionService } from './session-service.js';
 
 export interface TeamApiRepository {
   createWorkspace(record: TeamWorkspaceRecord): Promise<void>;
@@ -38,5 +39,15 @@ export function createTeamApi(repository: TeamApiRepository, health = new TeamAu
       return { status: 201, body: { workspaceId } };
     }
     return { status: 404, body: { code: 'NOT_FOUND' } };
+  } };
+}
+
+export function createSessionBoundTeamApi(repository: TeamApiRepository, sessions: TeamSessionService, now: () => number, health = new TeamAuthorityHealth(() => true)) {
+  const api = createTeamApi(repository, health);
+  return { async handle(input: Readonly<{ method: string; path: string; sessionRef: TeamSessionRef; body?: Readonly<Record<string, unknown>> }>): Promise<TeamApiResponse> {
+    try {
+      const context = sessions.resolve(input.sessionRef, now());
+      return api.handle({ method: input.method, path: input.path, ...(input.body === undefined ? {} : { body: input.body }), ...context });
+    } catch { return { status: 401, body: { code: 'TEAM_SESSION_INVALID' } }; }
   } };
 }

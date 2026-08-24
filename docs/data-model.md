@@ -8,6 +8,12 @@ with a unique monotonically assigned sequence per Workspace. The Task-711
 repository does not use Team-mode SQLite as a write fallback; authority loss
 returns an unavailable state for both protected reads and writes.
 
+`team_sessions` stores an opaque session reference, actor, Workspace, expiry
+and optional revocation time; it never stores an OIDC token or PKCE verifier.
+`team_memberships` is keyed by Workspace and subject, with a constrained role
+projection. Invitations remain short-lived server-side facts and acceptance
+creates a scoped membership record exactly once.
+
 SQLite is the H1 authoritative store. External identifiers are UUIDv7 strings; timestamps are UTC ISO-8601 with millisecond precision; mutable records use an integer `row_version` for optimistic concurrency. Enumerations are stored as uppercase stable codes. JSON payloads carry a schema version and are validated before persistence.
 
 ### PHASE-001 migration 001 foundation slice

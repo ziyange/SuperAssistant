@@ -10,6 +10,13 @@ and authorize it before protected data access. Credential and Grant references
 remain opaque; a durable quorum is atomic with Grant issuance and consumption.
 Any failed identity, authorization or Team-authority check fails closed.
 
+TASK-712 uses generic Authorization Code + PKCE facts: issuer, audience, nonce,
+state and expiry must all validate before a session reference is created. A
+request supplies only an opaque `session:sha256:` bearer reference; the server
+derives actor and Workspace from its session store. Unknown, revoked or expired
+references receive no protected projection. JWKS material is cached only until
+its declared expiry and refreshes/fails closed on unknown key identifiers.
+
 ## Security objectives
 
 - Human authority over every material side effect.

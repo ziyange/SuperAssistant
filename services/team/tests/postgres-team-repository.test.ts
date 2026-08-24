@@ -27,12 +27,23 @@ test.runIf(process.env.SUPER_ASSISTANT_TEAM_TEST_DATABASE_URL !== undefined)('us
   const pool = new Pool({ connectionString: process.env.SUPER_ASSISTANT_TEAM_TEST_DATABASE_URL });
   try {
     await initializeIntegratedTeamSchema(pool);
-    await pool.query('truncate table team_workspace_events, team_workspace_records');
+    await pool.query('truncate table team_memberships, team_sessions, team_workspace_events, team_workspace_records');
     const repository = new PostgresTeamRepository(pool);
     await repository.createWorkspace({ workspaceId: 'team-live', name: 'Live Team', ownerActor: 'actor-live' });
     expect(await repository.getWorkspace('team-live')).toEqual({ workspaceId: 'team-live', name: 'Live Team', ownerActor: 'actor-live' });
   } finally {
-    await pool.query('drop table if exists team_workspace_events, team_workspace_records');
+    await pool.query('drop table if exists team_memberships, team_sessions, team_workspace_events, team_workspace_records');
     await pool.end();
   }
+});
+
+test('persists opaque session and membership scope without a credential value', async () => {
+  const calls: string[] = [];
+  const repository = new PostgresTeamRepository({ async query(text: string) { calls.push(text); return { rows: [] }; } });
+  await repository.createSession({ sessionRef: 'session:sha256:one', actor: 'subject-1', workspaceId: 'team-1', expiresAt: 100 });
+  await repository.revokeSession('session:sha256:one');
+  await repository.addMembership({ workspaceId: 'team-1', subject: 'subject-1', role: 'MEMBER' });
+  expect(calls.join('\n')).toContain('team_sessions');
+  expect(calls.join('\n')).toContain('team_memberships');
+  expect(calls.join('\n')).not.toMatch(/token|secret|password/i);
 });

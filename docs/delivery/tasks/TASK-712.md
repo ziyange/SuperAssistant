@@ -1,6 +1,6 @@
 # TASK-712: OIDC PKCE, sessions and membership integration
 ## Status
-APPROVED
+COMPLETED
 PHASE: PHASE-007
 MAX_ITERATIONS: 6
 user_confirmed: true
@@ -27,14 +27,21 @@ Fixture-IdP/JWKS, session renewal/revocation and invitation/membership flows hav
 - services/team/src/session-service.ts
 - services/team/src/membership-service.ts
 - services/team/src/team-api.ts
+- services/team/src/server.ts
+- services/team/src/identity.ts
+- services/team/src/postgres/schema.ts
+- services/team/src/postgres/team-repository.ts
 - services/team/tests/oidc-client.test.ts
 - services/team/tests/session-service.test.ts
 - services/team/tests/membership-service.test.ts
 - services/team/tests/oidc-api.contract.test.ts
+- services/team/tests/team-api.test.ts
+- services/team/tests/postgres-team-repository.test.ts
 - docs/security.md
 - docs/data-model.md
 - docs/operations.md
 - docs/delivery/tasks/TASK-712.md
+- docs/delivery/tasks/README.md
 - docs/verification/reports/phase-007-task-712.md
 ## Forbidden Files
 Issuer/audience/nonce/PKCE bypass, token logging, static production secrets or remote identity configuration.
@@ -52,3 +59,15 @@ Every authenticated Team request derives its actor from a verified session and n
 JWKS outage and identity ambiguity must fail closed.
 ## Output Required
 OIDC/session/membership evidence.
+
+## Completion Scope Expansion
+
+- 2026-08-24: the user explicitly authorized TASK-712 completion. Completion
+  writeback requires exactly `docs/delivery/tasks/README.md` so the registry
+  cannot disagree with this Pack. No implementation scope is added.
+
+## Approved Scope Expansion
+
+- 2026-08-24: user authorization covers exactly the six paths listed above to
+  persist Team session/membership records and bind the TASK-711 HTTP adapter to
+  a verified session. No other API, database, credential or UI scope is added.
