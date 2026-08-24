@@ -170,6 +170,15 @@ H1 retention values are user-configurable system settings with safe defaults sup
 
 ArtifactVersion content may be deleted by policy only after its hold expires; ArtifactVersion metadata and audit digest remain. Inbox/Outbox evidence remains at least through the longest retry, reconciliation, audit, and backup window. Project and Task history use archive rather than business hard delete.
 
+### PHASE-007 verifiable Team audit export
+
+A Team audit export has a canonical Workspace scope, requesting actor, time
+range, governed-record count and SHA-256 Merkle root. Records are ordered by
+stable ID before hashing; verification recomputes the root and fails closed on
+any count or digest mismatch. Exports reject secret-like fields before a
+manifest is produced. A scoped export remains evidence only and cannot grant
+new access or mutate the append-only audit history.
+
 ## Upgrade and rollback
 
 Application upgrade checks Node/Electron bundle integrity, database migration compatibility, SAI range, Codex App Server range, and available disk before changing state. The pre-upgrade database backup and installed application package provide rollback. After rollback, the older application may open the database only if its declared schema compatibility includes the current version; otherwise it remains read-only and offers restore.

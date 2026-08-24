@@ -1,6 +1,6 @@
 # TASK-706: Verifiable audit export
 ## Status
-APPROVED
+COMPLETED
 PHASE: PHASE-007
 MAX_ITERATIONS: 5
 user_confirmed: true
@@ -26,6 +26,7 @@ Export suite verifies coverage and detects tampering.
 - packages/domain/tests/audit-manifest.test.ts
 - docs/operations.md
 - docs/delivery/tasks/TASK-706.md
+- docs/delivery/tasks/README.md
 - docs/verification/reports/phase-007-task-706.md
 ## Forbidden Files
 Any file not explicitly listed; export of secrets; mutable audit history.
@@ -43,3 +44,9 @@ Checksum or Merkle mismatch fails verification.
 Incomplete scope is a hard export failure.
 ## Output Required
 Auditable export evidence.
+
+## Approved Scope Expansion
+
+- 2026-08-24: completion writeback requires exactly
+  `docs/delivery/tasks/README.md` so the execution registry cannot disagree
+  with this completed Pack. No implementation scope is added.
