@@ -1,6 +1,6 @@
 # TASK-702: OIDC identity and membership
 ## Status
-APPROVED
+COMPLETED
 PHASE: PHASE-007
 MAX_ITERATIONS: 6
 user_confirmed: true
@@ -26,6 +26,7 @@ Identity and membership negative tests pass without token disclosure.
 - services/team/tests/membership.test.ts
 - docs/security.md
 - docs/delivery/tasks/TASK-702.md
+- docs/delivery/tasks/README.md
 - docs/verification/reports/phase-007-task-702.md
 ## Forbidden Files
 Any file not explicitly listed; implicit token trust; plaintext tokens.
@@ -43,3 +44,9 @@ Invalid issuer, audience, nonce or PKCE never produces a session.
 JWKS outage yields read-only degraded state.
 ## Output Required
 OIDC conformance evidence.
+
+## Approved Scope Expansion
+
+- 2026-08-24: completion writeback requires exactly
+  `docs/delivery/tasks/README.md` so the execution registry cannot disagree
+  with this completed Pack. No implementation scope is added.

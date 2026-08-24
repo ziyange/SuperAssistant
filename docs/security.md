@@ -44,6 +44,17 @@ Only the main process credential broker can retrieve a secret. The renderer rece
 
 H2 supports additional OS credential backends behind the same broker contract. H3 adds tenant vaults, rotation policy, service identity, and separation of duties without changing opaque references in domain records.
 
+### PHASE-007 OIDC identity and membership
+
+Team identity begins with Authorization Code plus PKCE. Each pending exchange
+binds an HTTPS issuer, audience, random state, nonce and SHA-256 PKCE challenge.
+The code exchanger receives the verifier only for that exchange; signature/JWKS
+verification is a fail-closed injected boundary. Invalid issuer, audience,
+nonce, state, expiry or unavailable verification cannot create a session.
+Persisted session identity is an opaque SHA-256 reference, never an ID or access
+token. Invitations bind one intended principal, Workspace, role and expiry; an
+accepted invitation cannot be replayed.
+
 ## Secure Electron IPC
 
 - `contextIsolation: true`, renderer sandbox enabled, and `nodeIntegration: false` are mandatory.

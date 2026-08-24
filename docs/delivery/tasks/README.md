@@ -57,5 +57,6 @@ Task Packs are execution permissions, not design substitutes. Every pack names e
 | TASK-608 | PHASE-006 | COMPLETED | Enterprise internal Agent scope |
 | TASK-609 | PHASE-006 | APPROVED | Domain acceptance and enterprise handoff |
 | TASK-701 | PHASE-007 | COMPLETED | Team authority migration |
+| TASK-702 | PHASE-007 | COMPLETED | OIDC identity and membership |
 
 Status transitions require validation and human confirmation. A draft is not executable. Approved content is frozen for execution; changes create a reviewed revision before work resumes.
