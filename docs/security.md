@@ -65,6 +65,16 @@ there is no administrator cross-Workspace bypass. The requester may not approve
 their own action even when otherwise qualified. Unknown role, action, group or
 policy state returns an explicit authorization denial.
 
+### PHASE-007 credential namespace isolation
+
+Team credential metadata contains only a `cred:` opaque reference, owner,
+Workspace scope and rotation deadline. Lookup requires an exact owner and
+Workspace match; a cross-principal or cross-Workspace request returns no
+metadata. A Team Grant is immutable and binds the exact actor, Workspace,
+Proposal digest and opaque credential reference. Credential values remain in
+their owning Windows Credential Manager context and never enter PostgreSQL,
+logs, UI or Grant records.
+
 ## Secure Electron IPC
 
 - `contextIsolation: true`, renderer sandbox enabled, and `nodeIntegration: false` are mandatory.

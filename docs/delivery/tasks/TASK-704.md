@@ -1,6 +1,6 @@
 # TASK-704: Credential namespace isolation
 ## Status
-APPROVED
+COMPLETED
 PHASE: PHASE-007
 MAX_ITERATIONS: 6
 user_confirmed: true
@@ -26,6 +26,7 @@ Cross-principal and cross-Workspace reads are rejected.
 - packages/domain/tests/team-grant.test.ts
 - docs/security.md
 - docs/delivery/tasks/TASK-704.md
+- docs/delivery/tasks/README.md
 - docs/verification/reports/phase-007-task-704.md
 ## Forbidden Files
 Any file not explicitly listed; credential values in Postgres, logs or UI.
@@ -43,3 +44,9 @@ Credential lookup across owner or Workspace returns zero data.
 Missing credentials block writes safely.
 ## Output Required
 Credential-isolation evidence.
+
+## Approved Scope Expansion
+
+- 2026-08-24: completion writeback requires exactly
+  `docs/delivery/tasks/README.md` so the execution registry cannot disagree
+  with this completed Pack. No implementation scope is added.
