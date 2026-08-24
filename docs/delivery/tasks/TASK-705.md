@@ -1,6 +1,6 @@
 # TASK-705: Multi-party approval
 ## Status
-APPROVED
+COMPLETED
 PHASE: PHASE-007
 MAX_ITERATIONS: 6
 user_confirmed: true
@@ -26,7 +26,9 @@ Concurrent/replay approval tests prove only qualified distinct quorum issues a G
 - packages/domain/tests/team-approval.test.ts
 - docs/security.md
 - docs/delivery/tasks/TASK-705.md
+- docs/delivery/tasks/README.md
 - docs/verification/reports/phase-007-task-705.md
+- services/team/tests/credential-scope.test.ts
 ## Forbidden Files
 Any file not explicitly listed; self-approval where separation is required.
 ## Interfaces / Contracts
@@ -43,3 +45,14 @@ Only distinct eligible approvers can reach policy quorum.
 Concurrent conflict retries read-only reconciliation before reattempt.
 ## Output Required
 Approval replay and quorum evidence.
+
+## Approved Scope Expansion
+
+- 2026-08-24: full Team Service typecheck revealed an inherited negative-test
+  typing contradiction in exactly `services/team/tests/credential-scope.test.ts`.
+  This allows an explicit untrusted-input conversion so the runtime validation
+  remains tested without weakening the `cred:` production type. No credential,
+  persistence, UI or authority scope is added.
+- 2026-08-24: completion writeback requires exactly
+  `docs/delivery/tasks/README.md` so the execution registry cannot disagree
+  with this completed Pack. No implementation scope is added.

@@ -11,5 +11,5 @@ test('returns opaque credential metadata only to its owning principal and Worksp
 
 test('rejects values that resemble secret material', () => {
   const store = new CredentialScopeStore();
-  expect(() => store.register({ ref: 'secret-value', owner: 'user-1', workspaceId: 'workspace-1', rotationDueAt: 200 })).toThrow('CREDENTIAL_REFERENCE_INVALID');
+  expect(() => store.register({ ref: 'secret-value', owner: 'user-1', workspaceId: 'workspace-1', rotationDueAt: 200 } as unknown as { ref: `cred:${string}`; owner: string; workspaceId: string; rotationDueAt: number })).toThrow('CREDENTIAL_REFERENCE_INVALID');
 });

@@ -75,6 +75,15 @@ Proposal digest and opaque credential reference. Credential values remain in
 their owning Windows Credential Manager context and never enter PostgreSQL,
 logs, UI or Grant records.
 
+### PHASE-007 multi-party approval
+
+An approval policy is immutable and binds Proposal digest, policy version,
+requester, eligible approvers and quorum. The requester is excluded from the
+eligible set. Each qualified principal contributes at most once; a quorum can
+be satisfied only by distinct eligible principals. Replay and concurrent
+approval requests resolve to the same single Grant reference, retaining the
+immutable approver evidence rather than issuing another Grant.
+
 ## Secure Electron IPC
 
 - `contextIsolation: true`, renderer sandbox enabled, and `nodeIntegration: false` are mandatory.

@@ -60,5 +60,6 @@ Task Packs are execution permissions, not design substitutes. Every pack names e
 | TASK-702 | PHASE-007 | COMPLETED | OIDC identity and membership |
 | TASK-703 | PHASE-007 | COMPLETED | Workspace RBAC |
 | TASK-704 | PHASE-007 | COMPLETED | Credential namespace isolation |
+| TASK-705 | PHASE-007 | COMPLETED | Multi-party approval |
 
 Status transitions require validation and human confirmation. A draft is not executable. Approved content is frozen for execution; changes create a reviewed revision before work resumes.
