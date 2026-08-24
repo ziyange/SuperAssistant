@@ -1,6 +1,6 @@
 # TASK-713: Integrated Team authorization, credentials and approvals
 ## Status
-APPROVED
+COMPLETED
 PHASE: PHASE-007
 MAX_ITERATIONS: 7
 user_confirmed: true
@@ -28,11 +28,16 @@ Every protected Team route uses one middleware; role/grant/credential invariants
 - services/team/src/approval-service.ts
 - services/team/src/team-api.ts
 - services/team/src/postgres/team-repository.ts
+- services/team/src/postgres/schema.ts
+- services/team/src/postgres/team-transaction.ts
+- services/team/src/server.ts
 - services/team/tests/team-authorization.test.ts
 - services/team/tests/team-grant-service.test.ts
 - services/team/tests/credential-reference-service.test.ts
 - services/team/tests/approval-service.test.ts
 - services/team/tests/team-authorization-negative.test.ts
+- services/team/tests/postgres-team-repository.test.ts
+- services/team/tests/team-api.test.ts
 - docs/security.md
 - docs/data-model.md
 - docs/operations.md
@@ -54,3 +59,21 @@ No cross-Workspace protected operation succeeds; only distinct qualified approva
 Any unguarded route or nontransactional Grant blocks the Task.
 ## Output Required
 Authorization and approval conformance evidence.
+
+## Approved scope expansion
+
+- Approval: user authorization on 2026-08-24.
+- Reason: the original allowlist omitted the PostgreSQL schema and transaction
+  boundary required by the Task's restart/atomicity acceptance criteria, and
+  omitted the HTTP adapter and its integration tests required to prove that
+  every protected Team route is authorized before data access.
+- Added paths: `services/team/src/postgres/schema.ts`,
+  `services/team/src/postgres/team-transaction.ts`, `services/team/src/server.ts`,
+  `services/team/tests/postgres-team-repository.test.ts`, and
+  `services/team/tests/team-api.test.ts`.
+
+## Completion
+
+- Completion approval: user authorization on 2026-08-24.
+- Decision: `PASS`; see
+  [verification evidence](../../verification/reports/phase-007-task-713.md).

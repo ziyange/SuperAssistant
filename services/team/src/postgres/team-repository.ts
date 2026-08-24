@@ -1,13 +1,18 @@
 /* eslint-disable no-unused-vars -- repository constructor parameter is public contract vocabulary. */
-import type { TeamQuery } from './team-transaction.js';
+import { randomUUID } from 'node:crypto';
+import { withinTeamTransaction, type TeamTransactionDatabase } from './team-transaction.js';
+import type { TeamApprovalPolicy, TeamApprovalResult, TeamApprovalStore } from '../approval-service.js';
+import type { CredentialReferenceRecord, CredentialReferenceStore } from '../credential-reference-service.js';
+import type { TeamGrantConsumption, TeamGrantIssue, TeamGrantRecord, TeamGrantStore } from '../team-grant-service.js';
+import type { TeamRoleAssignment, TeamRoleAssignmentStore } from '../team-authorization.js';
 
 export interface TeamWorkspaceRecord { workspaceId: string; name: string; ownerActor: string }
 export interface TeamWorkspaceEvent { eventId: string; workspaceId: string; sequence: number; eventType: string; payload: Readonly<Record<string, unknown>> }
 export interface TeamSessionRecord { sessionRef: string; actor: string; workspaceId: string; expiresAt: number; revokedAt?: number }
 export interface TeamMembershipRecord { workspaceId: string; subject: string; role: string }
 
-export class PostgresTeamRepository {
-  constructor(private readonly database: TeamQuery) {}
+export class PostgresTeamRepository implements TeamRoleAssignmentStore, CredentialReferenceStore, TeamGrantStore, TeamApprovalStore {
+  constructor(private readonly database: TeamTransactionDatabase, private readonly now: () => number = () => Date.now()) {}
   async createWorkspace(record: TeamWorkspaceRecord): Promise<void> {
     await this.database.query('insert into team_workspace_records (workspace_id, name, owner_actor) values ($1, $2, $3) on conflict (workspace_id) do nothing', [record.workspaceId, record.name, record.ownerActor]);
   }
@@ -24,4 +29,60 @@ export class PostgresTeamRepository {
   async getSession(sessionRef: string): Promise<TeamSessionRecord | undefined> { const result = await this.database.query('select session_ref as "sessionRef", actor, workspace_id as "workspaceId", expires_at as "expiresAt", revoked_at as "revokedAt" from team_sessions where session_ref = $1', [sessionRef]); return result.rows[0] as TeamSessionRecord | undefined; }
   async addMembership(record: TeamMembershipRecord): Promise<void> { await this.database.query('insert into team_memberships (workspace_id, subject, role) values ($1, $2, $3) on conflict (workspace_id, subject) do update set role = excluded.role', [record.workspaceId, record.subject, record.role]); }
   async listMemberships(workspaceId: string): Promise<readonly TeamMembershipRecord[]> { const result = await this.database.query('select workspace_id as "workspaceId", subject, role from team_memberships where workspace_id = $1 order by subject', [workspaceId]); return result.rows as TeamMembershipRecord[]; }
+  async addRoleAssignment(record: TeamRoleAssignment): Promise<void> { await this.database.query('insert into team_role_assignments (workspace_id, actor, role) values ($1, $2, $3) on conflict do nothing', [record.workspaceId, record.actor, record.role]); }
+  async listRoleAssignments(workspaceId: string): Promise<readonly TeamRoleAssignment[]> { const result = await this.database.query('select workspace_id as "workspaceId", actor, role from team_role_assignments where workspace_id = $1 order by actor, role', [workspaceId]); return result.rows as TeamRoleAssignment[]; }
+  async registerCredential(record: CredentialReferenceRecord): Promise<void> { await this.database.query('insert into team_credential_references (credential_ref, owner_actor, workspace_id, rotation_due_at) values ($1, $2, $3, $4) on conflict (credential_ref) do nothing', [record.ref, record.owner, record.workspaceId, record.rotationDueAt]); }
+  async findCredential(ref: string): Promise<CredentialReferenceRecord | undefined> {
+    const result = await this.database.query('select credential_ref as ref, owner_actor as owner, workspace_id as "workspaceId", rotation_due_at as "rotationDueAt" from team_credential_references where credential_ref = $1 and revoked_at is null', [ref]);
+    const record = result.rows[0] as (Omit<CredentialReferenceRecord, 'rotationDueAt'> & { rotationDueAt: number | string }) | undefined;
+    return record === undefined ? undefined : { ...record, rotationDueAt: Number(record.rotationDueAt) };
+  }
+
+  async issueGrant(input: TeamGrantIssue): Promise<TeamGrantRecord> {
+    const record: TeamGrantRecord = { ...input, ref: `grant:${randomUUID()}`, approvers: Object.freeze([...input.approvers]) };
+    await this.database.query('insert into team_grants (grant_ref, workspace_id, requester, proposal_digest, approvers, issued_at) values ($1, $2, $3, $4, $5::jsonb, $6)', [record.ref, record.workspaceId, record.requester, record.proposalDigest, JSON.stringify(record.approvers), this.now()]);
+    return record;
+  }
+
+  async consumeGrant(ref: string, binding: Readonly<{ workspaceId: string; requester: string; proposalDigest: string }>): Promise<TeamGrantConsumption> {
+    const result = await this.database.query('update team_grants set consumed_at = $5 where grant_ref = $1 and workspace_id = $2 and requester = $3 and proposal_digest = $4 and consumed_at is null returning grant_ref', [ref, binding.workspaceId, binding.requester, binding.proposalDigest, this.now()]);
+    if (result.rows.length > 0) return { consumed: true };
+    const existing = await this.database.query('select workspace_id as "workspaceId", requester, proposal_digest as "proposalDigest", consumed_at as "consumedAt" from team_grants where grant_ref = $1', [ref]);
+    const record = existing.rows[0] as { workspaceId: string; requester: string; proposalDigest: string; consumedAt?: number } | undefined;
+    if (record === undefined) return { consumed: false, reason: 'GRANT_NOT_FOUND' };
+    if (record.consumedAt !== undefined && record.consumedAt !== null) return { consumed: false, reason: 'GRANT_ALREADY_CONSUMED' };
+    return { consumed: false, reason: 'GRANT_BINDING_DENIED' };
+  }
+
+  async openApproval(policy: TeamApprovalPolicy): Promise<void> {
+    await withinTeamTransaction(this.database, async transaction => {
+      const existing = await transaction.query('select workspace_id as "workspaceId", policy_version as "policyVersion", requester, eligible_approvers as "eligibleApprovers", quorum from team_approval_policies where proposal_digest = $1 for update', [policy.proposalDigest]);
+      if (existing.rows.length > 0) {
+        const current = existing.rows[0] as { workspaceId: string; policyVersion: string; requester: string; eligibleApprovers: readonly string[]; quorum: number };
+        if (current.workspaceId !== policy.workspaceId || current.policyVersion !== policy.policyVersion || current.requester !== policy.requester || current.quorum !== policy.quorum || JSON.stringify(current.eligibleApprovers) !== JSON.stringify(policy.eligibleApprovers)) throw new Error('APPROVAL_POLICY_IMMUTABLE');
+        return;
+      }
+      await transaction.query('insert into team_approval_policies (proposal_digest, workspace_id, policy_version, requester, eligible_approvers, quorum) values ($1, $2, $3, $4, $5::jsonb, $6)', [policy.proposalDigest, policy.workspaceId, policy.policyVersion, policy.requester, JSON.stringify(policy.eligibleApprovers), policy.quorum]);
+    });
+  }
+
+  async approveAndIssue(input: Readonly<{ proposalDigest: string; approver: string }>): Promise<TeamApprovalResult> {
+    return withinTeamTransaction(this.database, async transaction => {
+      const policyResult = await transaction.query('select workspace_id as "workspaceId", policy_version as "policyVersion", requester, eligible_approvers as "eligibleApprovers", quorum from team_approval_policies where proposal_digest = $1 for update', [input.proposalDigest]);
+      const policy = policyResult.rows[0] as { workspaceId: string; policyVersion: string; requester: string; eligibleApprovers: readonly string[]; quorum: number } | undefined;
+      if (policy === undefined || input.approver === policy.requester || !policy.eligibleApprovers.includes(input.approver)) return { state: 'DENIED', reason: 'APPROVER_INELIGIBLE' };
+      await transaction.query('insert into team_approval_records (proposal_digest, approver, approved_at) values ($1, $2, $3) on conflict do nothing', [input.proposalDigest, input.approver, this.now()]);
+      const countResult = await transaction.query('select count(*)::integer as approvals from team_approval_records where proposal_digest = $1', [input.proposalDigest]);
+      const approvals = Number((countResult.rows[0] as { approvals: number } | undefined)?.approvals ?? 0);
+      const existing = await transaction.query('select grant_ref as "grantRef" from team_grants where proposal_digest = $1', [input.proposalDigest]);
+      const grant = existing.rows[0] as { grantRef: `grant:${string}` } | undefined;
+      if (grant !== undefined) return { state: 'GRANTED', grantRef: grant.grantRef, approvals };
+      if (approvals < policy.quorum) return { state: 'PENDING', approvals };
+      const grantRef = `grant:${randomUUID()}` as `grant:${string}`;
+      const approverRows = await transaction.query('select approver from team_approval_records where proposal_digest = $1 order by approver', [input.proposalDigest]);
+      const approvers = (approverRows.rows as { approver: string }[]).map(row => row.approver);
+      await transaction.query('insert into team_grants (grant_ref, workspace_id, requester, proposal_digest, approvers, issued_at) values ($1, $2, $3, $4, $5::jsonb, $6)', [grantRef, policy.workspaceId, policy.requester, input.proposalDigest, JSON.stringify(approvers), this.now()]);
+      return { state: 'GRANTED', grantRef, approvals };
+    });
+  }
 }

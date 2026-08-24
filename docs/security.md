@@ -80,15 +80,24 @@ there is no administrator cross-Workspace bypass. The requester may not approve
 their own action even when otherwise qualified. Unknown role, action, group or
 policy state returns an explicit authorization denial.
 
+TASK-713 enforces this rule at the Team API boundary. A verified session alone
+is insufficient: every protected JSON query, command, and SSE subscription
+first derives an action (`READ` or `WRITE`) and invokes the same asynchronous
+authorizer before the repository is called. The default authorizer denies,
+so a new route cannot silently inherit an allow decision. The HTTP adapter
+accepts only the session-derived actor and Workspace; it never accepts a role
+or approval claim from a request body or header.
+
 ### PHASE-007 credential namespace isolation
 
 Team credential metadata contains only a `cred:` opaque reference, owner,
 Workspace scope and rotation deadline. Lookup requires an exact owner and
 Workspace match; a cross-principal or cross-Workspace request returns no
-metadata. A Team Grant is immutable and binds the exact actor, Workspace,
-Proposal digest and opaque credential reference. Credential values remain in
-their owning Windows Credential Manager context and never enter PostgreSQL,
-logs, UI or Grant records.
+metadata. A Team Grant is immutable and binds the exact requester, Workspace,
+Proposal digest and distinct approver evidence. Credential values and
+credential references are not copied into the Grant; they remain in their
+owning Windows Credential Manager context and never enter PostgreSQL logs or
+the UI.
 
 ### PHASE-007 multi-party approval
 
@@ -98,6 +107,13 @@ eligible set. Each qualified principal contributes at most once; a quorum can
 be satisfied only by distinct eligible principals. Replay and concurrent
 approval requests resolve to the same single Grant reference, retaining the
 immutable approver evidence rather than issuing another Grant.
+
+The authority records a policy under its immutable Proposal digest, locks that
+policy in a single PostgreSQL transaction, inserts approvals with a
+`(proposal_digest, approver)` uniqueness boundary, and creates at most one
+Grant. Consumption is a compare-and-set update constrained by Grant reference,
+Workspace, requester, Proposal digest and an unconsumed state. A failed or
+replayed consumption cannot authorize a second effect.
 
 ## Secure Electron IPC
 

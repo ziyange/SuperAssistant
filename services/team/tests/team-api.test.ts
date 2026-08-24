@@ -3,6 +3,8 @@ import { createTeamApi } from '../src/team-api.js';
 import { createAuthenticatedTeamServer } from '../src/server.js';
 import { createPersistentSessionRequestAuthenticator, createSessionRequestAuthenticator, PersistentTeamSessionService, TeamSessionService } from '../src/session-service.js';
 
+const permitAll = { async authorize() { return { allowed: true as const }; } };
+
 test('rejects unauthenticated and cross-workspace API requests before repository access', async () => {
   let calls = 0;
   const api = createTeamApi({
@@ -21,10 +23,22 @@ test('creates and reads a Workspace only in the actor context', async () => {
     async createWorkspace(record) { records.set(record.workspaceId, record); },
     async getWorkspace(workspaceId) { return records.get(workspaceId); },
     async listEvents() { return []; }
-  });
+  }, undefined, permitAll);
   expect((await api.handle({ method: 'POST', path: '/v1/workspaces', actor: 'actor-1', workspaceId: 'team-1', body: { workspaceId: 'team-1', name: 'Team' } })).status).toBe(201);
   expect(await api.handle({ method: 'GET', path: '/v1/workspaces/team-1', actor: 'actor-1', workspaceId: 'team-1' })).toMatchObject({ status: 200 });
   expect(await api.handle({ method: 'GET', path: '/v1/workspaces/team-1/events', actor: 'actor-1', workspaceId: 'team-1' })).toEqual({ status: 200, body: { events: [] } });
+});
+
+test('does not load a protected route until the authenticated actor is role-authorized', async () => {
+  let calls = 0;
+  const api = createTeamApi({
+    async createWorkspace() { calls += 1; },
+    async getWorkspace() { calls += 1; return undefined; },
+    async listEvents() { calls += 1; return []; }
+  }, undefined, { async authorize() { return { allowed: false as const, reason: 'ROLE_DENIED' as const }; } });
+
+  await expect(api.handle({ method: 'GET', path: '/v1/workspaces/team-1', actor: 'actor-1', workspaceId: 'team-1' })).resolves.toEqual({ status: 403, body: { code: 'ROLE_DENIED' } });
+  expect(calls).toBe(0);
 });
 
 test('HTTP adapter delegates identity to its verifier instead of trusting a caller header', async () => {
@@ -33,7 +47,7 @@ test('HTTP adapter delegates identity to its verifier instead of trusting a call
     async createWorkspace(record) { records.set(record.workspaceId, record); },
     async getWorkspace(workspaceId) { return records.get(workspaceId); },
     async listEvents() { return []; }
-  }, { async authenticate() { return { actor: 'actor-1', workspaceId: 'team-1' }; } });
+  }, { async authenticate() { return { actor: 'actor-1', workspaceId: 'team-1' }; } }, undefined, permitAll);
   await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
   try {
     const port = (server.address() as { port: number }).port;
@@ -53,7 +67,7 @@ test('HTTP adapter accepts only a current opaque session reference', async () =>
     const denied = await globalThis.fetch(`http://127.0.0.1:${port}/v1/workspaces/team-1`);
     const accepted = await globalThis.fetch(`http://127.0.0.1:${port}/v1/workspaces/team-1`, { headers: { authorization: `Bearer ${sessionRef}` } });
     expect(denied.status).toBe(401);
-    expect(accepted.status).toBe(404);
+    expect(accepted.status).toBe(403);
   } finally { await new Promise<void>((resolve, reject) => server.close(error => error === undefined ? resolve() : reject(error))); }
 });
 
@@ -65,6 +79,6 @@ test('HTTP adapter resolves a persisted session on every request', async () => {
   await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
   try {
     const port = (server.address() as { port: number }).port;
-    expect((await globalThis.fetch(`http://127.0.0.1:${port}/v1/workspaces/team-2`, { headers: { authorization: `Bearer ${ref}` } })).status).toBe(404);
+    expect((await globalThis.fetch(`http://127.0.0.1:${port}/v1/workspaces/team-2`, { headers: { authorization: `Bearer ${ref}` } })).status).toBe(403);
   } finally { await new Promise<void>((resolve, reject) => server.close(error => error === undefined ? resolve() : reject(error))); }
 });

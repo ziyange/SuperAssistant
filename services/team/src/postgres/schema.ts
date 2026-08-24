@@ -3,7 +3,12 @@ export const TEAM_AUTHORITY_SCHEMA = [
   'create table if not exists team_workspace_records (workspace_id text primary key, name text not null, owner_actor text not null)',
   'create table if not exists team_workspace_events (event_id text primary key, workspace_id text not null references team_workspace_records(workspace_id), sequence bigint not null, event_type text not null, payload jsonb not null, unique(workspace_id, sequence))',
   'create table if not exists team_sessions (session_ref text primary key, actor text not null, workspace_id text not null references team_workspace_records(workspace_id), expires_at bigint not null, revoked_at bigint)',
-  'create table if not exists team_memberships (workspace_id text not null references team_workspace_records(workspace_id), subject text not null, role text not null, primary key (workspace_id, subject))'
+  'create table if not exists team_memberships (workspace_id text not null references team_workspace_records(workspace_id), subject text not null, role text not null, primary key (workspace_id, subject))',
+  'create table if not exists team_role_assignments (workspace_id text not null references team_workspace_records(workspace_id), actor text not null, role text not null, primary key (workspace_id, actor, role))',
+  'create table if not exists team_credential_references (credential_ref text primary key, owner_actor text not null, workspace_id text not null references team_workspace_records(workspace_id), rotation_due_at bigint not null, revoked_at bigint)',
+  'create table if not exists team_approval_policies (proposal_digest text primary key, workspace_id text not null references team_workspace_records(workspace_id), policy_version text not null, requester text not null, eligible_approvers jsonb not null, quorum integer not null check (quorum > 0))',
+  'create table if not exists team_approval_records (proposal_digest text not null references team_approval_policies(proposal_digest), approver text not null, approved_at bigint not null, primary key (proposal_digest, approver))',
+  'create table if not exists team_grants (grant_ref text primary key, workspace_id text not null references team_workspace_records(workspace_id), requester text not null, proposal_digest text not null unique references team_approval_policies(proposal_digest), approvers jsonb not null, issued_at bigint not null, consumed_at bigint)'
 ] as const;
 
 export interface TeamSchemaDatabase { query(text: string): Promise<unknown> }

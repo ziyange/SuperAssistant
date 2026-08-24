@@ -14,6 +14,17 @@ and optional revocation time; it never stores an OIDC token or PKCE verifier.
 projection. Invitations remain short-lived server-side facts and acceptance
 creates a scoped membership record exactly once.
 
+TASK-713 adds `team_role_assignments(workspace_id, actor, role)`,
+`team_credential_references(credential_ref, owner_actor, workspace_id,
+rotation_due_at, revoked_at)`, `team_approval_policies(proposal_digest,
+workspace_id, policy_version, requester, eligible_approvers, quorum)`,
+`team_approval_records(proposal_digest, approver, approved_at)`, and
+`team_grants(grant_ref, workspace_id, requester, proposal_digest, approvers,
+issued_at, consumed_at)`. The role and approval records are Workspace-scoped;
+the approval-record primary key makes each approver distinct and the Grant's
+Proposal-digest uniqueness makes quorum issuance single-shot. No table accepts
+a credential value or bearer token.
+
 SQLite is the H1 authoritative store. External identifiers are UUIDv7 strings; timestamps are UTC ISO-8601 with millisecond precision; mutable records use an integer `row_version` for optimistic concurrency. Enumerations are stored as uppercase stable codes. JSON payloads carry a schema version and are validated before persistence.
 
 ### PHASE-001 migration 001 foundation slice
@@ -319,3 +330,13 @@ version and observed timestamp needed to trace every displayed conclusion.
 
 Internal Agent access records bind an Agent data domain to its requested domain
 and an opaque credential reference; the reference is not a secret value.
+TASK-713 adds `team_role_assignments(workspace_id, actor, role)`,
+`team_credential_references(credential_ref, owner_actor, workspace_id,
+rotation_due_at, revoked_at)`, `team_approval_policies(proposal_digest,
+workspace_id, requester, eligible_approvers, quorum)`,
+`team_approval_records(proposal_digest, approver, approved_at)`, and
+`team_grants(grant_ref, workspace_id, requester, proposal_digest, approvers,
+issued_at, consumed_at)`. The role and approval records are Workspace-scoped;
+the approval-record primary key makes each approver distinct and the Grant's
+Proposal-digest uniqueness makes quorum issuance single-shot. No table accepts
+a credential value or bearer token.

@@ -13,6 +13,15 @@ TASK-711 rehearsed schema initialization and Workspace persistence against a
 disposable local PostgreSQL 16.4 database, then dropped that database. This is
 not PostgreSQL 17 acceptance evidence and does not authorize a Team deployment.
 
+TASK-713 repeats that isolated PostgreSQL 16.4 rehearsal for role assignment,
+credential-reference metadata, distinct concurrent approvals, one Grant, and
+compare-and-set Grant consumption, then drops its named test database. This is
+local compatibility evidence only. The repository obtains one database client
+for each approval transaction and releases it after commit or rollback; an
+operator must not replace that transaction boundary with unrelated pool-level
+queries. PostgreSQL 17 deployment and backup/restore acceptance remain TASK-717
+work.
+
 Team session support validates current session state on every request. Operators
 must treat JWKS retrieval/validation failure, expired sessions and revocation
 as fail-closed Team authorization failures; no cache grants a write fallback.

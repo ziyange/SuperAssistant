@@ -27,12 +27,44 @@ test.runIf(process.env.SUPER_ASSISTANT_TEAM_TEST_DATABASE_URL !== undefined)('us
   const pool = new Pool({ connectionString: process.env.SUPER_ASSISTANT_TEAM_TEST_DATABASE_URL });
   try {
     await initializeIntegratedTeamSchema(pool);
-    await pool.query('truncate table team_memberships, team_sessions, team_workspace_events, team_workspace_records');
+    await pool.query('truncate table team_grants, team_approval_records, team_approval_policies, team_credential_references, team_role_assignments, team_memberships, team_sessions, team_workspace_events, team_workspace_records');
     const repository = new PostgresTeamRepository(pool);
     await repository.createWorkspace({ workspaceId: 'team-live', name: 'Live Team', ownerActor: 'actor-live' });
     expect(await repository.getWorkspace('team-live')).toEqual({ workspaceId: 'team-live', name: 'Live Team', ownerActor: 'actor-live' });
   } finally {
-    await pool.query('drop table if exists team_memberships, team_sessions, team_workspace_events, team_workspace_records');
+    await pool.query('drop table if exists team_grants, team_approval_records, team_approval_policies, team_credential_references, team_role_assignments, team_memberships, team_sessions, team_workspace_events, team_workspace_records');
+    await pool.end();
+  }
+});
+
+test.runIf(process.env.SUPER_ASSISTANT_TEAM_TEST_DATABASE_URL !== undefined)('persists roles, credential references and one transactional multi-party Grant', async () => {
+  const pool = new Pool({ connectionString: process.env.SUPER_ASSISTANT_TEAM_TEST_DATABASE_URL });
+  try {
+    await initializeIntegratedTeamSchema(pool);
+    await pool.query('truncate table team_grants, team_approval_records, team_approval_policies, team_credential_references, team_role_assignments, team_memberships, team_sessions, team_workspace_events, team_workspace_records');
+    const repository = new PostgresTeamRepository(pool, () => 100);
+    await repository.createWorkspace({ workspaceId: 'team-governance', name: 'Governance', ownerActor: 'owner' });
+    await repository.addRoleAssignment({ workspaceId: 'team-governance', actor: 'approver-a', role: 'APPROVER' });
+    await repository.registerCredential({ ref: 'cred:service-a', owner: 'owner', workspaceId: 'team-governance', rotationDueAt: 200 });
+    const restartedRepository = new PostgresTeamRepository(pool, () => 100);
+    expect(await restartedRepository.listRoleAssignments('team-governance')).toEqual([{ workspaceId: 'team-governance', actor: 'approver-a', role: 'APPROVER' }]);
+    expect(await restartedRepository.findCredential('cred:service-a')).toEqual({ ref: 'cred:service-a', owner: 'owner', workspaceId: 'team-governance', rotationDueAt: 200 });
+    await restartedRepository.openApproval({ workspaceId: 'team-governance', proposalDigest: 'sha256:aaaaaaaa', policyVersion: 'v1', requester: 'owner', eligibleApprovers: ['approver-a', 'approver-b'], quorum: 2 });
+    const approvalResults = await Promise.all([
+      restartedRepository.approveAndIssue({ proposalDigest: 'sha256:aaaaaaaa', approver: 'approver-a' }),
+      restartedRepository.approveAndIssue({ proposalDigest: 'sha256:aaaaaaaa', approver: 'approver-b' })
+    ]);
+    const grant = approvalResults.find(result => result.state === 'GRANTED');
+    expect(grant).toMatchObject({ state: 'GRANTED', approvals: 2 });
+    if (grant?.state !== 'GRANTED') throw new Error('GRANT_NOT_ISSUED');
+    const consumed = await Promise.all([
+      restartedRepository.consumeGrant(grant.grantRef, { workspaceId: 'team-governance', requester: 'owner', proposalDigest: 'sha256:aaaaaaaa' }),
+      restartedRepository.consumeGrant(grant.grantRef, { workspaceId: 'team-governance', requester: 'owner', proposalDigest: 'sha256:aaaaaaaa' })
+    ]);
+    expect(consumed.filter(result => result.consumed)).toHaveLength(1);
+    expect(consumed.filter(result => !result.consumed)).toEqual([{ consumed: false, reason: 'GRANT_ALREADY_CONSUMED' }]);
+  } finally {
+    await pool.query('drop table if exists team_grants, team_approval_records, team_approval_policies, team_credential_references, team_role_assignments, team_memberships, team_sessions, team_workspace_events, team_workspace_records');
     await pool.end();
   }
 });

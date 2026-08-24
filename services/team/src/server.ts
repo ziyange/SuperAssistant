@@ -2,7 +2,7 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { URL } from 'node:url';
 import { Buffer } from 'node:buffer';
-import type { TeamApiRepository, TeamApiRequest } from './team-api.js';
+import type { TeamApiAuthorizer, TeamApiRepository, TeamApiRequest } from './team-api.js';
 import { createTeamApi, TeamAuthorityHealth } from './team-api.js';
 
 export interface TeamRequest { method: string; path: string }
@@ -43,8 +43,8 @@ export interface TeamRequestAuthenticator {
  * HTTP adapter for a verified identity boundary. It deliberately accepts an
  * authenticator function rather than treating request headers as identity.
  */
-export function createAuthenticatedTeamServer(repository: TeamApiRepository, authenticator: TeamRequestAuthenticator, health = new TeamAuthorityHealth(() => true)) {
-  const api = createTeamApi(repository, health);
+export function createAuthenticatedTeamServer(repository: TeamApiRepository, authenticator: TeamRequestAuthenticator, health = new TeamAuthorityHealth(() => true), authorizer?: TeamApiAuthorizer) {
+  const api = createTeamApi(repository, health, authorizer);
   return createServer((request: IncomingMessage, response: ServerResponse) => {
     void (async () => {
       const identity = await authenticator.authenticate(request);
