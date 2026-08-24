@@ -1,6 +1,6 @@
 # TASK-703: Workspace RBAC
 ## Status
-APPROVED
+COMPLETED
 PHASE: PHASE-007
 MAX_ITERATIONS: 6
 user_confirmed: true
@@ -26,6 +26,7 @@ Positive and negative role matrix passes.
 - packages/domain/tests/team-rbac.test.ts
 - docs/security.md
 - docs/delivery/tasks/TASK-703.md
+- docs/delivery/tasks/README.md
 - docs/verification/reports/phase-007-task-703.md
 ## Forbidden Files
 Any file not explicitly listed; administrator bypass; allow-by-default policy.
@@ -43,3 +44,9 @@ No cross-Workspace or role-escalation action succeeds.
 Policy uncertainty denies the action.
 ## Output Required
 Role-matrix evidence.
+
+## Approved Scope Expansion
+
+- 2026-08-24: completion writeback requires exactly
+  `docs/delivery/tasks/README.md` so the execution registry cannot disagree
+  with this completed Pack. No implementation scope is added.

@@ -55,6 +55,16 @@ Persisted session identity is an opaque SHA-256 reference, never an ID or access
 token. Invitations bind one intended principal, Workspace, role and expiry; an
 accepted invitation cannot be replayed.
 
+### PHASE-007 Workspace RBAC
+
+Every Team command is deny-by-default and evaluates actor, actor Workspace,
+resource Workspace, role, action and requester. Group membership and roles are
+Workspace-scoped. `OPERATOR` alone may write, `APPROVER` alone may approve,
+`AUDITOR` alone may export audit, and `ADMIN` alone may manage membership;
+there is no administrator cross-Workspace bypass. The requester may not approve
+their own action even when otherwise qualified. Unknown role, action, group or
+policy state returns an explicit authorization denial.
+
 ## Secure Electron IPC
 
 - `contextIsolation: true`, renderer sandbox enabled, and `nodeIntegration: false` are mandatory.
