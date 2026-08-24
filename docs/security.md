@@ -11,6 +11,18 @@ Super Assistant is a local control plane that can execute code, mutate repositor
 - No silent continuation after ambiguous execution or protocol failure.
 - Auditability without storing secrets in logs or model context.
 
+### DSH Attempt policy
+
+DSH capability authority is serialized once before process launch as a
+nonsecret, content-addressed Attempt policy. It contains opaque Grant identity,
+not a credential or bearer value, and binds the Proposal digest, Project
+snapshot/baseline, Lease fence, capability-to-tool binding, target/path/host
+rules, plugin digest, budget, and DSH runtime-profile digest. The in-process
+Guard may only synchronously deny against this frozen object. It cannot reload,
+expand, or force-allow authority. Any change creates a successor Attempt policy
+and requires normal Proposal/Grant/preflight checks; it never changes a running
+process.
+
 The `SECURITY_PERMISSION` pain-point card is active at score `0.600` with `user_confirmed: true`. Concurrency mitigations remain mandatory because protected resources are also security boundaries.
 
 ## Trust boundaries and threats

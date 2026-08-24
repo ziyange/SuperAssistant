@@ -1,0 +1,4 @@
+- id: super-assistant-dsh-guard
+  name: ../../dist/dsh-tool-guard-plugin.js
+  config:
+    policy_source: immutable-attempt-policy

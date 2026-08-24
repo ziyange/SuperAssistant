@@ -1,10 +1,11 @@
+/* global process */
 import { describe, expect, it } from 'vitest';
 
 import { probeDsh } from '../src/dsh-probe.js';
 
 const repositoryPath = 'E:/Programs/deepseek-harness';
-const expectedCommit = '141eb6fef83422698aef7a981029e843e8161534';
-const expectedProtocolVersion = '0.1.0-rc.8';
+const expectedCommit = 'b150a551b8d465e31e418e1b2eaf5e79bbb7d28e';
+const expectedProtocolVersion = '0.1.1-rc.2';
 
 function rpcFixture(source: string): string[] {
   return ['-e', source];
@@ -21,7 +22,7 @@ process.stdin.on('data', (chunk) => {
     const request = JSON.parse(buffered.slice(0, end));
     buffered = buffered.slice(end + 1);
     if (request.method === 'initialize') {
-      console.log(JSON.stringify({ jsonrpc: '2.0', id: request.id, result: { serverInfo: { version: '0.1.0-rc.8' } } }));
+      console.log(JSON.stringify({ jsonrpc: '2.0', id: request.id, result: { serverInfo: { version: '0.1.1-rc.2' } } }));
     }
     if (request.method === 'shutdown') {
       console.log(JSON.stringify({ jsonrpc: '2.0', id: request.id, result: {} }));

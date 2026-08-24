@@ -161,6 +161,10 @@ same surface. It owns one DSH process per ExecutionAttempt and treats upstream
 sessions, notifications, and process exit as non-authoritative evidence. The
 platform journal derives `status`, `events`, and `result`; an ambiguous interval
 is `UNKNOWN/RECONCILING`, never a new dispatch. DSH Shell, filesystem, network,
-and plugin capabilities use an Adapter-owned Tool Broker: each request must
-prove a pinned Function, immutable Proposal, current Grant, Project snapshot,
-Lease fence, policy rule, and budget before it is released and journaled.
+and plugin capabilities use an Adapter-owned Tool Broker. Before launch, it
+serializes an immutable Attempt policy and binds its `policy_digest` to SAI
+execution evidence. Each request is evaluated against that static policy:
+pinned Function, immutable Proposal, consumed Grant, Project snapshot/baseline,
+Lease fence, capability binding, target rule, plugin digest, and budget. A
+changed policy fact requires a new Attempt; it cannot alter a running Adapter
+process.

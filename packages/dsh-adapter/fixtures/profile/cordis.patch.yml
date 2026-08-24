@@ -1,0 +1,6 @@
+# Configuration-relative composition fixture. No provider or capability plugin.
+plugins:
+  - id: super-assistant-dsh-guard
+    path: ../../dist/dsh-tool-guard-plugin.js
+    config:
+      policy_source: super-assistant-attempt-policy

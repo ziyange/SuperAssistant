@@ -248,3 +248,9 @@ declaration, and passing compatibility profile; DSH cannot self-install,
 update, or enable plugins. Changed DSH commit, protocol/package identity,
 server information, or profile digest disables affected Functions until a
 fixture-only compatibility probe passes.
+
+Before each DSH launch, operations persist a nonsecret immutable Attempt-policy
+digest with the Attempt evidence. The launched Guard receives only that frozen
+policy and can deny a call when its tool binding, target rule, budget, Grant,
+snapshot, fence, plugin digest, or profile digest does not match. Policy changes
+are not live updates: they require a successor Attempt and normal authorization.

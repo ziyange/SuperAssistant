@@ -39,3 +39,4 @@ export * from './work-item-graph.js';
 export * from './ports/execution-port.js';
 export * from './execution-envelope.js';
 export * from './services/project-service.js';
+export * from './dsh-execution.js';

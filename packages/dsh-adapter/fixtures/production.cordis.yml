@@ -1,0 +1,6 @@
+# Disposable inspection fixture only. It does not start DSH or declare a tool.
+plugins:
+  - id: super-assistant-dsh-guard
+    path: ../dist/dsh-tool-guard-plugin.js
+    config:
+      policy_source: super-assistant-attempt-policy

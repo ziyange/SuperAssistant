@@ -58,17 +58,18 @@ async function readPackageVersion(path: string): Promise<string> {
 async function waitForExit(child: ReturnType<typeof spawn>, timeoutMs: number): Promise<boolean> {
   if (child.exitCode !== null) return true;
   return new Promise((resolve) => {
-    const onExit = () => { clearTimeout(timer); resolve(true); };
-    const timer = setTimeout(() => { child.off('exit', onExit); resolve(false); }, timeoutMs);
+    const onExit = () => { globalThis.clearTimeout(timer); resolve(true); };
+    const timer = globalThis.setTimeout(() => { child.off('exit', onExit); resolve(false); }, timeoutMs);
     child.once('exit', onExit);
   });
 }
 
 async function reapFixture(child: ReturnType<typeof spawn>, timeoutMs: number): Promise<{ reaped: boolean; steps: string[] }> {
   const steps = ['SHUTDOWN', 'EOF'];
-  if (child.stdin.writable) {
-    child.stdin.write('{"jsonrpc":"2.0","id":"shutdown","method":"shutdown"}\n');
-    child.stdin.end();
+  const stdin = child.stdin;
+  if (stdin?.writable) {
+    stdin.write('{"jsonrpc":"2.0","id":"shutdown","method":"shutdown"}\n');
+    stdin.end();
   }
   if (await waitForExit(child, timeoutMs)) return { reaped: true, steps };
   steps.push('TERMINATE');
@@ -115,7 +116,7 @@ async function inspectFixture(config: DshProbeConfig): Promise<{ observation: Fi
     }
   });
   child.stdin.write('{"jsonrpc":"2.0","id":"initialize","method":"initialize"}\n');
-  await Promise.race([initialized, new Promise<void>((resolve) => setTimeout(resolve, timeoutMs))]);
+  await Promise.race([initialized, new Promise<void>((resolve) => globalThis.setTimeout(resolve, timeoutMs))]);
   return { observation, shutdown: await reapFixture(child, timeoutMs) };
 }
 

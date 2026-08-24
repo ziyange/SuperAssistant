@@ -18,3 +18,4 @@ export * from './repositories/resource-lease-repository.js';
 export * from './repositories/monitoring-event-repository.js';
 export * from './repositories/event-aggregation-repository.js';
 export * from './repositories/monitoring-status-repository.js';
+export * from './dsh-attempt-journal-repository.js';

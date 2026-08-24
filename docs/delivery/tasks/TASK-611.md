@@ -1,6 +1,6 @@
 # TASK-611: Production DSH SAI Adapter
 ## Status
-APPROVED
+COMPLETED
 PHASE: PHASE-006
 MAX_ITERATIONS: 6
 user_confirmed: true
@@ -58,18 +58,30 @@ duplicate a DSH effect.
 - packages/dsh-adapter/src/dsh-process-host.ts
 - packages/dsh-adapter/src/dsh-event-journal.ts
 - packages/dsh-adapter/src/dsh-tool-broker.ts
+- packages/dsh-adapter/src/dsh-tool-guard.ts
+- packages/dsh-adapter/src/dsh-tool-guard-plugin.ts
 - packages/dsh-adapter/src/dsh-reconciler.ts
 - packages/dsh-adapter/src/index.ts
 - packages/dsh-adapter/tests/dsh-process-host.test.ts
 - packages/dsh-adapter/tests/dsh-event-journal.test.ts
 - packages/dsh-adapter/tests/dsh-tool-broker.test.ts
+- packages/dsh-adapter/tests/dsh-tool-guard.test.ts
+- packages/dsh-adapter/tests/dsh-tool-guard-plugin.test.ts
 - packages/dsh-adapter/tests/dsh-reconciler.contract.test.ts
 - packages/dsh-adapter/tests/dsh-adapter.contract.test.ts
 - packages/dsh-adapter/fixtures/production.cordis.yml
+- packages/dsh-adapter/package.json
+- package.json
+- package-lock.json
 - packages/domain/src/dsh-execution.ts
+- packages/domain/src/index.ts
 - packages/domain/tests/dsh-execution.test.ts
 - packages/persistence/src/dsh-attempt-journal-repository.ts
+- packages/persistence/src/index.ts
+- packages/persistence/src/sqlite/migrations/017-dsh-attempt-journal.sql
+- packages/persistence/src/sqlite/migration-runner.ts
 - packages/persistence/tests/dsh-attempt-journal-repository.test.ts
+- packages/persistence/tests/migration-runner.test.ts
 - apps/desktop/src/main/dsh-adapter-service.ts
 - apps/desktop/tests/main/dsh-adapter-service.test.ts
 - docs/adapters/dsh.md
@@ -115,3 +127,21 @@ remain blocked; no timeout or process exit is interpreted as success.
 ## Output Required
 `docs/verification/reports/phase-006-task-611.md` with SAI, broker, crash,
 cancel, reconciliation, capability, and full-gate evidence.
+
+## Approved Scope Expansion
+
+- 2026-08-23: durable journal and public domain/persistence contracts require
+  exactly `017-dsh-attempt-journal.sql`, its migration-runner registration,
+  `packages/domain/src/index.ts`, and `packages/persistence/src/index.ts`.
+  This adds no UI, DSH workspace, direct tool effect, credential, plugin, or
+  remote scope.
+- 2026-08-23: the public DSH `ToolGuard` decision core requires exactly
+  `dsh-tool-guard.ts` and its test. Loader/plugin packaging is intentionally
+  excluded until its DSH peer-dependency graph is approved and pinned.
+- 2026-08-23: mount verification requires the fixed public
+  `@deepseek-ai/dsh-tools@0.1.0-rc.8` package and its resolved peer graph in
+  root lock metadata, plus the Guard plugin and test. No DSH repository file is
+  changed, and no provider/model/tool invocation is authorized by this scope.
+- 2026-08-23: `packages/persistence/tests/migration-runner.test.ts` must
+  assert migration 017 and use a new failed-migration version. This preserves
+  migration idempotency and rollback coverage; it does not expand runtime scope.

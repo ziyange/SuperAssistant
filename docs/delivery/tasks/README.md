@@ -39,16 +39,21 @@ Task Packs are execution permissions, not design substitutes. Every pack names e
 | TASK-504 | PHASE-005 | APPROVED | Bound automated follow-up work |
 | TASK-505 | PHASE-005 | APPROVED | Accept PHASE-005 and prepare PHASE-006 |
 | TASK-506 | PHASE-005 | APPROVED | Expose bounded monitoring state and prove storm limits |
-| TASK-601 | PHASE-006 | APPROVED | Generic adapter manifest and conformance gate |
-| TASK-602 | PHASE-006 | APPROVED | Domain template and classification contracts |
-| TASK-603 | PHASE-006 | APPROVED | Operations Data Agent lineage |
-| TASK-604 | PHASE-006 | APPROVED | HR Agent security boundary |
-| TASK-605 | PHASE-006 | APPROVED | Legacy adapter compatibility |
+| TASK-601 | PHASE-006 | COMPLETED | Generic adapter manifest and conformance gate |
+| TASK-602 | PHASE-006 | COMPLETED | Domain template and classification contracts |
+| TASK-603 | PHASE-006 | COMPLETED | Operations Data Agent lineage |
+| TASK-604 | PHASE-006 | COMPLETED | HR Agent security boundary |
+| TASK-605 | PHASE-006 | COMPLETED | Legacy adapter compatibility |
 | TASK-606 | PHASE-006 | COMPLETED | Gemini fixed-version compatibility block retained as evidence |
 | TASK-607 | PHASE-006 | REJECTED | Superseded by ADR-007; Gemini Core cannot prove the required lifecycle |
 | TASK-610 | PHASE-006 | COMPLETED | DSH public-profile compatibility probe |
-| TASK-611 | PHASE-006 | APPROVED | Production DSH SAI Adapter with brokered capabilities |
-| TASK-608 | PHASE-006 | APPROVED | Enterprise internal Agent scope |
+| TASK-611 | PHASE-006 | COMPLETED | Production DSH SAI Adapter with brokered capabilities |
+| TASK-612 | PHASE-006 | COMPLETED | External DSH Guard packaging/profile probe |
+| TASK-613 | PHASE-006 | COMPLETED | Public Loader mount of immutable DSH Guard |
+| TASK-614 | PHASE-006 | COMPLETED | Refresh DSH public-profile compatibility evidence |
+| TASK-615 | PHASE-006 | COMPLETED | Public SDK server lifecycle under immutable Guard |
+| TASK-616 | PHASE-006 | COMPLETED | Public ToolRuntime Guard dispatch conformance |
+| TASK-608 | PHASE-006 | COMPLETED | Enterprise internal Agent scope |
 | TASK-609 | PHASE-006 | APPROVED | Domain acceptance and enterprise handoff |
 
 Status transitions require validation and human confirmation. A draft is not executable. Approved content is frozen for execution; changes create a reviewed revision before work resumes.
