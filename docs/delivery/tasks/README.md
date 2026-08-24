@@ -62,5 +62,6 @@ Task Packs are execution permissions, not design substitutes. Every pack names e
 | TASK-704 | PHASE-007 | COMPLETED | Credential namespace isolation |
 | TASK-705 | PHASE-007 | COMPLETED | Multi-party approval |
 | TASK-706 | PHASE-007 | COMPLETED | Verifiable audit export |
+| TASK-707 | PHASE-007 | COMPLETED | Retention and legal hold |
 
 Status transitions require validation and human confirmation. A draft is not executable. Approved content is frozen for execution; changes create a reviewed revision before work resumes.

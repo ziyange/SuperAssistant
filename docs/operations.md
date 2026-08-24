@@ -179,6 +179,14 @@ any count or digest mismatch. Exports reject secret-like fields before a
 manifest is produced. A scoped export remains evidence only and cannot grant
 new access or mutate the append-only audit history.
 
+### PHASE-007 retention and legal hold
+
+Retention defaults to preserve. A legal hold or unknown state blocks deletion
+without exception. An expired record still requires a recorded policy-versioned
+dry-run before a deletion plan can be formed. The resulting plan carries an
+audit digest; it does not erase governed metadata or break the audit chain.
+Actual destructive execution remains a separately authorized operational action.
+
 ## Upgrade and rollback
 
 Application upgrade checks Node/Electron bundle integrity, database migration compatibility, SAI range, Codex App Server range, and available disk before changing state. The pre-upgrade database backup and installed application package provide rollback. After rollback, the older application may open the database only if its declared schema compatibility includes the current version; otherwise it remains read-only and offers restore.
