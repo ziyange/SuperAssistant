@@ -6,6 +6,7 @@ import type Database from 'better-sqlite3';
 import { createFoundationDatabase, SqliteAcceptanceRepository, SqliteArtifactRepository, SqliteAuditExportRepository, SqliteDecisionRepository, SqliteHistoryRepository, SqliteMonitoringStatusRepository, SqliteProjectChangeRepository, SqliteTaskProjectionQuery } from '@super-assistant/persistence';
 import { routeIpc, type OnboardingPort } from './ipc-router.js';
 import { createWindowOptions, isAllowedNavigation } from './window-policy.js';
+import { unavailableTeamPort } from './team-ipc.js';
 
 let onboarding = { completed: false };
 const onboardingPort: OnboardingPort = { get: async () => onboarding, set: async (next) => (onboarding = { completed: next.completed }) };
@@ -35,9 +36,10 @@ app.whenReady().then(async () => {
   const acceptancePort = new SqliteAcceptanceRepository(database);
   const auditExportPort = new SqliteAuditExportRepository(database);
   const monitoringStatusPort = new SqliteMonitoringStatusRepository(database);
+  const teamPort = unavailableTeamPort();
   const routeTrustedIpc = (event: IpcMainInvokeEvent, channel: string, payload: unknown) => {
     if (!senderIsTrusted(event.senderFrame?.url ?? '')) throw new Error('Untrusted IPC sender.');
-    return routeIpc({ channel, payload }, onboardingPort, undefined, taskPort, artifactPort, decisionPort, historyPort, changePort, acceptancePort, auditExportPort, monitoringStatusPort);
+    return routeIpc({ channel, payload }, onboardingPort, undefined, taskPort, artifactPort, decisionPort, historyPort, changePort, acceptancePort, auditExportPort, monitoringStatusPort, teamPort);
   };
   ipcMain.handle('onboarding:get', (event, payload) => {
     return routeTrustedIpc(event, 'onboarding:get', payload);
@@ -55,6 +57,7 @@ app.whenReady().then(async () => {
   ipcMain.handle('acceptance:list', (event, payload) => routeTrustedIpc(event, 'acceptance:list', payload));
   ipcMain.handle('audit-export:create', (event, payload) => routeTrustedIpc(event, 'audit-export:create', payload));
   ipcMain.handle('monitoring:status', (event, payload) => routeTrustedIpc(event, 'monitoring:status', payload));
+  ipcMain.handle('team:workspace', (event, payload) => routeTrustedIpc(event, 'team:workspace', payload));
   await createWindow();
 });
 

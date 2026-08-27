@@ -146,6 +146,15 @@ Every state uses text and iconography, not color alone. Focus order, keyboard ac
 - H3 adds Workspace switcher, membership, RBAC, multi-party approvals, audit export, and retention controls inside the existing five destinations. Existing Task/Decision/ArtifactVersion URLs and product labels remain stable; adapter-specific concepts remain hidden.
 - H3 notification preferences are scoped to one Workspace and principal. Normal delivery is suppressed during configured quiet hours; an Emergency bypass is visibly marked for audit. Notification aggregation is bounded to an authorized aggregate key. A Task or Decision deep link reauthorizes its target before any content is displayed; uncertainty suppresses delivery and resolves no link.
 
+### PHASE-007 Team Workspace projection
+
+Team Workspace is rendered inside Project Center, never as a new primary
+destination. The desktop receives only a server projection through typed
+preload IPC. `EXPIRED`, `DENIED` and `DEGRADED` states display a text reason
+and no protected Workspace, membership, approval, audit or retention control.
+Membership and approval panels are read projections; retention stays preserve
+by default and cannot be initiated by the renderer.
+
 Related facts: [architecture](architecture.md), [security](security.md), [orchestration](orchestration.md), and [operations](operations.md).
 # Agent Template provenance
 

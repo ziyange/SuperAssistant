@@ -1,0 +1,3 @@
+// @vitest-environment jsdom
+import { render, screen } from '@testing-library/react'; import { expect, test } from 'vitest'; import { TeamGovernance } from '../../src/renderer/team-governance.js';
+test('keeps retention preserve-by-default and audit projection non-executable', () => { render(<TeamGovernance team={{ state: 'READY', members: [], approvals: [], audit: { digest: 'sha256:abc', recordCount: 2 } }} />); expect(screen.getByText('2 governed records')).toBeTruthy(); expect(screen.getByText('Retention is preserved by default.')).toBeTruthy(); expect(screen.queryByRole('button')).toBeNull(); });

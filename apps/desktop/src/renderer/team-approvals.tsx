@@ -1,0 +1,1 @@
+export function TeamApprovals({ approvals }: Readonly<{ approvals: readonly Readonly<{ proposalDigest: string; state: string }>[] }>) { return <section aria-label="Team approvals"><h2>Approvals</h2><ul>{approvals.map(approval => <li key={approval.proposalDigest}>{approval.state}</li>)}</ul></section>; }

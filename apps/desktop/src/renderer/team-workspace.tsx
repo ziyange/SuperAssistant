@@ -1,0 +1,2 @@
+import type { TeamWorkspaceProjection } from '../main/team-client.js';
+export function TeamWorkspace({ team }: Readonly<{ team: TeamWorkspaceProjection }>) { if (team.state !== 'READY') return <section aria-label="Team Workspace"><h2>Team Workspace</h2><p role="status">{team.state === 'EXPIRED' ? 'Session expired. Sign in again.' : team.state === 'DENIED' ? 'Access denied.' : 'Team service is unavailable.'}</p></section>; return <section aria-label="Team Workspace"><h2>Team Workspace</h2><p>{team.workspace?.name}</p><p>{team.workspace?.workspaceId}</p></section>; }

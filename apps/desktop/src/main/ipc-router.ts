@@ -9,13 +9,14 @@ import { projectAuditExportForRenderer, type AuditExportPort } from './audit-exp
 import type { ProposalIpcPort } from './proposal-ipc.js';
 import { listTasksForRenderer, projectTaskForRenderer, type TaskReadPort } from './task-ipc.js';
 import { projectMonitoringStatusForRenderer, type MonitoringStatusReadPort } from './monitoring-status-ipc.js';
+import { projectTeamWorkspace, type TeamWorkspacePort } from './team-ipc.js';
 
 export interface OnboardingPort {
   get(): Promise<OnboardingProjection>;
   set(projection: OnboardingProjection): Promise<OnboardingProjection>;
 }
 
-export async function routeIpc(request: unknown, onboarding: OnboardingPort, proposal?: ProposalIpcPort, task?: TaskReadPort, artifact?: ArtifactReadPort, decision?: DecisionReadPort, history?: HistoryReadPort, changes?: ProjectChangeReadPort, acceptance?: AcceptanceReadPort, auditExport?: AuditExportPort, monitoring?: MonitoringStatusReadPort): Promise<IpcResponse> {
+export async function routeIpc(request: unknown, onboarding: OnboardingPort, proposal?: ProposalIpcPort, task?: TaskReadPort, artifact?: ArtifactReadPort, decision?: DecisionReadPort, history?: HistoryReadPort, changes?: ProjectChangeReadPort, acceptance?: AcceptanceReadPort, auditExport?: AuditExportPort, monitoring?: MonitoringStatusReadPort, team?: TeamWorkspacePort): Promise<IpcResponse> {
   const valid: IpcRequest = validateRequest(request);
   if (valid.channel === 'onboarding:get') return { onboarding: await onboarding.get() };
   if (valid.channel === 'onboarding:set') return { onboarding: await onboarding.set(valid.payload) };
@@ -59,6 +60,7 @@ export async function routeIpc(request: unknown, onboarding: OnboardingPort, pro
     if (!monitoring) throw new Error('Monitoring status IPC port is unavailable.');
     return { monitoring: projectMonitoringStatusForRenderer(monitoring, valid.payload) };
   }
+  if (valid.channel === 'team:workspace') return { team: await projectTeamWorkspace(team ?? { async workspace() { return { state: 'DEGRADED', members: [], approvals: [] }; } }, valid.payload.workspaceId) };
   if (!proposal) throw new Error('Proposal IPC port is unavailable.');
   const onboardingProjection = await onboarding.get();
   if (valid.channel === 'proposal:classify') return { onboarding: onboardingProjection, classification: proposal.classify(valid.payload.actions as Parameters<ProposalIpcPort['classify']>[0]).kind };

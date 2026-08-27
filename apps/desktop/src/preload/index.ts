@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import type { OnboardingProjection, SuperAssistantDesktopApi } from '../shared/ipc-contract.js';
+import { teamApi } from './team-api.js';
 
 const api: SuperAssistantDesktopApi = {
   getOnboarding: () => ipcRenderer.invoke('onboarding:get', {}),
@@ -14,6 +15,7 @@ const api: SuperAssistantDesktopApi = {
   ,listAcceptance: (taskId) => ipcRenderer.invoke('acceptance:list', { taskId })
   ,createAuditExport: (input) => ipcRenderer.invoke('audit-export:create', input)
   ,getMonitoringStatus: (projectId) => ipcRenderer.invoke('monitoring:status', { projectId })
+  ,getTeamWorkspace: teamApi.getWorkspace
 };
 
 contextBridge.exposeInMainWorld('superAssistant', Object.freeze(api));

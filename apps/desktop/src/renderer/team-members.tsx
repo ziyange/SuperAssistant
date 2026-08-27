@@ -1,0 +1,1 @@
+export function TeamMembers({ members }: Readonly<{ members: readonly Readonly<{ subject: string; role: string }>[] }>) { return <section aria-label="Team members"><h2>Members</h2><ul>{members.map(member => <li key={member.subject}>{member.subject}: {member.role}</li>)}</ul></section>; }

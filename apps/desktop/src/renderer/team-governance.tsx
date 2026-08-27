@@ -1,0 +1,2 @@
+import type { TeamWorkspaceProjection } from '../main/team-client.js';
+export function TeamGovernance({ team }: Readonly<{ team: TeamWorkspaceProjection }>) { return <section aria-label="Team governance"><h2>Governance</h2><p>{team.audit ? `${team.audit.recordCount} governed records` : 'Audit export unavailable.'}</p><p>{team.retention?.reason ?? team.retention?.state ?? 'Retention is preserved by default.'}</p></section>; }

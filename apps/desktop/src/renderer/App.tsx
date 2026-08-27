@@ -13,6 +13,11 @@ import { AuditExport } from './audit-export.js';
 import { DegradedState } from './degraded-state.js';
 import { MonitoringStatus } from './monitoring-status.js';
 import type { MonitoringStatusRendererProjection } from '../shared/ipc-contract.js';
+import { TeamWorkspace } from './team-workspace.js';
+import { TeamMembers } from './team-members.js';
+import { TeamApprovals } from './team-approvals.js';
+import { TeamGovernance } from './team-governance.js';
+import type { TeamWorkspaceProjection } from '../main/team-client.js';
 
 export function App() {
   const [current, setCurrent] = useState<Destination>('super-assistant');
@@ -22,12 +27,15 @@ export function App() {
   const [history] = useState<TaskHistoryModel>({ activity: [], human: [] });
   const [changes] = useState<readonly ProjectChangesModel[]>([]);
   const [monitoring, setMonitoring] = useState<MonitoringStatusRendererProjection>();
+  const [team, setTeam] = useState<TeamWorkspaceProjection>({ state: 'DEGRADED', members: [], approvals: [] });
 
   useEffect(() => {
     void window.superAssistant?.getOnboarding().then((response) => {
       if ('onboarding' in response) setCompleted(response.onboarding.completed);
     });
   }, []);
+
+  useEffect(() => { void window.superAssistant?.getTeamWorkspace?.('default-workspace').then(response => { if ('team' in response) setTeam(response.team); }); }, []);
 
   useEffect(() => {
     void window.superAssistant?.getMonitoringStatus?.('default-project').then((response) => {
@@ -60,5 +68,5 @@ export function App() {
     });
   };
 
-  return <main><Navigation current={current} onNavigate={setCurrent} /><h1>{current === 'super-assistant' ? 'Super Assistant' : current}</h1>{current === 'project-center' ? <><ProjectCenter projects={[]} /><MonitoringStatus status={monitoring} /><ProjectChanges changes={changes} /><AuditExport /></> : current === 'task-center' ? <><TaskCenter tasks={tasks} /><TaskHistory history={history} /></> : current === 'super-assistant' ? <><DegradedState reason="Adapter status is unavailable until reconciliation completes." /><ProposalReview objective="Side-effecting plan review" classification="SIDE_EFFECTING" preflight="STALE" onConfirm={() => undefined} />{decisions.map((decision) => <DecisionCenter key={decision.decisionId} decision={decision} />)}</> : <Onboarding completed={completed} onComplete={completeOnboarding} />}</main>;
+  return <main><Navigation current={current} onNavigate={setCurrent} /><h1>{current === 'super-assistant' ? 'Super Assistant' : current}</h1>{current === 'project-center' ? <><ProjectCenter projects={[]} /><MonitoringStatus status={monitoring} /><ProjectChanges changes={changes} /><AuditExport /><TeamWorkspace team={team} /><TeamMembers members={team.members} /><TeamApprovals approvals={team.approvals} /><TeamGovernance team={team} /></> : current === 'task-center' ? <><TaskCenter tasks={tasks} /><TaskHistory history={history} /></> : current === 'super-assistant' ? <><DegradedState reason="Adapter status is unavailable until reconciliation completes." /><ProposalReview objective="Side-effecting plan review" classification="SIDE_EFFECTING" preflight="STALE" onConfirm={() => undefined} />{decisions.map((decision) => <DecisionCenter key={decision.decisionId} decision={decision} />)}</> : <Onboarding completed={completed} onComplete={completeOnboarding} />}</main>;
 }

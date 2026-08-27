@@ -1,0 +1,2 @@
+import { expect, test } from '@playwright/test';
+test('Project Center exposes a truthful degraded Team Workspace projection', async ({ page }) => { await page.goto('/'); await page.getByRole('button', { name: 'Project Center' }).click(); await expect(page.getByRole('region', { name: 'Team Workspace' })).toContainText('Team service is unavailable.'); await expect(page.getByRole('region', { name: 'Team governance' })).toContainText('Retention is preserved by default.'); });
