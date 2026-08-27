@@ -20,6 +20,7 @@ Those facts are recorded in the immutable TASK-709 acceptance audit.
 | TASK-712 | OIDC PKCE, sessions and membership | REQ-081, 090, 094, 099 | Fixture issuer/JWKS rotation, PKCE/state/nonce/audience checks, secure session and invitation flow |
 | TASK-713 | Unified authorization, RBAC, credentials and approvals | REQ-082–084, 094–096, 099 | Middleware on every protected route, durable role/grant/quorum records and 200 negative cases |
 | TASK-714 | Complete audit export and retention/legal-hold operations | REQ-085, 086, 096, 099 | Governed inventory, access-checked export, tamper proof, retention plan/execution and backup/restore evidence |
+| TASK-719 | DSH Loader full-suite stability | REQ-090, 096, 099 | Loader Guard integration test remains deterministic under the complete unit suite without weakening its denial assertions |
 | TASK-715 | Electron Team Workspace governance workflows | REQ-081–086, 089, 098 | Accessible Workspace/member/role/approval/audit/retention flows using Team API only |
 | TASK-716 | Durable governed notifications | REQ-087–089, 094, 096, 099 | Persisted preferences/outbox, bounded channel delivery, retry/idempotency and reauthorized deep links |
 | TASK-717 | H3 system acceptance | REQ-081–089, 090, 096, 099 | API/database/UI E2E, recovery, threat/security, performance, PostgreSQL target-version and backup evidence |
