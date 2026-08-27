@@ -1,6 +1,6 @@
 # TASK-714: Governed audit export and retention operations
 ## Status
-IN_PROGRESS
+COMPLETED
 PHASE: PHASE-007
 MAX_ITERATIONS: 6
 user_confirmed: true
@@ -66,8 +66,6 @@ Audit/retention operation evidence.
 
 ## Gate status
 
-- Recorded 2026-08-25: implementation evidence is complete, but the complete
-  deterministic unit suite remains blocked by the unrelated
-  `packages/dsh-adapter/tests/dsh-loader-guard.test.ts` five-second timeout.
-  The test passes in isolation but fails under the full suite; it is outside
-  this Pack's explicit allowlist and must be handled by a dedicated DSH Task.
+- Completed 2026-08-27 after [TASK-719](TASK-719.md) repaired the unrelated
+  DSH Loader integration-test deadline. The complete deterministic unit suite
+  now passes under the project-required Node 22 runtime.

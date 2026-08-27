@@ -1,7 +1,7 @@
 # PHASE-007 TASK-714 verification report
 
-- Decision: `BLOCKED`
-- Worktree: `E:\Programs\Super Assistant\.worktrees\TASK-714-audit-retention`
+- Decision: `PASS`
+- Worktree: `E:\Programs\Super Assistant\.worktrees\TASK-714-revalidation`
 - Branch: `codex/phase-007-enterprise`
 - Date: 2026-08-25
 - Scope expansion: PostgreSQL governed-record tables and their disposable
@@ -33,16 +33,14 @@
 | Build | `npm run build` | PASS |
 | Contract | `npm run test:contract` | PASS: 8 files / 35 tests |
 | E2E | `npm run test:e2e` | PASS: 7 Playwright tests |
-| Full deterministic unit | `npm exec vitest run --passWithNoTests --project=unit --maxWorkers=1 --minWorkers=1` | BLOCKED: unrelated DSH Loader guard test timed out at 5 seconds; it passes in isolation but failed in two full-suite attempts |
+| Full deterministic unit | Node 22 single-worker Vitest suite after TASK-719 | PASS; the DSH Loader Guard deadline is finite and the full suite passes twice |
 
-## Blocking condition and handoff
+## Gate recovery
 
-The blocked test is `packages/dsh-adapter/tests/dsh-loader-guard.test.ts`,
-which is outside this Task Pack's allowed files. No TASK-714 code change may
-increase a global timeout or modify DSH behavior. A dedicated DSH stability
-Task must reproduce the full-suite timing failure, preserve its process
-evidence and repair it within its own approved allowlist. The Task remains
-blocked until that task supplies a full-suite PASS.
+The earlier DSH Loader full-suite timeout was outside this Pack's allowlist.
+[TASK-719](phase-007-task-719.md) supplied a scoped test-only, finite deadline
+and two Node 22 full-suite passes; no retention or DSH production behavior was
+changed as part of this recovery.
 
 ## Known limits
 
