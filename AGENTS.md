@@ -2,6 +2,11 @@
 
 ## Current lifecycle state
 
+- Integration recovery is active on `codex/task-720-audited`; TASK-720 has
+  completed its local governance gate. TASK-721 is next but is not yet opened.
+  H1 and H3 integrated acceptance remain unproven. Historical
+  phase records below are not proof of current end-to-end acceptance.
+
 - `PHASE-000` is the accepted document-first baseline; `TASK-000` is completed locally.
 - `PHASE-001` is archived on `codex/phase-001-platform-foundation`; TASK-100
   through TASK-106 are accepted local evidence.
@@ -9,9 +14,10 @@
   `codex/phase-002-single-task-loop`. TASK-201 through TASK-207 and closeout
   TASK-204 are completed local evidence; TASK-202's user-approved real-smoke
   exception remains recorded in its phase archive.
-- `PHASE-003` is Ready. TASK-301 through TASK-305 are approved and must begin
-  only from a new isolated `codex/phase-003-*` worktree after this archive
-  evidence is committed.
+- PHASE-003 through PHASE-006 have historical local archive records; their
+  integrated behavior is subject to the current recovery acceptance gates.
+- PHASE-007 is reopened. TASK-716 has uncommitted work in a separate worktree;
+  TASK-720 owns the current governance remediation.
 - The initial GitHub publication is an S21 handoff after local acceptance, not an application phase.
 
 ## Sources of truth

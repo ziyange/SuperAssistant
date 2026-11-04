@@ -1,8 +1,16 @@
 # Super Assistant documentation
 
-This repository contains accepted document-first baselines for `PHASE-000`
-through `PHASE-004`. `PHASE-005` is ready to open in a fresh isolated
-worktree; its approved Task Packs do not authorize any later-phase work.
+## Integration recovery status (2026-11-04)
+
+The integration candidate is `codex/task-720-audited`. TASK-720 has completed
+its local governance gate; TASK-721 has not yet opened. TASK-716's uncommitted work remains in a separate worktree and is not
+part of this candidate. Prior phase archives document historical local decisions,
+not proof that the integrated H1–H3 product has passed the new recovery gates.
+See [integration baseline](delivery/integration-recovery-baseline.md).
+
+The repository contains historical local phase records through `PHASE-006`.
+PHASE-007 has been reopened; the integration recovery gates assess actual
+cross-component behavior independently of those historical phase labels.
 
 ## Authority map
 

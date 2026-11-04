@@ -65,8 +65,8 @@ def load_schema_from_markdown(schemas_md_path: str, schema_id: str) -> Optional[
             try:
                 with open(standalone_json_path, "r", encoding="utf-8") as f:
                     return json.load(f)
-            except Exception:
-                pass
+            except (OSError, UnicodeError, json.JSONDecodeError):
+                return None
 
     # 2. Fallback to extracting from Markdown file
     if not os.path.exists(schemas_md_path):
@@ -214,7 +214,8 @@ def run_verification(
     next_iteration: int,
     schemas_md_path: str = "references/schemas.md",
     expansions_path: str = "docs/delivery/expansions.json",
-    runtime_event_reason: Optional[str] = None
+    runtime_event_reason: Optional[str] = None,
+    require_task_evidence: bool = False
 ) -> Tuple[int, Dict]:
     """
     Executes core verification and returns (exit_code, payload_dict).
@@ -237,16 +238,41 @@ def run_verification(
     # Step 1: Validate schemas presence (Fail-Close Exit 3)
     trace_schema = load_schema_from_markdown(schemas_md_path, "ExecutionTraceSchema")
     audit_schema = load_schema_from_markdown(schemas_md_path, "AuditLogSchema")
-    if not trace_schema or not audit_schema:
+    if not HAS_JSONSCHEMA or not trace_schema or not audit_schema:
         payload["exit_code"] = 3
         payload["reason"] = "SCHEMA_OR_PARSE_FAILURE"
         return 3, payload
 
     # Parse inputs
-    trace_entries = parse_trace_file(trace_path)
-    audit_entries = parse_audit_log(log_path)
+    try:
+        if not os.path.isfile(task_pack_path):
+            raise ValueError('missing task pack')
+        with open(trace_path, 'r', encoding='utf-8') as source:
+            trace_content = source.read().strip()
+        with open(log_path, 'r', encoding='utf-8') as source:
+            audit_content = source.read().strip()
+        if not trace_content or not audit_content:
+            raise ValueError('empty runtime evidence')
+        trace_entries = json.loads(trace_content) if trace_content.startswith('[') else [json.loads(line) for line in trace_content.splitlines() if line.strip()]
+        audit_entries = json.loads(audit_content) if audit_content.startswith('[') else [json.loads(line) for line in audit_content.splitlines() if line.strip() and not line.lstrip().startswith('#')]
+        if not isinstance(trace_entries, list) or not isinstance(audit_entries, list):
+            raise ValueError('runtime evidence must be a list')
+        if os.path.exists(expansions_path):
+            with open(expansions_path, 'r', encoding='utf-8') as source:
+                expansions = json.load(source)
+            if not isinstance(expansions, list) or any(not isinstance(item, dict) for item in expansions):
+                raise ValueError('expansions must be a list of objects')
+        else:
+            expansions = []
+    except (OSError, UnicodeError, ValueError):
+        payload['exit_code'] = 3
+        payload['reason'] = 'SCHEMA_OR_PARSE_FAILURE'
+        return 3, payload
     allowed_files, max_iterations = parse_task_pack(task_pack_path)
-    expansions = parse_expansions_file(expansions_path)
+    if mode.lower() in ('plan', 'goal') and not allowed_files:
+        payload['exit_code'] = 3
+        payload['reason'] = 'SCHEMA_OR_PARSE_FAILURE'
+        return 3, payload
     payload["expansion_count"] = len(expansions)
 
     # Validate Schema structures
@@ -299,6 +325,20 @@ def run_verification(
     trace_map = {t["tx_id"]: t for t in trace_entries if "tx_id" in t}
     audit_map = {a["tx_id"]: a for a in audit_entries if "tx_id" in a}
 
+    if len(trace_map) != len(trace_entries) or len(audit_map) != len(audit_entries):
+        payload["exit_code"] = 6
+        payload["reason"] = "ILLEGAL_TRANSACTION_STATE"
+        payload["reason_details"]["duplicate_tx_id"] = "DUPLICATE_TRANSACTION_ID"
+        return 6, payload
+
+    orphaned = set(trace_map) - set(audit_map)
+    if orphaned:
+        payload["exit_code"] = 4
+        payload["reason"] = "UNCOMMITTED_TRANSACTION"
+        for tx_id in sorted(orphaned):
+            payload["reason_details"][tx_id] = "RESULT_WITHOUT_INTENT"
+        return 4, payload
+
     # Find latest MODE_SWITCH index for Post-MODE_SWITCH isolation
     last_mode_switch_idx = -1
     for idx, entry in enumerate(audit_entries):
@@ -348,7 +388,9 @@ def run_verification(
 
         # Cross-verify Result intent_hash match
         if t_entry:
-            if t_entry.get("intent_hash") != intent_hash:
+            if (t_entry.get("intent_hash") != intent_hash
+                    or t_entry.get("action_type") != action_type
+                    or t_entry.get("normalized_path") != path):
                 payload["exit_code"] = 5
                 payload["reason"] = "TAMPER_OR_HASH_MISMATCH"
                 payload["scan_truncated"] = True
@@ -368,6 +410,17 @@ def run_verification(
                     payload["reason"] = "OFF_BOUNDARY_VIOLATION"
                     payload["offending_files"].append(path)
                     scanned_exit_codes.append(2)
+
+    if require_task_evidence and not scanned_exit_codes:
+        task_id = os.path.splitext(os.path.basename(task_pack_path))[0].lower()
+        matched = any(task_id in tx_id.lower() and entry.get('action_type') == 'FILE_WRITE'
+                      and entry.get('normalized_path') in allowed_files
+                      and tx_id in trace_map
+                      for tx_id, entry in audit_map.items())
+        if not matched:
+            payload['exit_code'] = 3
+            payload['reason'] = 'TASK_EVIDENCE_MISSING'
+            return 3, payload
 
     # Universal Aggregation Formula: ExitCode_final = max(runtime_event, max_scanned(chain_static))
     runtime_event_code = 4 if runtime_event_reason == "SAFELY_ABORTED_OPERATION" else 0
@@ -395,6 +448,7 @@ def main():
     parser.add_argument("--schemas", default="references/schemas.md", help="Path to schemas.md")
     parser.add_argument("--expansions", default="docs/delivery/expansions.json", help="Path to expansions.json")
     parser.add_argument("--runtime-event-reason", default=None, help="Runtime event reason string")
+    parser.add_argument("--require-task-evidence", action="store_true", help="Require a matched task-specific FILE_WRITE intent and result")
     parser.add_argument("--json", action="store_true", help="Output JSON payload")
 
     args = parser.parse_args()
@@ -407,7 +461,8 @@ def main():
         next_iteration=args.next_iteration,
         schemas_md_path=args.schemas,
         expansions_path=args.expansions,
-        runtime_event_reason=args.runtime_event_reason
+        runtime_event_reason=args.runtime_event_reason,
+        require_task_evidence=args.require_task_evidence
     )
 
     if args.json:

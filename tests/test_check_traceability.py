@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sys
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -9,10 +10,53 @@ from pathlib import Path
 SCRIPTS = Path(__file__).resolve().parents[1] / "scripts"
 sys.path.insert(0, str(SCRIPTS))
 
-from check_traceability import check_traceability  # noqa: E402
+from check_traceability import check_traceability, check_reference_targets  # noqa: E402
 
 
 class TraceabilityCheckTests(unittest.TestCase):
+    def test_rejects_wrong_acceptance_and_missing_phase(self) -> None:
+        requirements, matrix, temp = self.write_fixture(
+            '### REQ-001 — First\n- Acceptance:\n  - observable\nVerification: SCN-ONE\n',
+            '| REQ | Source | Engineering | Phase | Task Pack | Acceptance | Verification |\n'
+            '|---|---|---|---|---|---|---|\n'
+            '| REQ-001 | S | E | PHASE-999 | Phase plan | AC-REQ-002 | SCN-ONE |\n',
+        )
+        self.addCleanup(temp.cleanup)
+        issues = check_reference_targets(requirements, matrix, requirements.parent)
+        self.assertTrue(any('AC-REQ-002' in issue for issue in issues))
+        self.assertTrue(any('PHASE-999' in issue for issue in issues))
+    def test_expected_count_rejects_missing_requirements(self) -> None:
+        requirements, matrix, temp = self.write_fixture(
+            '### REQ-001 — First\n',
+            '| REQ | Source | Engineering | Phase | Task Pack | Acceptance | Verification |\n'
+            '|---|---|---|---|---|---|---|\n'
+            '| REQ-001 | S | E | PHASE-001 | Phase plan | AC-01 | SCN-ONE |\n',
+        )
+        self.addCleanup(temp.cleanup)
+        result = subprocess.run([sys.executable, str(SCRIPTS / 'check_traceability.py'), '--requirements', str(requirements), '--matrix', str(matrix), '--expected-count', '99'], capture_output=True, text=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('expected 99 requirements, found 1', result.stdout)
+    def test_rejects_scenario_belonging_to_another_requirement(self) -> None:
+        requirements, matrix, temp = self.write_fixture(
+            '### REQ-001 — First\nVerification: SCN-ONE\n### REQ-002 — Second\nVerification: SCN-TWO\n',
+            '| REQ | Source | Engineering | Phase | Task Pack | Acceptance | Verification |\n'
+            '|---|---|---|---|---|---|---|\n'
+            '| REQ-001 | S | E | PHASE-001 | Phase plan | AC-01 | SCN-TWO |\n',
+        )
+        self.addCleanup(temp.cleanup)
+        self.assertTrue(any('SCN-TWO' in issue for issue in check_reference_targets(requirements, matrix, requirements.parent)))
+    def test_rejects_nonexistent_task_and_scenario_references(self) -> None:
+        requirements, matrix, temp = self.write_fixture(
+            '### REQ-001 — First\nVerification: SCN-REAL\n',
+            '| REQ | Source | Engineering | Phase | Task Pack | Acceptance | Verification |\n'
+            '|---|---|---|---|---|---|---|\n'
+            '| REQ-001 | S | E | PHASE-001 | TASK-999 | AC-01 | SCN-FAKE |\n',
+        )
+        self.addCleanup(temp.cleanup)
+        issues = check_reference_targets(requirements, matrix, requirements.parent)
+        self.assertTrue(any('TASK-999' in issue for issue in issues))
+        self.assertTrue(any('SCN-FAKE' in issue for issue in issues))
+
     def write_fixture(self, requirements: str, matrix: str) -> tuple[Path, Path, tempfile.TemporaryDirectory]:
         temp = tempfile.TemporaryDirectory()
         root = Path(temp.name)

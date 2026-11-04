@@ -181,9 +181,13 @@ def check_docs_links(root: Path) -> dict[str, object]:
     else:
         search_root = root
         for path in sorted(root.rglob("*.md")):
-            if any(part.startswith(".") or part in {"node_modules", "venv", "target", "build", "dist"} for part in path.parts):
+            if any(part.startswith(".") or part in {"node_modules", "venv", "target", "build", "dist"} for part in path.relative_to(root).parts):
                 continue
             md_files.append(path)
+
+    if not md_files:
+        return {"status": "failed", "total_files": 0, "total_issues": 1,
+                "issues": [{"file": str(root), "line": 1, "target": str(root), "reason": "no Markdown files found"}]}
 
     cache: dict[Path, set[str]] = {}
     all_issues: list[dict[str, str | int]] = []

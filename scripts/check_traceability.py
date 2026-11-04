@@ -113,14 +113,62 @@ def check_traceability(requirements_path: Path, matrix_path: Path) -> List[str]:
     return sorted(set(issues))
 
 
+def check_reference_targets(requirements_path: Path, matrix_path: Path, docs_root: Path) -> List[str]:
+    """Verify named Task Packs and scenarios resolve, without asserting test execution."""
+    try:
+        requirements = requirements_path.read_text(encoding='utf-8')
+        matrix = matrix_path.read_text(encoding='utf-8')
+        catalog_path = docs_root / 'verification' / 'scenarios.md'
+        catalog = catalog_path.read_text(encoding='utf-8') if catalog_path.is_file() else ''
+    except (OSError, UnicodeError) as exc:
+        return [f'cannot read reference input: {exc}']
+    rows, issues = parse_matrix(matrix)
+    lifecycle_scenarios = set(re.findall(r'^#{2,6}\s+(SCN-[A-Z0-9-]+)\b', catalog, re.MULTILINE))
+    headings = list(REQUIREMENT_HEADING.finditer(requirements))
+    scenarios_by_requirement = {}
+    acceptance_requirements = set()
+    for index, heading in enumerate(headings):
+        end = headings[index + 1].start() if index + 1 < len(headings) else len(requirements)
+        section = requirements[heading.end():end]
+        scenarios_by_requirement[heading.group(1)] = set(re.findall(r'\bSCN-[A-Z0-9-]+\b', section))
+        if re.search(r'^-\s+Acceptance:\s*$', section, re.MULTILINE):
+            acceptance_requirements.add(heading.group(1))
+    for row in rows:
+        req_id = row.get('REQ', '')
+        for phase in re.findall(r'\bPHASE-\d{3}\b', row.get('Phase', '')):
+            if not (docs_root / 'delivery' / f'{phase.lower()}.md').is_file():
+                issues.append(f'{req_id} references missing phase {phase}')
+        for acceptance in re.findall(r'\bAC-REQ-\d{3}\b', row.get('Acceptance', '')):
+            if acceptance != f'AC-{req_id}' or req_id not in acceptance_requirements:
+                issues.append(f'{req_id} references missing or unrelated acceptance {acceptance}')
+        for task in re.findall(r'\bTASK-\d+\b', row.get('Task Pack', '')):
+            if not (docs_root / 'delivery' / 'tasks' / f'{task}.md').is_file():
+                issues.append(f"{row.get('REQ', '')} references missing Task Pack {task}")
+        for scenario in re.findall(r'\bSCN-[A-Z0-9-]+\b', row.get('Verification', '')):
+            if scenario not in scenarios_by_requirement.get(row.get('REQ', ''), set()) and scenario not in lifecycle_scenarios:
+                issues.append(f"{row.get('REQ', '')} references missing or unrelated scenario {scenario}")
+    return sorted(set(issues))
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--requirements", required=True, type=Path)
     parser.add_argument("--matrix", required=True, type=Path)
     parser.add_argument("--json", action="store_true")
+    parser.add_argument("--resolve-references", action="store_true", help="Check named Task Packs and scenarios exist under the requirements document directory")
+    parser.add_argument("--expected-count", type=int, help="Require this many distinct REQ headings")
     args = parser.parse_args()
 
     issues = check_traceability(args.requirements, args.matrix)
+    if args.expected_count is not None:
+        try:
+            actual = len(set(REQUIREMENT_HEADING.findall(args.requirements.read_text(encoding='utf-8'))))
+            if actual != args.expected_count:
+                issues.append(f'expected {args.expected_count} requirements, found {actual}')
+        except (OSError, UnicodeError) as exc:
+            issues.append(f'cannot count requirements: {exc}')
+    if args.resolve_references:
+        issues.extend(check_reference_targets(args.requirements, args.matrix, args.requirements.parent))
     payload = {
         "status": "passed" if not issues else "failed",
         "requirements": str(args.requirements),

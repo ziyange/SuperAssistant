@@ -16,5 +16,221 @@
     "prev_hash": "e9abe3b7cb9666d3d828f396a90ec22755d14a0ded000a0f8bef055540963841",
     "intent_hash": "c062c2a0a0e5d57e96425a0d562b98d86310f75e4a99ba1e929c0868656c20da",
     "status": "COMMITTED"
+  },
+  {
+    "tx_id": "task-720-reapply-001",
+    "timestamp": "2026-11-04T03:04:27.136Z",
+    "action_type": "FILE_WRITE",
+    "normalized_path": "docs/delivery/tasks/TASK-720.md",
+    "prev_hash": "c062c2a0a0e5d57e96425a0d562b98d86310f75e4a99ba1e929c0868656c20da",
+    "intent_hash": "c80f789ed4d4882d5e24009326d038febb5f4fe2c5a11ef29d3e78792806b23e",
+    "status": "COMMITTED",
+    "artifact_metadata": {
+      "sha256": "c877781c1c5227957f396a094d4d1a365d6e0912b6856f51ad3f75667b950749"
+    }
+  },
+  {
+    "tx_id": "task-720-reapply-002",
+    "timestamp": "2026-11-04T03:05:22.687Z",
+    "action_type": "FILE_WRITE",
+    "normalized_path": "AGENTS.md",
+    "prev_hash": "c80f789ed4d4882d5e24009326d038febb5f4fe2c5a11ef29d3e78792806b23e",
+    "intent_hash": "420487a0331355db2a5921d392d48705cf264925fe8d0be6e846ebff07f9cf05",
+    "status": "COMMITTED",
+    "artifact_metadata": {
+      "sha256": "8d754a5a4161fe81da286e5e2c5059cf0970bd5420968010e73af31b62d18125"
+    }
+  },
+  {
+    "tx_id": "task-720-reapply-003",
+    "timestamp": "2026-11-04T03:05:34.159Z",
+    "action_type": "FILE_WRITE",
+    "normalized_path": "docs/README.md",
+    "prev_hash": "420487a0331355db2a5921d392d48705cf264925fe8d0be6e846ebff07f9cf05",
+    "intent_hash": "c354f649f645e5bd8b75a1621619457622558eee3581ffbee9ca5fd5ab1178e1",
+    "status": "COMMITTED",
+    "artifact_metadata": {
+      "sha256": "b0f90db9ad018b66545106c17bcf728cd1bc9a98afdb57cd084e883c16d5d7d0"
+    }
+  },
+  {
+    "tx_id": "task-720-reapply-004",
+    "timestamp": "2026-11-04T03:05:45.828Z",
+    "action_type": "FILE_WRITE",
+    "normalized_path": "docs/delivery/tasks/README.md",
+    "prev_hash": "c354f649f645e5bd8b75a1621619457622558eee3581ffbee9ca5fd5ab1178e1",
+    "intent_hash": "42b5bba602160678dd192ca8d5f7645245337e87f2e26ba2985997e72a432f82",
+    "status": "COMMITTED",
+    "artifact_metadata": {
+      "sha256": "d0b507ff44a01f5a2f2a6a0ebf3490b0b13bd3281f99645eb3eba02087a7231b"
+    }
+  },
+  {
+    "tx_id": "task-720-reapply-005",
+    "timestamp": "2026-11-04T03:05:56.987Z",
+    "action_type": "FILE_WRITE",
+    "normalized_path": "scripts/check_docs_links.py",
+    "prev_hash": "42b5bba602160678dd192ca8d5f7645245337e87f2e26ba2985997e72a432f82",
+    "intent_hash": "a29744c9107f0e69c4a1af4c68434a661c8c1354c2adf5f406a8ba97e87b2d33",
+    "status": "COMMITTED",
+    "artifact_metadata": {
+      "sha256": "5bbaf005c007cf59173aaf176b8d0652fa6bd22ff8c6f98ea7f516cedcc8fb42"
+    }
+  },
+  {
+    "tx_id": "task-720-reapply-006",
+    "timestamp": "2026-11-04T03:06:08.325Z",
+    "action_type": "FILE_WRITE",
+    "normalized_path": "scripts/check_traceability.py",
+    "prev_hash": "a29744c9107f0e69c4a1af4c68434a661c8c1354c2adf5f406a8ba97e87b2d33",
+    "intent_hash": "5ce7cf1b20705106463d01e82e22f5bd9e5b908eb079b9c404519857b361911a",
+    "status": "COMMITTED",
+    "artifact_metadata": {
+      "sha256": "a4729d3946a6b8dc2b8cee9473958f0b7b8baac06ac779cbc83e4dcfa44ee046"
+    }
+  },
+  {
+    "tx_id": "task-720-reapply-007",
+    "timestamp": "2026-11-04T03:06:19.373Z",
+    "action_type": "FILE_WRITE",
+    "normalized_path": "scripts/verify_runtime_trace.py",
+    "prev_hash": "5ce7cf1b20705106463d01e82e22f5bd9e5b908eb079b9c404519857b361911a",
+    "intent_hash": "29369b9dfcc14a58288d76610016313bfaa273c06058e5b44fc027bdc4d25d1e",
+    "status": "COMMITTED",
+    "artifact_metadata": {
+      "sha256": "734e7646d7e75fc4b2ae11743d8088c08ee4875bbeeadf18144639888e4524a3"
+    }
+  },
+  {
+    "tx_id": "task-720-reapply-008",
+    "timestamp": "2026-11-04T03:06:30.412Z",
+    "action_type": "FILE_WRITE",
+    "normalized_path": "tests/test_check_traceability.py",
+    "prev_hash": "29369b9dfcc14a58288d76610016313bfaa273c06058e5b44fc027bdc4d25d1e",
+    "intent_hash": "4bfe1a2d27caba4dbd8f75c82cdaf38c21e659355546903714b65bee069baf46",
+    "status": "COMMITTED",
+    "artifact_metadata": {
+      "sha256": "06de78565fbdb8663f92bd79865e32a2692f8a47e9e5bc86d9e8e7c06548a8bf"
+    }
+  },
+  {
+    "tx_id": "task-720-reapply-009",
+    "timestamp": "2026-11-04T03:06:40.358Z",
+    "action_type": "FILE_WRITE",
+    "normalized_path": "docs/delivery/integration-recovery-baseline.md",
+    "prev_hash": "4bfe1a2d27caba4dbd8f75c82cdaf38c21e659355546903714b65bee069baf46",
+    "intent_hash": "d9368fefeaf87d8b40747ee7fac7af6baae49c22e20987cea9cd7e9a6155d9d2",
+    "status": "COMMITTED",
+    "artifact_metadata": {
+      "sha256": "3ddf56489658bb823785ebf27ee93b71a004eac1a782e10305ee940bcccd594a"
+    }
+  },
+  {
+    "tx_id": "task-720-reapply-010",
+    "timestamp": "2026-11-04T03:06:50.239Z",
+    "action_type": "FILE_WRITE",
+    "normalized_path": "docs/verification/reports/integration-architecture.md",
+    "prev_hash": "d9368fefeaf87d8b40747ee7fac7af6baae49c22e20987cea9cd7e9a6155d9d2",
+    "intent_hash": "bfb94ec5df2fe4ac331b69da721a16321f6a9f0e9b7ba24e32df37e40502304c",
+    "status": "COMMITTED",
+    "artifact_metadata": {
+      "sha256": "a65756e04e9830af1052d880ea07b3db440642dc496c87a7d90a7757c7ecceeb"
+    }
+  },
+  {
+    "tx_id": "task-720-reapply-011",
+    "timestamp": "2026-11-04T03:07:00.064Z",
+    "action_type": "FILE_WRITE",
+    "normalized_path": "docs/verification/reports/phase-007-task-720.md",
+    "prev_hash": "bfb94ec5df2fe4ac331b69da721a16321f6a9f0e9b7ba24e32df37e40502304c",
+    "intent_hash": "2e061299d5eedc5418078be308658a4f058cda1f804b5059cb9811fbb08344ab",
+    "status": "COMMITTED",
+    "artifact_metadata": {
+      "sha256": "994113a3f0c94339f87db88469f88a4940f5f501cb3aa403bd77f0f10478e6ce"
+    }
+  },
+  {
+    "tx_id": "task-720-reapply-012",
+    "timestamp": "2026-11-04T03:07:10.863Z",
+    "action_type": "FILE_WRITE",
+    "normalized_path": "tests/test_check_docs_links.py",
+    "prev_hash": "2e061299d5eedc5418078be308658a4f058cda1f804b5059cb9811fbb08344ab",
+    "intent_hash": "4257559813316db5fbf44a7d04129b9e91e6a9c9e31a712eff05ee1cc7ee9729",
+    "status": "COMMITTED",
+    "artifact_metadata": {
+      "sha256": "9dc1f260b8585a64e87fdd0e75227bac475ac7186a86618e8946edf5c0b22462"
+    }
+  },
+  {
+    "tx_id": "task-720-reapply-013",
+    "timestamp": "2026-11-04T03:07:21.903Z",
+    "action_type": "FILE_WRITE",
+    "normalized_path": "tests/test_verify_runtime_trace.py",
+    "prev_hash": "4257559813316db5fbf44a7d04129b9e91e6a9c9e31a712eff05ee1cc7ee9729",
+    "intent_hash": "08b05a15489f3554f8926b9e0181d21f9cd9b73a7a3520e7005607dcd5006dd3",
+    "status": "COMMITTED",
+    "artifact_metadata": {
+      "sha256": "bf96e8d0e4bd5ee05dbaf57cdf3b24612fe50b4664c6d4c2d4b4b3545596e516"
+    }
+  },
+  {
+    "tx_id": "task-720-acceptance-001",
+    "timestamp": "2026-11-04T03:10:29.238Z",
+    "action_type": "FILE_WRITE",
+    "normalized_path": "docs/delivery/tasks/TASK-720.md",
+    "prev_hash": "08b05a15489f3554f8926b9e0181d21f9cd9b73a7a3520e7005607dcd5006dd3",
+    "intent_hash": "b31b49d4f99d746dfaee15686552c353ac5fd5e1c2f414ea86c27c267dbb3824",
+    "status": "COMMITTED",
+    "artifact_metadata": {
+      "sha256": "6685e673bd52edaee95ae8b536cbb7355b1e7cf55c399048b7d8a3329bba50ec"
+    }
+  },
+  {
+    "tx_id": "task-720-acceptance-002",
+    "timestamp": "2026-11-04T03:10:39.320Z",
+    "action_type": "FILE_WRITE",
+    "normalized_path": "AGENTS.md",
+    "prev_hash": "b31b49d4f99d746dfaee15686552c353ac5fd5e1c2f414ea86c27c267dbb3824",
+    "intent_hash": "4d2d4ef968a7c8c2778ef63e5d042e40d3aa6e326e60a5324b50e80228525534",
+    "status": "COMMITTED",
+    "artifact_metadata": {
+      "sha256": "ef06d8d9ef246bd04c72115e290eafd344daa140d6984e9e91ee4eda7fa44f51"
+    }
+  },
+  {
+    "tx_id": "task-720-acceptance-003",
+    "timestamp": "2026-11-04T03:10:48.125Z",
+    "action_type": "FILE_WRITE",
+    "normalized_path": "docs/README.md",
+    "prev_hash": "4d2d4ef968a7c8c2778ef63e5d042e40d3aa6e326e60a5324b50e80228525534",
+    "intent_hash": "d121008096e8c73de111ce4ca9fb332d2c9fba3f9e3b2ba4ba6a6437fe4a9aad",
+    "status": "COMMITTED",
+    "artifact_metadata": {
+      "sha256": "dbedd918c8f9d872db4c809828a89dd10399463c6cb2ce5dcfddb1fdada81557"
+    }
+  },
+  {
+    "tx_id": "task-720-acceptance-004",
+    "timestamp": "2026-11-04T03:10:56.906Z",
+    "action_type": "FILE_WRITE",
+    "normalized_path": "docs/delivery/tasks/README.md",
+    "prev_hash": "d121008096e8c73de111ce4ca9fb332d2c9fba3f9e3b2ba4ba6a6437fe4a9aad",
+    "intent_hash": "83fa982f4adaaa72d374ac2e95bca78e3485bca0981e80191fc5caeefed99bdd",
+    "status": "COMMITTED",
+    "artifact_metadata": {
+      "sha256": "094ad2b2088dd5bafa314b236799edb76bd4a26d693936dca1985a56cfad73a2"
+    }
+  },
+  {
+    "tx_id": "task-720-acceptance-005",
+    "timestamp": "2026-11-04T03:11:05.652Z",
+    "action_type": "FILE_WRITE",
+    "normalized_path": "docs/verification/reports/phase-007-task-720.md",
+    "prev_hash": "83fa982f4adaaa72d374ac2e95bca78e3485bca0981e80191fc5caeefed99bdd",
+    "intent_hash": "44c9c941775bd6f97045b3539e80228c962148d3d561b36a08379ed0f780a75d",
+    "status": "COMMITTED",
+    "artifact_metadata": {
+      "sha256": "17e3da14661116d3ca27d6a0d3916df65bba6fc656a3e82fdd17103c6d90ddf5"
+    }
   }
 ]

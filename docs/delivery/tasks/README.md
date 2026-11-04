@@ -2,6 +2,10 @@
 
 Task Packs are execution permissions, not design substitutes. Every pack names exact requirements, fact sources, allowed files, forbidden files, contracts, tests, acceptance evidence, risks, and an iteration limit.
 
+TASK-720 completed its local governance gate; TASK-721 is not yet opened. The legacy table below records
+historical pack labels and is not evidence of current end-to-end acceptance.
+See [TASK-720](TASK-720.md) and the [recovery baseline](../integration-recovery-baseline.md).
+
 | Pack | Phase | Status | Purpose |
 |---|---|---|---|
 | TASK-000 | PHASE-000 | COMPLETED | Established facts, governance, schemas, CI, trace, and local Git baseline |
@@ -74,5 +78,6 @@ Task Packs are execution permissions, not design substitutes. Every pack names e
 | TASK-716 | PHASE-007 | APPROVED | Durable governed notifications |
 | TASK-717 | PHASE-007 | APPROVED | H3 integrated system acceptance |
 | TASK-718 | PHASE-007 | APPROVED | Truthful H3 closeout and maintenance handoff |
+| TASK-720 | PHASE-007 | COMPLETED | Audited integration baseline and governance gates |
 
 Status transitions require validation and human confirmation. A draft is not executable. Approved content is frozen for execution; changes create a reviewed revision before work resumes.
