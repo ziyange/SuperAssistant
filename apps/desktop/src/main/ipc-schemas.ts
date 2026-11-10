@@ -1,5 +1,6 @@
 /* global Buffer */
 import type { IpcRequest } from '../shared/ipc-contract.js';
+import { isGoalAction } from '@super-assistant/domain';
 
 const MAX_IPC_BYTES = 1_048_576;
 
@@ -21,10 +22,16 @@ export function validateRequest(value: unknown): IpcRequest {
   if (value.channel === 'onboarding:get' && Object.keys(value.payload).length === 0) {
     return { channel: 'onboarding:get', payload: {} };
   }
+  if ((value.channel === 'project:list' || value.channel === 'project:choose') && Object.keys(value.payload).length === 0) {
+    return { channel: value.channel, payload: {} };
+  }
+  if (value.channel === 'codex:check' && Object.keys(value.payload).length === 0) {
+    return { channel: 'codex:check', payload: {} };
+  }
   if (value.channel === 'onboarding:set' && hasOnlyKeys(value.payload, ['completed']) && typeof value.payload.completed === 'boolean') {
     return { channel: 'onboarding:set', payload: { completed: value.payload.completed } };
   }
-  if (value.channel === 'proposal:classify' && hasOnlyKeys(value.payload, ['actions']) && Array.isArray(value.payload.actions) && value.payload.actions.every((action) => typeof action === 'string')) {
+  if (value.channel === 'proposal:classify' && hasOnlyKeys(value.payload, ['actions']) && Array.isArray(value.payload.actions) && value.payload.actions.length > 0 && Array.from(value.payload.actions).every(isGoalAction)) {
     return { channel: 'proposal:classify', payload: { actions: value.payload.actions } };
   }
   if (value.channel === 'proposal:preflight' && hasOnlyKeys(value.payload, ['approved', 'current']) && isRecord(value.payload.approved) && isRecord(value.payload.current)) {

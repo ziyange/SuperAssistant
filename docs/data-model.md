@@ -1,5 +1,29 @@
 # Super Assistant data model
 
+### Outbox claim fencing
+
+Migration 019 adds a nullable, unique claim token to each Outbox row. Only
+the holder of the current token may acknowledge or mark an active claim
+uncertain. Interrupted claims move to RECONCILING and their nonterminal
+Attempts to UNKNOWN; they are not automatically requeued.
+
+## H1 Project catalog persistence contract
+
+TASK-731 makes the Project catalog list Workspace-scoped and makes registration
+idempotent for the existing Workspace/canonical-key uniqueness constraint.
+Re-registering an equivalent key returns the unchanged existing Project, not a
+new Project or metadata overwrite. Cross-Workspace rows remain isolated. The
+caller is still responsible for validating and resolving filesystem paths before
+passing them to the repository; this contract does not claim UI integration.
+
+## H1 onboarding persistence
+
+TASK-729 adds SQLite migration 018 with a singleton onboarding state. An absent
+row means onboarding is incomplete; a present row contains a constrained 0/1
+completion flag. The desktop main process owns reads and writes through the
+existing onboarding IPC port. No secrets or user-entered content are stored.
+This is an implementation contract under development, not an acceptance claim.
+
 ## PHASE-007 Team authority foundation
 
 `team_workspace_records` is the PostgreSQL authority record for a Team
@@ -214,6 +238,15 @@ CANCELLING → CANCELLED
 ### ResourceLease
 
 Stores normalized resource key, owner ExecutionAttempt, fencing token, mode, acquisition/expiry/renewal time, and release reason. An adapter must present the current fencing token before any write. Expiry initiates reconciliation; it is not permission to redispatch.
+
+The SQLite H1 lease uses nullable renewed_at and expires_at: new leases
+persist canonical UTC timestamps and a 30-second window. Migrated legacy
+leases retain null expiry, fail write authorization and remain blocking.
+Renewal checks owner, fencing token, ACTIVE state and a non-rollback trusted
+clock strictly before expiry. Expiry never automatically releases a lease.
+The persisted last_observed_at high-water mark advances on checks, including
+an expired observation, so an observed clock rollback after restart fails
+closed. Unobserved clock jumps cannot be detected from wall-clock data alone.
 
 State is `PROVISIONAL | ACTIVE | RELEASING | RELEASED | EXPIRED | QUARANTINED`. Only `ACTIVE` authorizes a write. A monotonically newer fencing token invalidates all older holders even if a stale process survives.
 

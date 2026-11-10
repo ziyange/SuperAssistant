@@ -1,5 +1,47 @@
 # Codex Adapter
 
+## Current integration correction
+
+The [official App Server documentation](https://learn.chatgpt.com/docs/app-server)
+documents request IDs, the initialization handshake and read-only `thread/read`.
+TASK-748 specifies a correlated observation-only client that sends those read
+methods, sanitizes observations and shares transport logic with discovery.
+`idle` alone is not evidence of an Attempt outcome and never authorizes
+redispatch. This client ignores notifications and therefore cannot serve an
+active execution stream; execution, recovery and version compatibility remain
+separate gates.
+
+TASK-749 keeps this read-only client attached to its supervised child for
+internal status observations. Shutdown or an observation failure closes the
+client and invalidates discovery. A client closed by unsolicited malformed
+protocol data also invalidates cached health before it is returned. The only projected statuses are ACTIVE,
+IDLE and INDETERMINATE; none establishes an accepted Task result or permits
+redispatch. TASK-749 did not wire the supervisor to the desktop or an active turn.
+
+TASK-750 wires an explicitly user-selected executable to a
+one-shot supervised read-only discovery check. The result is a sanitized
+last observation, not a live session or execution capability. The existing
+Codex version allowlist remains unchanged.
+The discovery child receives only the operating-system and user-profile
+locations needed to locate local configuration: SystemRoot, TEMP, TMP,
+USERPROFILE, HOME, APPDATA and LOCALAPPDATA when present. Arbitrary
+environment variables and credentials are not forwarded.
+The one-shot version probe must terminate its owned process tree on timeout
+or oversized output and confirm child closure before reporting failure; an
+unconfirmed termination is not a successful check and is never auto-retried.
+For process existence checks, only an explicit ESRCH establishes that the
+process is gone; permission or other operating-system errors remain unknown.
+
+TASK-735 adds an isolated read-only App Server JSON-RPC handshake. The locally
+installed Codex CLI 0.157.1 generated schemas on 2026-11-05 describing
+`initialize`, the `initialized` notification, and `account/read`. The
+existing one-line synthetic discovery fixture is not evidence of this protocol.
+The existing fake execution operations including `turn/status`,
+`turn/events`, `turn/result` and `turn/resume` are not established by that
+generated request schema and must not be connected to a real App Server.
+No compatibility allowlist is expanded and no real model or App Server run is
+claimed by this isolated transport task.
+
 The Codex Adapter is the H1 anti-corruption layer between product-neutral [SAI](../api/sai.md) and the documented stable Codex App Server API. It owns upstream protocol correlation and local execution mechanics; it does not own Task truth.
 
 ## Fixed integration boundary
@@ -18,6 +60,12 @@ The adapter must not:
 If initialization or compatibility checks fail, Agent Connection becomes `UNAVAILABLE` with a stable reason and no execution is accepted.
 
 ## Process topology and lifecycle
+
+TASK-739 specifies a read-only discovery supervisor: it owns exactly one child,
+uses the TASK-735 JSON-RPC handshake, rejects repeated initialization and late
+results after shutdown or exit, and invalidates cached health on child exit.
+Failure or explicit shutdown must terminate the owned process. This boundary is
+not desktop IPC, does not enable execution, and does not change the version gate.
 
 ```text
 Electron main/control plane
@@ -60,6 +108,19 @@ Codex version, App Server protocol range, configured Skills, MCP/App/Tool connec
 `resume` maps continuation and optional structured input to the stable methods advertised during negotiation. A Decision resolution includes a unique input ID and expected ExecutionAttempt state. A stale or repeated resolution is acknowledged idempotently and is never applied twice.
 
 ### Cancel
+
+The existing synthetic cancellation adapter must fail closed: it cannot accept
+caller-provided booleans as termination or release evidence, and it must never
+call release if termination is unconfirmed. If interrupt fails, it attempts
+termination but retains the lease for reconciliation. This internal contract
+does not make the synthetic transport a real App Server implementation.
+The synthetic sequence bounds interrupt to five seconds and all cancellation
+steps together to fifteen seconds. A timed-out release has an uncertain outcome
+and is never automatically repeated; the control plane must reconcile it.
+Within one synthetic adapter instance, calls for the same Attempt and process
+share one cancellation outcome, including an incomplete outcome; a changed
+process identity conflicts. This cache is not restart-durable and is not a
+substitute for a persistent cancellation/reconciliation record.
 
 `cancel` uses the stable upstream interrupt as an internal Codex action, then terminates every descendant process owned by that ExecutionAttempt after the bounded grace policy, captures final or ambiguous evidence, determines worktree disposition, and releases or fences ResourceLeases. The Adapter Worker remains available for other work unless the worker itself has failed. The adapter reports `CANCELLATION_INCOMPLETE` until every condition holds.
 

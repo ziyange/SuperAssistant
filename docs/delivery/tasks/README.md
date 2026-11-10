@@ -2,9 +2,29 @@
 
 Task Packs are execution permissions, not design substitutes. Every pack names exact requirements, fact sources, allowed files, forbidden files, contracts, tests, acceptance evidence, risks, and an iteration limit.
 
-TASK-720 completed its local governance gate; TASK-721 is not yet opened. The legacy table below records
+TASK-720 completed its local governance gate; TASK-721 is in progress with
+uncommitted changes. The legacy table below records
 historical pack labels and is not evidence of current end-to-end acceptance.
 See [TASK-720](TASK-720.md) and the [recovery baseline](../integration-recovery-baseline.md).
+
+## Current integration remediation
+
+The candidate and all local task changes are uncommitted. Each link points to
+task-level evidence, not a clean-SHA or phase acceptance.
+
+| Pack | Current evidence and limit |
+|---|---|
+| [TASK-721](../../verification/reports/phase-007-task-721.md) | Security and notification work in progress; G2 remains open |
+| [TASK-727](../../verification/reports/phase-007-task-727.md) | Deterministic DSH fixture; live DSH remains unverified |
+| [TASK-728](../../verification/reports/phase-007-task-728.md) | TypeScript lint false positives corrected |
+| [TASK-729](../../verification/reports/phase-007-task-729.md) | SQLite onboarding state; real Electron remains unverified |
+| [TASK-730](../../verification/reports/phase-007-task-730.md) | Dirty failed-worktree cleanup protection |
+| [TASK-731](../../verification/reports/phase-007-task-731.md) | Workspace-scoped Project catalog |
+| [TASK-732](../../verification/reports/phase-007-task-732.md) | Project path validation and alias handling |
+| [TASK-733](../../verification/reports/phase-007-task-733.md) | Project UI/IPC integration; real Electron remains unverified |
+| [TASK-734](../../verification/reports/phase-007-task-734.md) | Preload bundle format; sandbox validation deferred |
+| [TASK-735](../../verification/reports/phase-007-task-735.md) | Isolated read-only JSON-RPC handshake; no live Codex claim |
+| [TASK-736](../../verification/reports/phase-007-task-736.md) | Honest onboarding navigation; Task execution unavailable |
 
 | Pack | Phase | Status | Purpose |
 |---|---|---|---|

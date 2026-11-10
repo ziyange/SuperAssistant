@@ -1,0 +1,90 @@
+name: Development application gates
+
+on:
+  push:
+    branches:
+      - main
+      - 'codex/**'
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: application-gates-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows-application:
+    name: Windows build and deterministic tests
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22.19.0'
+          cache: npm
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Build application
+        run: npm run build
+      - name: Lint
+        run: npm run lint
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Unit tests with explicit PostgreSQL deferral
+        shell: pwsh
+        run: |
+          npx vitest run --project unit --maxWorkers=1 --reporter=json --outputFile="$env:RUNNER_TEMP/unit-report.json"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python scripts/check_vitest_summary.py "$env:RUNNER_TEMP/unit-report.json" --min-tests 400 --expected-skipped 6 --allow-skipped-file services/team/tests/postgres-team-repository.test.ts --allow-skipped-file services/team/tests/migration.test.ts --require-file apps/desktop/tests/main/window-policy.test.ts --require-file packages/persistence/tests/migration-runner.test.ts --require-file packages/persistence/tests/outbox-inbox.test.ts --require-file packages/persistence/tests/resource-lease-expiry.test.ts --require-file apps/desktop/tests/main/lease-renewal-supervisor.test.ts
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Contract tests with no skipped cases
+        shell: pwsh
+        run: |
+          npx vitest run --project contract --maxWorkers=1 --reporter=json --outputFile="$env:RUNNER_TEMP/contract-report.json"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python scripts/check_vitest_summary.py "$env:RUNNER_TEMP/contract-report.json" --min-tests 40 --expected-skipped 0 --require-file packages/codex-adapter/tests/discovery.contract.test.ts
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+  postgres-compatibility:
+    name: PostgreSQL 16 disposable compatibility
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: fixture-only
+          POSTGRES_DB: super_assistant_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d super_assistant_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      SUPER_ASSISTANT_TEAM_TEST_DATABASE_URL: postgresql://postgres:fixture-only@127.0.0.1:5432/super_assistant_test
+      SUPER_ASSISTANT_TEAM_DISPOSABLE: '1'
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22.19.0'
+          cache: npm
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Run database tests without skips
+        run: |
+          npx vitest run --project unit services/team/tests/postgres-team-repository.test.ts services/team/tests/migration.test.ts --maxWorkers=1 --reporter=json --outputFile="$RUNNER_TEMP/postgres-report.json"
+          python scripts/check_vitest_summary.py "$RUNNER_TEMP/postgres-report.json" --min-tests 13 --expected-skipped 0 --require-file services/team/tests/postgres-team-repository.test.ts --require-file services/team/tests/migration.test.ts

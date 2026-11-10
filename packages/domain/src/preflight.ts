@@ -15,7 +15,7 @@ export interface CurrentExecutionSnapshot extends ApprovedExecutionSnapshot {
   checkedAt: string;
 }
 
-export type PreflightReason = 'PROJECT_SNAPSHOT_CHANGED' | 'AGENT_VERSION_CHANGED' | 'FUNCTION_VERSION_CHANGED' | 'CAPABILITY_VERSION_CHANGED' | 'BASELINE_COMMIT_CHANGED' | 'POLICY_CHANGED' | 'GRANT_NOT_ISSUED' | 'GRANT_EXPIRED';
+export type PreflightReason = 'PROJECT_SNAPSHOT_CHANGED' | 'AGENT_VERSION_CHANGED' | 'FUNCTION_VERSION_CHANGED' | 'CAPABILITY_VERSION_CHANGED' | 'BASELINE_COMMIT_CHANGED' | 'POLICY_CHANGED' | 'GRANT_NOT_ISSUED' | 'GRANT_EXPIRED' | 'INVALID_TIME' | 'GRANT_CHANGED';
 export type PreflightResult = { status: 'READY'; reasons: [] } | { status: 'STALE'; reasons: PreflightReason[] };
 
 export function evaluatePreflight(approved: ApprovedExecutionSnapshot, current: CurrentExecutionSnapshot): PreflightResult {
@@ -26,7 +26,19 @@ export function evaluatePreflight(approved: ApprovedExecutionSnapshot, current: 
   if (approved.capabilityVersion !== current.capabilityVersion) reasons.push('CAPABILITY_VERSION_CHANGED');
   if (approved.baselineCommit !== current.baselineCommit) reasons.push('BASELINE_COMMIT_CHANGED');
   if (approved.policyVersion !== current.policyVersion) reasons.push('POLICY_CHANGED');
-  if (current.grantStatus !== 'ISSUED') reasons.push('GRANT_NOT_ISSUED');
-  if (new Date(current.grantExpiresAt).getTime() <= new Date(current.checkedAt).getTime()) reasons.push('GRANT_EXPIRED');
+  if (approved.grantStatus !== 'ISSUED' || current.grantStatus !== 'ISSUED') reasons.push('GRANT_NOT_ISSUED');
+  const timestamp = (value: unknown): number => {
+    if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value)) return Number.NaN;
+    const parsed = Date.parse(value);
+    return Number.isFinite(parsed) && new Date(parsed).toISOString() === value ? parsed : Number.NaN;
+  };
+  const approvedExpiry = timestamp(approved.grantExpiresAt);
+  const currentExpiry = timestamp(current.grantExpiresAt);
+  const checkedAt = timestamp(current.checkedAt);
+  if (![approvedExpiry, currentExpiry, checkedAt].every(Number.isFinite)) reasons.push('INVALID_TIME');
+  else {
+    if (approvedExpiry !== currentExpiry) reasons.push('GRANT_CHANGED');
+    if (currentExpiry <= checkedAt) reasons.push('GRANT_EXPIRED');
+  }
   return reasons.length === 0 ? { status: 'READY', reasons: [] } : { status: 'STALE', reasons };
 }

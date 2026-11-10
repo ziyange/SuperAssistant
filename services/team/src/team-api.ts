@@ -31,7 +31,7 @@ export function createTeamApi(repository: TeamApiRepository, health = new TeamAu
     const segments = request.path.split('/').filter(Boolean);
     const target = segments[2];
     if (target !== undefined && target !== request.workspaceId) return { status: 403, body: { code: 'WORKSPACE_DENIED' } };
-    const action: TeamAction | undefined = request.method === 'GET' ? 'READ' : request.method === 'POST' && (request.path === '/v1/workspaces' || segments[3] === 'retention-executions') ? 'WRITE' : undefined;
+    const action: TeamAction | undefined = request.method === 'GET' && segments.length === 4 && segments[3] === 'audit-export' ? 'EXPORT_AUDIT' : request.method === 'GET' ? 'READ' : request.method === 'POST' && (request.path === '/v1/workspaces' || segments[3] === 'retention-executions') ? 'WRITE' : undefined;
     if (action !== undefined) {
       const decision = await authorizer.authorize({ actor: request.actor, workspaceId: request.workspaceId, action });
       if (!decision.allowed) return { status: 403, body: { code: decision.reason } };

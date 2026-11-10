@@ -1,0 +1,11 @@
+# TASK-727 DSH probe fixture verification
+
+Status: targeted fixture remediation verified; task closeout and M1 are not accepted. Candidate `db83fb926269a66fea1bb3c1332c9b9c5e6526b9` plus the existing uncommitted TASK-721 and TASK-727 changes. Date: 2026-11-04; Windows; Node 22.19.0.
+
+- Before the change, `vitest run --project unit packages/dsh-adapter/tests/dsh-probe.test.ts --maxWorkers=1` produced 3 failures and 1 pass. The user's mutable DSH checkout no longer had the test's hard-coded commit and protocol version, so the fail-closed identity check prevented the malformed-frame and timeout fixtures from running.
+- The probe tests now create their own disposable temporary Git repository and protocol package, with a fresh actual commit. They retain the original assertions for an exact commit mismatch, protocol mismatch, malformed frame, reaping and capability declarations. No production DSH code or external checkout was changed. This fixture is not evidence of compatibility with the real DSH checkout.
+- The first restricted-environment run after the fixture change passed 3/4 cases; the malformed-frame case timed out before the child produced its frame under load. A separate local-permission run then passed 4/4. The two test-only startup/shutdown bounds were increased to 3 seconds, with a 15-second finite test deadline on the deliberately stuck process; production timeouts were not changed.
+- Targeted ESLint of the changed test with Node 22: exit 0.
+- `node node_modules/vitest/vitest.mjs run --project unit --maxWorkers=1`, run with local loopback access: exit 0; 145 files, 308 passed, 6 skipped, 314 discovered. All four DSH probe cases passed. Skipped database-dependent cases remain unverified and do not satisfy merge acceptance.
+- TASK-727 structure and anchored runtime verification at iteration 2: exit 0; `git diff --check`: exit 0 before this report write. Current repository-wide lint is still blocked by 12 pre-existing core `no-unused-vars` errors in TypeScript declarations; an exploratory override showed that disabling that rule globally instead creates 79 unused-disable warnings, so neither is a passing lint gate.
+- Real DSH conformance, Electron sandbox/preload verification, full G2/M1 acceptance, clean candidate SHA and CI remain outstanding. No merge, push or worktree deletion occurred.

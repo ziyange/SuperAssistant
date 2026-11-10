@@ -1,5 +1,7 @@
 import sys
 import json
+import hashlib
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -11,6 +13,41 @@ import verify_runtime_trace as verifier
 
 
 class RuntimeInputsTests(unittest.TestCase):
+    def test_anchored_scope_preserves_history_and_detects_unrelated_current_tx(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            pack = root / 'TASK-721.md'
+            pack.write_text('## Allowed Files\n- docs/delivery/tasks/TASK-721.md\n- allowed.txt\n', encoding='utf-8')
+            audit, trace = root / 'audit.json', root / 'trace.json'
+            records, results = [], []
+            def append(tx, path):
+                prev = records[-1]['intent_hash'] if records else 'GENESIS'
+                digest = hashlib.sha256(f'{prev}:FILE_WRITE:{path}:{tx}'.encode()).hexdigest()
+                records.append({'tx_id': tx, 'timestamp': '2026-11-04T00:00:00Z', 'action_type': 'FILE_WRITE', 'normalized_path': path, 'prev_hash': prev, 'intent_hash': digest, 'status': 'COMMITTED'})
+                results.append({'tx_id': tx, 'iteration_index': 1, 'timestamp': '2026-11-04T00:00:00Z', 'action_type': 'FILE_WRITE', 'normalized_path': path, 'intent_hash': digest, 'result_status': 'COMPLETED', 'ignored_candidates': []})
+            append('old-task', 'old-only.txt')
+            append('task-721-start', 'docs/delivery/tasks/task-721.md')
+            append('ordinary-operation', 'allowed.txt')
+            def run(anchor='task-721-start'):
+                audit.write_text(json.dumps(records), encoding='utf-8')
+                trace.write_text(json.dumps(results), encoding='utf-8')
+                return subprocess.run([sys.executable, str(ROOT / 'scripts/verify_runtime_trace.py'), '--trace', str(trace), '--permission-log', str(audit), '--task-pack', str(pack), '--mode', 'plan', '--schemas', str(ROOT / 'references/schemas.md'), '--expansions', str(root / 'absent.json'), '--task-start-tx', anchor, '--json'], capture_output=True, text=True)
+            self.assertEqual(run().returncode, 0, 'valid historical writes must not violate current scope')
+            records[1]['status'] = 'PENDING'
+            self.assertEqual(run().returncode, 3, 'uncommitted task anchor must fail closed')
+            records[1]['status'] = 'COMMITTED'
+            anchor_result = results.pop(1)
+            self.assertEqual(run().returncode, 3, 'task anchor requires matching result')
+            results.insert(1, anchor_result)
+            append('task-721-later-anchor', 'docs/delivery/tasks/task-721.md')
+            self.assertEqual(run('task-721-later-anchor').returncode, 3, 'a later pack write cannot hide intervening operations')
+            append('unrelated-name', 'forbidden.txt')
+            failed = run()
+            self.assertEqual(failed.returncode, 2)
+            self.assertEqual(json.loads(failed.stdout)['offending_files'], ['forbidden.txt'])
+            records[0]['intent_hash'] = '0' * 64
+            self.assertEqual(run().returncode, 5, 'historical chain tampering must still fail')
+
     def test_missing_or_malformed_trace_is_not_success(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

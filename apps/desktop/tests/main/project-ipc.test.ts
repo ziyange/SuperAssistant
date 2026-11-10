@@ -1,6 +1,106 @@
 import { expect, test } from 'vitest';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, parse } from 'node:path';
+import * as projectModule from '../../src/main/project-ipc.js';
 import { projectRegistrationError } from '../../src/main/project-ipc.js';
+import { LocalProjectCatalog } from '../../src/main/project-ipc.js';
+import { routeIpc } from '../../src/main/ipc-router.js';
+import { createFoundationDatabase } from '../../../../packages/persistence/src/sqlite/database.js';
+import { SqliteFoundationRepository } from '../../../../packages/persistence/src/repositories/foundation-repository.js';
+import { SqliteProjectRepository } from '../../../../packages/persistence/src/repositories/project-repository.js';
 
 test('maps project validation failures to a safe user message', () => {
   expect(projectRegistrationError(new Error('ENOENT secret-token --verbose'))).toBe('Project path could not be validated.');
+});
+
+test('canonicalizes aliases and rejects invalid paths before Project persistence', () => {
+  const Constructor = Reflect.get(projectModule, 'ProjectRegistrationService');
+  expect(typeof Constructor).toBe('function');
+  const root = mkdtempSync(join(tmpdir(), 'sa-project-register-'));
+  const directory = join(root, 'project');
+  const alias = join(root, 'project-alias');
+  const db = createFoundationDatabase(':memory:');
+  try {
+    mkdirSync(directory);
+    writeFileSync(join(directory, 'source.txt'), 'unchanged');
+    symlinkSync(directory, alias, 'junction');
+    const foundation = new SqliteFoundationRepository(db);
+    const workspace = foundation.createWorkspace({ ownerId: 'owner', name: 'Local' });
+    const other = foundation.createWorkspace({ ownerId: 'owner', name: 'Other' });
+    const repository = new SqliteProjectRepository(db);
+    const service = new Constructor(repository);
+    const first = service.register({ workspaceId: workspace.workspaceId, candidatePath: directory });
+    const duplicate = service.register({ workspaceId: workspace.workspaceId, candidatePath: alias });
+    expect(duplicate.projectId).toBe(first.projectId);
+    expect(service.register({ workspaceId: other.workspaceId, candidatePath: directory }).projectId).not.toBe(first.projectId);
+    expect(() => service.register({ workspaceId: workspace.workspaceId, candidatePath: join(root, 'missing') })).toThrow();
+    expect(() => service.register({ workspaceId: workspace.workspaceId, candidatePath: join(directory, 'source.txt') })).toThrow();
+    expect(() => service.register({ workspaceId: workspace.workspaceId, candidatePath: parse(directory).root })).toThrow();
+    expect(db.prepare('SELECT count(*) AS count FROM projects').get()).toEqual({ count: 2 });
+    expect(readFileSync(join(directory, 'source.txt'), 'utf8')).toBe('unchanged');
+  } finally {
+    db.close();
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('local Project picker persists only successful selections and rejects ambiguous workspaces', async () => {
+  const Constructor = Reflect.get(projectModule, 'LocalProjectCatalog');
+  expect(typeof Constructor).toBe('function');
+  const root = mkdtempSync(join(tmpdir(), 'sa-project-picker-'));
+  const directory = join(root, 'project');
+  const db = createFoundationDatabase(':memory:');
+  try {
+    mkdirSync(directory);
+    let selection: string | null = null;
+    const catalog = new Constructor(db, async () => selection);
+    expect(catalog.list()).toEqual([]);
+    expect(await catalog.choose()).toEqual({ status: 'CANCELLED', projects: [] });
+    selection = join(root, 'missing');
+    expect(await catalog.choose()).toEqual({ status: 'ERROR', projects: [] });
+    expect(db.prepare('SELECT count(*) AS count FROM workspaces').get()).toEqual({ count: 0 });
+    selection = directory;
+    const result = await catalog.choose();
+    expect(result.status).toBe('REGISTERED');
+    expect(result.projects).toHaveLength(1);
+    expect(result.projects[0]?.name).toBe('project');
+    expect(JSON.stringify(result)).not.toContain(directory);
+    expect((await catalog.choose()).projects).toHaveLength(1);
+    expect(db.prepare('SELECT count(*) AS count FROM projects').get()).toEqual({ count: 1 });
+    db.prepare('UPDATE project_metadata SET repository = ?').run('https://user:fake-secret@host.invalid/repo');
+    expect(JSON.stringify(catalog.list())).not.toContain('fake-secret');
+    new SqliteFoundationRepository(db).createWorkspace({ ownerId: 'local-owner', name: 'Ambiguous' });
+    expect(() => catalog.list()).toThrow(/workspace/i);
+    expect((await catalog.choose()).status).toBe('ERROR');
+    expect(db.prepare('SELECT count(*) AS count FROM projects').get()).toEqual({ count: 1 });
+  } finally {
+    db.close();
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('routes Project selection through IPC and reads the same catalog after database reopen', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'sa-project-ipc-'));
+  const directory = join(root, 'selected');
+  const databasePath = join(root, 'platform.sqlite');
+  let db = createFoundationDatabase(databasePath);
+  const onboarding = { async get() { return { completed: false }; }, async set(input: { completed: boolean }) { return input; } };
+  try {
+    mkdirSync(directory);
+    const catalog = new LocalProjectCatalog(db, async () => directory);
+    const added = await routeIpc({ channel: 'project:choose', payload: {} }, onboarding, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, catalog);
+    expect(added).toHaveProperty('status', 'REGISTERED');
+    expect(added).toHaveProperty('projects', [expect.objectContaining({ name: 'selected' })]);
+    await expect(routeIpc({ channel: 'project:choose', payload: { path: directory } }, onboarding, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, catalog)).rejects.toThrow();
+    db.close();
+    db = createFoundationDatabase(databasePath);
+    const reopened = new LocalProjectCatalog(db, async () => null);
+    const listed = await routeIpc({ channel: 'project:list', payload: {} }, onboarding, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, reopened);
+    expect(listed).toHaveProperty('projects', [expect.objectContaining({ name: 'selected' })]);
+    expect(JSON.stringify(listed)).not.toContain(directory);
+  } finally {
+    if (db.open) db.close();
+    rmSync(root, { recursive: true, force: true });
+  }
 });

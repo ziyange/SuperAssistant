@@ -3,7 +3,10 @@
 ## Current lifecycle state
 
 - Integration recovery is active on `codex/task-720-audited`; TASK-720 has
-  completed its local governance gate. TASK-721 is next but is not yet opened.
+  completed its local governance gate. TASK-721 is in progress with uncommitted
+  security and notification changes. TASK-727 through TASK-736 have local
+  implementation evidence but are not integrated acceptance or clean commits.
+  Real Electron sandbox/preload verification is deferred until pre-release.
   H1 and H3 integrated acceptance remain unproven. Historical
   phase records below are not proof of current end-to-end acceptance.
 
@@ -17,7 +20,7 @@
 - PHASE-003 through PHASE-006 have historical local archive records; their
   integrated behavior is subject to the current recovery acceptance gates.
 - PHASE-007 is reopened. TASK-716 has uncommitted work in a separate worktree;
-  TASK-720 owns the current governance remediation.
+  preserve it and review any selectively transferred changes against its evidence.
 - The initial GitHub publication is an S21 handoff after local acceptance, not an application phase.
 
 ## Sources of truth

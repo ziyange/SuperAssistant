@@ -1,5 +1,89 @@
 # Super Assistant security model
 
+SQLite migration must fail closed if another connection commits after the
+backup snapshot and before exclusive migration ownership. A backup predating
+an intervening write must not be blindly restored over newer data.
+
+Outbox claim tokens fence acknowledgements and uncertain-result transitions.
+Only the current message/token pair may mutate a DISPATCHING claim; stale
+claimants are rejected. Interrupted delivery is UNKNOWN/RECONCILING, never
+an automatic redispatch. A token does not prove a worker has stopped.
+
+Outbox readers must not hand a message to a losing claimant after a
+conditional state update. Claim ownership and acknowledgement fencing remain
+unproven and block real dispatcher integration.
+
+### Grant action-scope binding
+
+Read-only or malformed action lists cannot issue an execution Grant. Before
+creating a new Attempt, the transaction recomputes the persisted Proposal
+digest and validates that its nonempty side-effecting actions exactly match
+the Grant actions. The Grant expiry must also equal the Proposal expiry.
+Scope, expiry or digest mismatch aborts without consuming the
+Grant. This database check does not replace executor-level enforcement.
+
+### Atomic execution authority revalidation
+
+Before a new Attempt consumes a Grant, the same database transaction must
+compare the approved Proposal against the current active Project snapshot,
+Agent version and availability, and Function version and lifecycle. A
+mismatch aborts without a partial execution or Grant consumption. Idempotent
+receipt replay must not create or dispatch a new Attempt. Capability-version
+and Git-baseline authority remain separate, currently unproven gates.
+
+### Fail-closed action and preflight validation
+
+Unknown action names are invalid at both IPC and domain boundaries; they
+never represent a read-only operation. Preflight returns STALE for malformed
+grant timestamps and for changed grant expiry. Renderer-supplied snapshots
+are not authority; production dispatch must derive and validate them from
+trusted persisted state and the actual grant.
+Empty or sparse action arrays are likewise invalid, not evidence of a
+read-only request.
+Internal preflight timestamps must be canonical UTC millisecond ISO-8601
+values; normalized impossible dates and ambiguous strings fail closed.
+
+### Local Grant/Execution binding correction
+
+For local Workspace mode, Grant issuance, Attempt creation and replay require
+the active Workspace owner and Grant actor to equal the principal supplied by
+the trusted main/control-plane composition. The default local principal is
+`local-owner`; renderer payloads cannot select that provider. This rule is not
+Team RBAC and does not by itself authorize a worktree or external action.
+
+Grant issuance and Attempt creation use a trusted control-plane clock, not
+timestamps supplied with a request. Legacy time fields are ignored for
+authority and persistence; malformed clock/expiry values and elapsed Grants
+fail closed. Test-only composition may inject a deterministic clock.
+
+The local authority must reject caller-supplied Proposal content whose canonical
+digest differs from the stored immutable Proposal. Grant and execution replay
+keys are bound to the original Proposal and execution scope; a key collision
+with changed Project, Agent, Function, Grant, resource or fencing identity must
+fail closed. Before consuming a Grant, the same transaction verifies the Grant
+digest and target identities against the stored Proposal. Rejections cannot
+consume a Grant or create Task, Attempt, Lease or Outbox records.
+
+## Preload artifact boundary under integration
+
+TASK-734 changes preload output packaging only. Context isolation and Electron
+sandbox stay enabled and renderer Node integration stays disabled. A static
+CommonJS syntax check cannot substitute for the deferred real Electron sender,
+origin and preload security tests.
+
+## H1 local Project picker integration contract
+
+TASK-733 exposes empty-payload Project list and native chooser operations only
+to the trusted application frame. Renderer input cannot supply a path or a
+Workspace identity. Main derives the single active local-owner Workspace,
+rejects ambiguous ownership, resolves the selected path before registration,
+and returns a minimal projection or a generic error. A cancelled chooser or
+failed transaction must not create a Workspace or Project. This design is
+under integration and is not real-Electron acceptance evidence.
+Repository metadata is withheld from the renderer until its provenance and
+credential redaction are established; legacy values may contain credentialed
+URLs and are never forwarded as display text.
+
 Super Assistant is a local control plane that can execute code, mutate repositories, use credentials, and call external systems. Local-first reduces network exposure but does not make renderer content, Agent output, repositories, plugins, IPC peers, or local processes trusted.
 
 ## PHASE-007 recovery constraint
@@ -80,13 +164,14 @@ there is no administrator cross-Workspace bypass. The requester may not approve
 their own action even when otherwise qualified. Unknown role, action, group or
 policy state returns an explicit authorization denial.
 
-TASK-713 enforces this rule at the Team API boundary. A verified session alone
-is insufficient: every protected JSON query, command, and SSE subscription
-first derives an action (`READ` or `WRITE`) and invokes the same asynchronous
-authorizer before the repository is called. The default authorizer denies,
-so a new route cannot silently inherit an allow decision. The HTTP adapter
-accepts only the session-derived actor and Workspace; it never accepts a role
-or approval claim from a request body or header.
+At the Team API boundary, a verified session alone is insufficient. Protected
+queries and commands derive their specific action and invoke the asynchronous
+authorizer before repository access. In particular audit export requires
+`EXPORT_AUDIT`, not generic `READ`. The default authorizer denies. The HTTP
+adapter accepts only the session-derived actor and Workspace; it never accepts
+a role or approval claim from a request body or header. TASK-721 regression
+evidence covers the audit-export route; complete Team API and SSE enforcement
+remain subject to G2/G6 integrated acceptance.
 
 ### PHASE-007 credential namespace isolation
 
@@ -130,6 +215,19 @@ evidence and never mutates prior audit history.
 - Preload exposes named, versioned methods; arbitrary channel send, eval, shell, path, SQL, and generic invoke methods are prohibited.
 - Every request is schema-validated in preload and independently in main.
 - Main derives the caller/window identity; renderer-supplied actor or Workspace authority is not trusted.
+- The packaged desktop IPC handler accepts only its own application window's
+  main frame at the exact loaded renderer file URL; missing frames, another
+  window and other `file:` URLs fail closed. Development-origin IPC is not
+  enabled by this policy. Electron end-to-end negative verification is pending.
+
+For Team notification navigation, the server first reauthorizes the exact
+opaque target reference against the current principal and Workspace, and only
+then asks an authoritative resolver for the corresponding Task or Decision.
+Any optional caller-supplied object identity is only a consistency assertion:
+if it differs from the resolved identity, no target is returned. Missing,
+malformed, unavailable or cross-Workspace references fail closed. The resolver
+is a server-owned port, not a renderer-provided identity. TASK-716's separate
+WIP still requires integration against this contract and independent G2 proof.
 - Mutations include an idempotency key and expected `row_version`.
 - Subscriptions return sanitized domain events, never raw worker/App Server frames.
 - Navigation, new windows, permissions, external URL opening, and downloads are deny-by-default and allowlisted.
@@ -271,3 +369,42 @@ before an Adapter can receive a command.
 
 Artifact viewers never execute untrusted content. Malicious HTML is displayed
 only as escaped metadata under Download-only or Quarantined policy.
+
+For pending migrations, no disk database is exempted from the pre-migration
+backup based on a pre-open existence check. A fresh database also receives a
+backup, and a detected intervening SQLite commit blocks migration. This is
+not a defense against out-of-band file replacement or concurrent old
+application instances.
+
+An outbox message is not authority to execute. A claimed message must be
+strictly decoded and bound to its Attempt before any dispatcher can consume
+it; malformed or mismatched payloads are quarantined. A production execution
+boundary must independently verify the current Grant, snapshot, lease,
+fencing token and full Adapter contract before any external effect.
+
+The internal queue must not issue a claim for an already UNKNOWN or
+RECONCILING Attempt. That claim-time check is necessary but not sufficient:
+the state, authority and resource fences may change before an external call.
+
+Only state-appropriate start and resume messages may be claimed. Resume data
+must match a resolved Decision belonging to the same WorkItem and its exact
+resolution identifier. This evidence check does not authorize a later
+external effect or replace revalidation at the execution boundary.
+
+Lease validity requires a matching owner, fencing token and ACTIVE record
+with a canonical, unexpired 30-second renewal window. Null legacy expiry or
+clock rollback fails closed; expiry cannot release or reassign resources.
+This database check cannot stop a stale process unless the Adapter enforces
+the fence before each write.
+Rollback detection compares the trusted clock to the last persisted
+observation; time jumps with no intervening observation are not detectable.
+
+Renewal depends on a trusted ownership check. Loss, a thrown check or failed
+renewal stops the supervisor; it cannot establish process termination and
+must never release the Lease or permit redispatch on that basis alone.
+
+The production Electron window loads the bundled renderer file and permits
+file navigation only to that exact URL. Other local files, hosts, query
+strings and fragments are denied. Exact IPC sender and main-frame checks
+remain independent; an untrusted environment variable cannot change the
+production navigation authority.

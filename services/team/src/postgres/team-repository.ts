@@ -9,13 +9,15 @@ import type { GovernedRecord } from '../governed-record-inventory.js';
 import type { GovernedRecordReader } from '../team-audit-export-service.js';
 import { TeamAuditExportService } from '../team-audit-export-service.js';
 import { RetentionOperationService, type RetentionOperationStore, type RetentionRecord } from '../retention-operation-service.js';
+import { hasValidNotificationScope, type NotificationOutboxRow, type NotificationOutboxStore } from '../notification-outbox.js';
+import { isValidNotificationTargetRef } from '../notification-policy.js';
 
 export interface TeamWorkspaceRecord { workspaceId: string; name: string; ownerActor: string }
 export interface TeamWorkspaceEvent { eventId: string; workspaceId: string; sequence: number; eventType: string; payload: Readonly<Record<string, unknown>> }
 export interface TeamSessionRecord { sessionRef: string; actor: string; workspaceId: string; expiresAt: number; revokedAt?: number }
 export interface TeamMembershipRecord { workspaceId: string; subject: string; role: string }
 
-export class PostgresTeamRepository implements TeamRoleAssignmentStore, CredentialReferenceStore, TeamGrantStore, TeamApprovalStore, GovernedRecordReader, RetentionOperationStore {
+export class PostgresTeamRepository implements TeamRoleAssignmentStore, CredentialReferenceStore, TeamGrantStore, TeamApprovalStore, GovernedRecordReader, RetentionOperationStore, NotificationOutboxStore {
   constructor(private readonly database: TeamTransactionDatabase, private readonly now: () => number = () => Date.now()) {}
   async createWorkspace(record: TeamWorkspaceRecord): Promise<void> {
     await this.database.query('insert into team_workspace_records (workspace_id, name, owner_actor) values ($1, $2, $3) on conflict (workspace_id) do nothing', [record.workspaceId, record.name, record.ownerActor]);
@@ -30,7 +32,43 @@ export class PostgresTeamRepository implements TeamRoleAssignmentStore, Credenti
   }
   async createSession(record: TeamSessionRecord): Promise<void> { await this.database.query('insert into team_sessions (session_ref, actor, workspace_id, expires_at) values ($1, $2, $3, $4) on conflict (session_ref) do nothing', [record.sessionRef, record.actor, record.workspaceId, record.expiresAt]); }
   async revokeSession(sessionRef: string): Promise<void> { await this.database.query('update team_sessions set revoked_at = extract(epoch from clock_timestamp())::bigint where session_ref = $1', [sessionRef]); }
-  async getSession(sessionRef: string): Promise<TeamSessionRecord | undefined> { const result = await this.database.query('select session_ref as "sessionRef", actor, workspace_id as "workspaceId", expires_at as "expiresAt", revoked_at as "revokedAt" from team_sessions where session_ref = $1', [sessionRef]); return result.rows[0] as TeamSessionRecord | undefined; }
+  async getSession(sessionRef: string): Promise<TeamSessionRecord | undefined> {
+    const result = await this.database.query('select session_ref as "sessionRef", actor, workspace_id as "workspaceId", expires_at as "expiresAt", revoked_at as "revokedAt" from team_sessions where session_ref = $1', [sessionRef]);
+    const row = result.rows[0] as (Omit<TeamSessionRecord, 'expiresAt' | 'revokedAt'> & { expiresAt: number | string; revokedAt: number | string | null }) | undefined;
+    if (row === undefined) return undefined;
+    const expiresAt = Number(row.expiresAt);
+    const revokedAt = row.revokedAt == null ? undefined : Number(row.revokedAt);
+    if (!Number.isSafeInteger(expiresAt) || (revokedAt !== undefined && !Number.isSafeInteger(revokedAt))) throw new Error('TEAM_SESSION_INVALID');
+    return { sessionRef: row.sessionRef, actor: row.actor, workspaceId: row.workspaceId, expiresAt, ...(revokedAt === undefined ? {} : { revokedAt }) };
+  }
+  async insert(row: NotificationOutboxRow): Promise<boolean> {
+    if (!hasValidNotificationScope(row)) throw new Error('NOTIFICATION_SCOPE_INVALID');
+    if (!isValidNotificationTargetRef(row.targetRef)) throw new Error('NOTIFICATION_TARGET_INVALID');
+    const result = await this.database.query('insert into team_notification_outbox (idempotency_key, workspace_id, principal, priority, aggregate_key, target_ref, attempts) values ($1, $2, $3, $4, $5, $6, 0) on conflict (idempotency_key) do nothing returning idempotency_key', [row.idempotencyKey, row.workspaceId, row.principal, row.priority, row.aggregateKey ?? null, row.targetRef]);
+    return result.rows.length === 1;
+  }
+  async claim(limit: number): Promise<readonly NotificationOutboxRow[]> {
+    if (!Number.isSafeInteger(limit) || limit < 1 || limit > 20) throw new Error('NOTIFICATION_CLAIM_LIMIT_INVALID');
+    return withinTeamTransaction(this.database, async transaction => {
+      const result = await transaction.query('with selected as (select idempotency_key from team_notification_outbox where delivered_at is null and claimed_at is null order by idempotency_key for update skip locked limit $1) update team_notification_outbox item set claimed_at = extract(epoch from clock_timestamp())::bigint, attempts = item.attempts + 1 from selected where item.idempotency_key = selected.idempotency_key returning item.idempotency_key as "idempotencyKey", item.workspace_id as "workspaceId", item.principal, item.priority, item.aggregate_key as "aggregateKey", item.target_ref as "targetRef", item.attempts', [limit]);
+      return (result.rows as (Omit<NotificationOutboxRow, 'aggregateKey'> & { aggregateKey: string | null })[]).map(({ aggregateKey, ...row }) => aggregateKey === null ? row : { ...row, aggregateKey });
+    });
+  }
+  async beginDelivery(claim: NotificationOutboxRow): Promise<boolean> {
+    if (!claim.idempotencyKey || !Number.isSafeInteger(claim.attempts) || claim.attempts <= 0) return false;
+    const result = await this.database.query('update team_notification_outbox set delivery_started_at = extract(epoch from clock_timestamp())::bigint where idempotency_key = $1 and attempts = $2 and workspace_id = $3 and principal = $4 and target_ref = $5 and claimed_at is not null and delivery_started_at is null and delivered_at is null returning idempotency_key', [claim.idempotencyKey, claim.attempts, claim.workspaceId, claim.principal, claim.targetRef]);
+    return result.rows.length === 1;
+  }
+  async markDelivered(claim: NotificationOutboxRow): Promise<boolean> {
+    if (!claim.idempotencyKey || !Number.isSafeInteger(claim.attempts) || claim.attempts <= 0) return false;
+    const result = await this.database.query('update team_notification_outbox set delivered_at = extract(epoch from clock_timestamp())::bigint where idempotency_key = $1 and attempts = $2 and workspace_id = $3 and principal = $4 and target_ref = $5 and claimed_at is not null and delivery_started_at is not null and delivered_at is null returning idempotency_key', [claim.idempotencyKey, claim.attempts, claim.workspaceId, claim.principal, claim.targetRef]);
+    return result.rows.length === 1;
+  }
+  async reconcile(claim: NotificationOutboxRow, outcome: 'DELIVERED' | 'FINAL_NOT_DELIVERED', evidenceRef: string): Promise<boolean> {
+    if (!claim.idempotencyKey || !Number.isSafeInteger(claim.attempts) || claim.attempts <= 0 || (outcome !== 'DELIVERED' && outcome !== 'FINAL_NOT_DELIVERED') || !/^evidence:\S+$/.test(evidenceRef) || evidenceRef.length > 512) return false;
+    const result = await this.database.query('with changed as (update team_notification_outbox set claimed_at = case when $6 = \'FINAL_NOT_DELIVERED\' then null else claimed_at end, delivery_started_at = case when $6 = \'FINAL_NOT_DELIVERED\' then null else delivery_started_at end, delivered_at = case when $6 = \'DELIVERED\' then extract(epoch from clock_timestamp())::bigint else delivered_at end where idempotency_key = $1 and attempts = $2 and workspace_id = $3 and principal = $4 and target_ref = $5 and claimed_at is not null and delivery_started_at is not null and delivered_at is null returning idempotency_key) insert into team_notification_reconciliations (event_id, idempotency_key, generation, outcome, evidence_ref, recorded_at) select $8, idempotency_key, $2, $6, $7, extract(epoch from clock_timestamp())::bigint from changed returning event_id', [claim.idempotencyKey, claim.attempts, claim.workspaceId, claim.principal, claim.targetRef, outcome, evidenceRef, randomUUID()]);
+    return result.rows.length === 1;
+  }
   async addMembership(record: TeamMembershipRecord): Promise<void> { await this.database.query('insert into team_memberships (workspace_id, subject, role) values ($1, $2, $3) on conflict (workspace_id, subject) do update set role = excluded.role', [record.workspaceId, record.subject, record.role]); }
   async listMemberships(workspaceId: string): Promise<readonly TeamMembershipRecord[]> { const result = await this.database.query('select workspace_id as "workspaceId", subject, role from team_memberships where workspace_id = $1 order by subject', [workspaceId]); return result.rows as TeamMembershipRecord[]; }
   async addRoleAssignment(record: TeamRoleAssignment): Promise<void> { await this.database.query('insert into team_role_assignments (workspace_id, actor, role) values ($1, $2, $3) on conflict do nothing', [record.workspaceId, record.actor, record.role]); }

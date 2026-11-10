@@ -1,11 +1,29 @@
 /* global process */
-import { describe, expect, it } from 'vitest';
+import { execFileSync } from 'node:child_process';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { probeDsh } from '../src/dsh-probe.js';
 
-const repositoryPath = 'E:/Programs/deepseek-harness';
-const expectedCommit = 'b150a551b8d465e31e418e1b2eaf5e79bbb7d28e';
+let repositoryPath = '';
+let expectedCommit = '';
 const expectedProtocolVersion = '0.1.1-rc.2';
+
+beforeAll(() => {
+  repositoryPath = mkdtempSync(join(tmpdir(), 'super-assistant-dsh-probe-'));
+  const protocolDirectory = join(repositoryPath, 'packages', 'sdk', 'protocol');
+  mkdirSync(protocolDirectory, { recursive: true });
+  writeFileSync(join(protocolDirectory, 'package.json'), JSON.stringify({ version: expectedProtocolVersion }));
+  execFileSync('git', ['init', '--quiet', repositoryPath]);
+  execFileSync('git', ['-C', repositoryPath, '-c', 'user.name=DSH Probe Fixture', '-c', 'user.email=fixture@example.invalid', '-c', 'commit.gpgSign=false', 'commit', '--quiet', '--allow-empty', '-m', 'Disposable fixture']);
+  expectedCommit = execFileSync('git', ['-C', repositoryPath, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
+});
+
+afterAll(() => {
+  if (repositoryPath) rmSync(repositoryPath, { recursive: true, force: true });
+});
 
 function rpcFixture(source: string): string[] {
   return ['-e', source];
@@ -39,7 +57,8 @@ describe('probeDsh', () => {
       expectedCommit,
       expectedProtocolVersion,
       runtimeCommand: process.execPath,
-      runtimeArgs: rpcFixture(cooperativeFixture)
+      runtimeArgs: rpcFixture(cooperativeFixture),
+      shutdownTimeoutMs: 3000
     });
 
     expect(result.outcome).toBe('PASS');
@@ -84,13 +103,13 @@ describe('probeDsh', () => {
       expectedProtocolVersion,
       runtimeCommand: process.execPath,
       runtimeArgs: rpcFixture(malformedFixture),
-      shutdownTimeoutMs: 500
+      shutdownTimeoutMs: 3000
     });
 
     expect(result.outcome).toBe('BLOCKED');
     expect(result.failures).toContain('MALFORMED_FRAME');
     expect(result.shutdown.reaped).toBe(true);
-  });
+  }, 15000);
 
   it('uses the kill ladder when a fixture ignores protocol shutdown', async () => {
     const stuckFixture = "process.stdin.resume(); setInterval(() => {}, 1000);";

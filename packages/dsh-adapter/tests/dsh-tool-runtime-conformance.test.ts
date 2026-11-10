@@ -22,12 +22,13 @@ test('public ToolRuntime invokes the fixture body only for its exact immutable b
     await ctx.plugin(SystemPrompt);
     await ctx.plugin(ToolRuntime);
     const runtime = ctx.tools;
+    type FixtureCallId = Parameters<typeof runtime.execute>[0]['callId'];
     runtime.register({ name: 'bash', description: 'fixture', parameters: { type: 'object', properties: { cwd: { type: 'string' } }, required: ['cwd'], additionalProperties: false }, output: { schema: { type: 'string' }, render: () => [] }, execute: async () => { calls += 1; return 'ok'; } });
     apply(ctx, { policy, bindings: { bash: { targetArgument: 'cwd' } } });
     const signal = new AbortController().signal;
-    const denied = await runtime.execute({ callId: 'denied', name: 'bash', arguments: { cwd: 'outside' }, signal });
-    const unknown = await runtime.execute({ callId: 'unknown', name: 'other', arguments: {}, signal });
-    const allowed = await runtime.execute({ callId: 'allowed', name: 'bash', arguments: { cwd: 'workspace' }, signal });
+    const denied = await runtime.execute({ callId: 'denied' as FixtureCallId, name: 'bash', arguments: { cwd: 'outside' }, signal });
+    const unknown = await runtime.execute({ callId: 'unknown' as FixtureCallId, name: 'other', arguments: {}, signal });
+    const allowed = await runtime.execute({ callId: 'allowed' as FixtureCallId, name: 'bash', arguments: { cwd: 'workspace' }, signal });
     expect(denied.isError).toBe(true); expect(unknown.isError).toBe(true);
     expect(allowed.isError).toBe(false); expect(calls).toBe(1);
   } finally { await ctx.fiber.dispose(); }

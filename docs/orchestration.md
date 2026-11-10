@@ -1,5 +1,27 @@
 # Task and WorkItem orchestration
 
+An Outbox winner holds a durable unique claim token. Acknowledgement and
+failure require that token. Once prior worker ownership is known to be gone,
+startup recovery moves unresolved DISPATCHING messages to RECONCILING and
+their nonterminal Attempts to UNKNOWN; this is not permission to resend.
+
+Outbox claim is a conditional PENDING-to-DISPATCHING transition: a contender
+that loses the update receives no message. This is not an acknowledgement
+fence or crash recovery and does not by itself authorize dispatch.
+
+Grant issuance rejects invalid or read-only action scopes; new Attempt
+creation verifies the persisted Proposal digest and exact Grant action scope
+inside the same transaction before consuming authorization.
+
+New Attempt creation revalidates database-owned Project, Agent and Function
+facts against the Proposal within the Grant-consumption transaction. These
+checks do not establish the current Git baseline or capability version.
+
+Preflight treats invalid grant expiry or check time as STALE (INVALID_TIME);
+changing the approved grant expiry is STALE (GRANT_CHANGED). An unknown
+action is invalid rather than read-only. These checks are necessary but do
+not replace loading the immutable Proposal and Grant from trusted storage.
+
 The orchestrator is a durable, deterministic state machine over ProposalVersion, AuthorizationGrant, Task, WorkItem, ExecutionAttempt, Decision, ResourceLease, Inbox, and Outbox. It is not an LLM loop. AI may propose a graph or recommend a recovery action, but only validated domain commands can change authoritative state.
 
 ## Aggregate boundaries
@@ -135,6 +157,17 @@ the stable Adapter `resume` operation only after that row has been claimed.
 
 ## Resource conflict and fencing
 
+For the current H1 local integration, the coarse Project lease key is exactly
+`project:<projectId>`, as returned by GitWorktreeService. Acquisition rejects
+nonpositive or non-increasing fences and blocks while any prior lease for that
+key is not RELEASED. Grant consumption, Attempt creation and lease acquisition
+are one SQLite transaction. This conservative Project lock does not substitute
+for task-worktree verification or write-time enforcement. Older noncanonical
+lease records need explicit reconciliation rather than silent migration.
+For known legacy worktree-prefixed keys of the same Project, acquisition checks
+both key histories: an unreleased legacy lease blocks and its last fence remains
+the lower bound for any successor Project lease.
+
 Resource keys are normalized hierarchical identifiers such as repository, worktree, branch, module, database schema, generated asset, credential scope, and external service object. A ProposalVersion declares read/write intent. Conflicting writes are serialized or assigned isolated workspaces.
 
 Each lease has a monotonically increasing fencing token. Adapters verify the token immediately before a write. Lease expiry triggers reconciliation; a surviving stale process cannot write using the old token. Multi-resource acquisition uses canonical sorted order to prevent deadlock and releases all provisional leases on failure.
@@ -201,3 +234,34 @@ mandatory before any Task or external effect.
 Monitoring health is an observational projection of immutable evidence. A
 missing collector is reported as `UNAVAILABLE`, not treated as an empty or
 healthy queue; this read-only status query has no transition authority.
+
+The internal SQLite outbox claim exposes a validated start or resume message
+to the dispatcher only after its claim token is acquired. Payload identifiers
+must match the claimed Attempt, and unknown message types, malformed JSON,
+missing fields and extra fields are quarantined for reconciliation, never
+delivered. A matching token is required to acknowledge or mark uncertainty.
+This internal message is not the complete SAI authorization envelope and
+does not enable a production Adapter dispatch.
+
+A claim must atomically reject an Attempt already UNKNOWN or RECONCILING;
+its pending message moves to RECONCILING without changing the Attempt. This
+claim-time guard does not fence a later state change before Adapter invocation.
+
+For internal queue claims, start is eligible only in DISPATCH_PENDING and
+resume only in WAITING_USER or WAITING_INPUT. A resume must reference a
+resolved Decision and its exact resolution on the Attempt's WorkItem.
+Noneligible known commands are quarantined, not executed or silently retried.
+Recovery must preserve NOT_STARTED as a terminal Attempt.
+The Decision must also match the Task, Project, Workspace and queued
+idempotency key. These checks are made at claim time, not at external effect.
+
+H1 lease persistence records a 30-second expiry, with renewal normally
+scheduled every 10 seconds by a future supervisor. A missed deadline or
+legacy null deadline denies write authority without requeueing or releasing;
+the production renewal scheduler and per-write Adapter fence remain open.
+
+An explicitly started lease supervisor checks the supplied ownership predicate
+and lease validity, then renews every 10 seconds. A failed check or renewal
+stops the timer and emits one loss notification; stop and loss do not release,
+retry or reassign. The supervisor is not yet connected to real worker
+ownership or durable recovery transitions.

@@ -27,11 +27,13 @@ test('default page provides bounded navigation and H1 onboarding', async ({ page
   await expect(page.getByRole('button', { name: 'Connect Codex' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Add Project' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Start Task' })).toBeVisible();
-  await page.getByRole('button', { name: 'Start Task' }).click();
-  await expect(page.getByText('Onboarding complete')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Start Task' })).toBeDisabled();
+  await expect(page.getByText(/Task execution is not available/)).toBeVisible();
+  await page.getByRole('button', { name: 'Add Project' }).click();
+  await expect(page.getByRole('region', { name: 'Project Center' })).toBeVisible();
   await page.reload();
   await page.getByRole('button', { name: 'Settings' }).click();
-  await expect(page.getByText('Onboarding complete')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Start Task' })).toBeDisabled();
   await expect(page.evaluate(() => {
     const pageGlobal = globalThis as Record<string, unknown>;
     return { process: typeof pageGlobal.process, require: typeof pageGlobal.require, electron: typeof pageGlobal.electron };

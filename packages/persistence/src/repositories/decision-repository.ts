@@ -48,7 +48,7 @@ export class SqliteDecisionRepository {
       const decision = resolveDecision(existing, resolution);
       const resolved = this.database.prepare("UPDATE decisions SET status = 'RESOLVED', resolution_id = ?, resolution_key = ?, resolution_actor_id = ?, resolution_option = ?, resolved_at = ? WHERE decision_id = ? AND status = 'OPEN'").run(resolution.resolutionId, resolution.idempotencyKey, resolution.actorId, resolution.option, resolution.resolvedAt, decisionId);
       if (resolved.changes !== 1) throw new Error('DECISION_RESOLUTION_CONFLICT');
-      const outbox = this.database.prepare('INSERT OR IGNORE INTO outbox VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run(`resume:${decisionId}`, attempt.attempt_id, attempt.request_id, resolution.idempotencyKey, 'resume', JSON.stringify({ attempt_id: attempt.attempt_id, decision_id: decisionId, resolution_id: resolution.resolutionId }), 'PENDING', resolution.resolvedAt);
+      const outbox = this.database.prepare('INSERT OR IGNORE INTO outbox (message_id, attempt_id, request_id, idempotency_key, message_type, payload_json, state, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run(`resume:${decisionId}`, attempt.attempt_id, attempt.request_id, resolution.idempotencyKey, 'resume', JSON.stringify({ attempt_id: attempt.attempt_id, decision_id: decisionId, resolution_id: resolution.resolutionId }), 'PENDING', resolution.resolvedAt);
       return { decision, resumeEnqueued: outbox.changes === 1 };
     });
     return transaction();

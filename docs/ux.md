@@ -16,6 +16,19 @@ Super Assistant is the default home and remains available as a global panel from
 
 ## First-run experience
 
+TASK-750 integration contract: Agent Center includes a Check Codex button.
+It opens a native executable-selection dialog and reports the sanitized last
+check, including busy, cancelled, unavailable, authentication-required and
+unsupported-version states. It does not claim a live connection after the
+discovery process exits, expose executable paths, or enable task execution.
+The selected program is explicitly trusted by the user for that check.
+
+Before TASK-750, TASK-736 interim integration behavior was: Add Project opens Project Center;
+Connect Codex opens Agent Center with an explicit unavailable status until
+real discovery is wired. Start Task remains visible but disabled with a reason
+until the execution workflow exists. None of these actions marks onboarding
+complete. This temporary honesty does not meet the H1 acceptance gate.
+
 The PHASE-001 shell offers three bounded actions: connect Codex, add a Project,
 or start a Task. These controls are onboarding guidance until the corresponding
 Project and Codex capabilities arrive in later approved Task Packs. H1 fully
@@ -60,6 +73,17 @@ Agent cards show name, role, Availability as primary state, WorkItem count, Proj
 Agent Detail contains overview, Functions, supporting Capabilities, Projects, Tasks/WorkItems, and settings. Skill/MCP/Tool/Plugin/API details are collapsed by default. Function eligibility is Project- and version-specific. Product copy never exposes App Server Thread or Turn.
 
 ## Project UX
+
+TASK-733 integration contract: Project Center presents an “Add Project”
+button before the existing card list. While the system folder picker or
+registration is active the button is disabled; a cancelled picker leaves the
+list unchanged, success refreshes it, and failure shows a generic error without
+raw paths. Loading and empty states remain explicit. The user navigates through
+the existing Project Center destination; no new destination is introduced.
+
+| Component | API module | Parameters | Response fields | Feedback states |
+|---|---|---|---|---|
+| Project Center | desktop preload Project client | none for list or chooser | scoped card fields; REGISTERED, CANCELLED, or ERROR | loading, empty, success, cancel, generic error |
 
 Project cards show name, lifecycle status, current Tasks, active Agents, latest Change, anomaly, and last activity; abnormal Projects may rank ahead of recent activity. Project Detail contains overview, Tasks, Agents, append-only Change history, resources/capabilities, and settings.
 

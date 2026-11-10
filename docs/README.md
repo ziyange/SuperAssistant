@@ -1,12 +1,24 @@
 # Super Assistant documentation
 
-## Integration recovery status (2026-11-04)
+## Integration recovery status (2026-11-05)
 
-The integration candidate is `codex/task-720-audited`. TASK-720 has completed
-its local governance gate; TASK-721 has not yet opened. TASK-716's uncommitted work remains in a separate worktree and is not
-part of this candidate. Prior phase archives document historical local decisions,
-not proof that the integrated H1–H3 product has passed the new recovery gates.
+The integration candidate is `codex/task-720-audited`, based on `db83fb9`
+with uncommitted changes. TASK-720 completed its local governance gate;
+[TASK-721](delivery/tasks/TASK-721.md) remains in progress. The original
+TASK-716 work remains in a separate dirty worktree; selected files were reviewed
+and transferred with provenance, not accepted as a complete notification flow.
+[TASK-727–736 evidence](delivery/tasks/README.md#current-integration-remediation)
+records local remediation, not full system acceptance. Real Electron
+sandbox/preload validation remains deferred until pre-release. H1/M1 and H3/M2
+are not accepted; current Codex fake execution tests do not establish real
+App Server execution compatibility. Prior archives document historical decisions,
+not proof that integrated H1–H3 passed the recovery gates.
 See [integration baseline](delivery/integration-recovery-baseline.md).
+
+The user has chosen to defer real Codex execution and Electron sandbox
+verification while preparing a development-baseline merge. That merge is
+not H1/M1 acceptance or release. Windows application and isolated PostgreSQL
+CI must run against the actual candidate SHA; unrun CI is planned only.
 
 The repository contains historical local phase records through `PHASE-006`.
 PHASE-007 has been reopened; the integration recovery gates assess actual

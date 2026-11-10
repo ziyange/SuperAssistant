@@ -1,0 +1,10 @@
+# TASK-733 Project Center integration evidence
+
+Status: component and IPC integration verified; real Electron, G2 and M1 acceptance remain open. Candidate: db83fb926269a66fea1bb3c1332c9b9c5e6526b9 plus uncommitted TASK-721 and TASK-727–733 changes. Windows, Node 22.19.0; 2026-11-05.
+
+- UX, architecture and security contracts were updated before implementation. The picker and scoped catalog live in the main process; renderer IPC cannot provide a path or Workspace ID. A single local-owner Workspace is created transactionally only on successful registration; ambiguous active local Workspaces fail closed.
+- Initially, tests failed because the controller, channels and UI action were absent. Focused real SQLite and component tests now cover empty-only IPC payloads, cancellation and invalid-path rollback, duplicate registration, Workspace ambiguity, non-disclosure of raw paths, persistence after database reopen, loading and generic errors. The App test uses a simulated preload and is not Electron end-to-end evidence.
+- A negative test reproduced leakage of a fictional credential embedded in legacy repository metadata. The main-process projection now withholds repository metadata until provenance and credential redaction are established; the test passes without exposing that value.
+- Focused IPC/controller/renderer tests passed; desktop TypeScript and full lint passed. Individual main/preload TypeScript emission, persistence/domain TypeScript emission, and Vite renderer bundling passed; this is not a clean full production build or proof of sandboxed preload compatibility.
+- Full unit regression with local test permissions and two workers: exit 0, 146 files passed, 318 tests passed, 6 skipped, 324 discovered. The skipped database cases remain unverified.
+- A temporary npm 10 directory used in the preceding turn was unavailable; the build evidence above used verified Node 22 directly. Real native chooser interaction, normal-build preload, Electron sandbox, application E2E, CI, H1 performance and remaining G2 criteria are not yet verified. No merge, push or user-worktree deletion occurred.

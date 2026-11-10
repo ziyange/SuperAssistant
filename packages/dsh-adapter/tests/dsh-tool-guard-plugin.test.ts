@@ -7,7 +7,7 @@ import { mountImmutableDshToolGuard } from '../src/dsh-tool-guard-plugin.js';
 
 test('mounts the Super Assistant guard through the public ToolRuntime shape', () => {
   let mounted: ((execution: { name: string; target: string }) => string | undefined) | undefined;
-  const dispose = mountDshToolGuard({ guard: guard => { mounted = guard; return () => { mounted = undefined; }; } }, { authorize: request => request.target === 'fixture' ? { allowed: true } : { allowed: false, reason: 'TARGET_DENIED' } }, execution => ({ toolName: execution.name, target: execution.target, grant: 'g', snapshot: 's', fence: 1 }));
+  const dispose = mountDshToolGuard<{ name: string; target: string }>({ guard: guard => { mounted = guard; return () => { mounted = undefined; }; } }, { authorize: request => request.target === 'fixture' ? { allowed: true } : { allowed: false, reason: 'TARGET_DENIED' } }, execution => ({ toolName: execution.name, target: execution.target, grant: 'g', snapshot: 's', fence: 1 }));
   expect(mounted?.({ name: 'bash', target: 'fixture' })).toBeUndefined();
   expect(mounted?.({ name: 'bash', target: 'outside' })).toBe('TARGET_DENIED');
   dispose();
@@ -16,7 +16,7 @@ test('mounts the Super Assistant guard through the public ToolRuntime shape', ()
 
 test('mounts a static Attempt policy and cannot accept a caller-supplied authority value', () => {
   let mounted: ((execution: { name: string; target: string; grant: string }) => string | undefined) | undefined;
-  mountImmutableDshToolGuard({ guard: guard => { mounted = guard; return () => {}; } }, {
+  mountImmutableDshToolGuard<{ name: string; target: string; grant: string }>({ guard: guard => { mounted = guard; return () => {}; } }, {
     attemptId: 'attempt-1', functionRef: { id: 'dsh', version: '1' }, proposalDigest: 'sha256:proposal', grantRef: 'grant-1', projectSnapshotVersion: 1, baselineCommit: 'a'.repeat(40), leaseFence: 2, budget: 1, runtimeProfileDigest: 'sha256:profile',
     capabilityBindings: {
       shell: { toolNames: ['bash'], targets: ['workspace'] },

@@ -1,9 +1,11 @@
 /* eslint-disable no-unused-vars -- projection is a type-only interface parameter. */
-export const IPC_CHANNELS = ['onboarding:get', 'onboarding:set', 'proposal:classify', 'proposal:preflight', 'task:get', 'task:list', 'artifact:get', 'decision:get', 'decision:list', 'history:list', 'project-change:list', 'acceptance:list', 'audit-export:create', 'monitoring:status', 'team:workspace'] as const;
+export const IPC_CHANNELS = ['onboarding:get', 'onboarding:set', 'project:list', 'project:choose', 'codex:check', 'proposal:classify', 'proposal:preflight', 'task:get', 'task:list', 'artifact:get', 'decision:get', 'decision:list', 'history:list', 'project-change:list', 'acceptance:list', 'audit-export:create', 'monitoring:status', 'team:workspace'] as const;
 
 export type IpcChannel = (typeof IPC_CHANNELS)[number];
 
 export type OnboardingProjection = Readonly<{ completed: boolean }>;
+export type CodexCheckProjection = Readonly<{ state: 'CANCELLED' | 'UNAVAILABLE' }> | Readonly<{ state: 'CHECKED'; connection: 'CONNECTED' | 'AUTH_REQUIRED' | 'VERSION_UNSUPPORTED' | 'UNAVAILABLE'; availability: 'AVAILABLE' | 'PAUSED' | 'UNAVAILABLE'; version: string; observedAt: string }>;
+export type ProjectRendererProjection = Readonly<{ id: string; name: string; status: 'INITIALIZING' | 'ACTIVE' | 'PAUSED' | 'ARCHIVED' | 'ERROR'; repository: string | null; branch: string | null; provenance: 'DISCOVERED' | 'USER' }>;
 export type TaskRendererProjection = Readonly<{ taskId: string; goal: string; projectName: string; agentName: string; updatedAt: string; state: string; activity: readonly string[] }>;
 export type ArtifactRendererProjection = Readonly<{ logicalName: string; mimeType: string; checksum: string; state: 'AVAILABLE' | 'QUARANTINED' | 'DOWNLOAD_ONLY' }>;
 export type DecisionRendererProjection = Readonly<{ decisionId: string; taskId: string; question: string; level: 'L3' | 'L4'; status: 'OPEN' | 'RESOLVED' }>;
@@ -17,6 +19,9 @@ export type TeamRendererProjection = Readonly<{ state: 'READY' | 'DENIED' | 'EXP
 export type IpcRequest =
   | Readonly<{ channel: 'onboarding:get'; payload: Record<string, never> }>
   | Readonly<{ channel: 'onboarding:set'; payload: OnboardingProjection }>
+  | Readonly<{ channel: 'project:list'; payload: Record<string, never> }>
+  | Readonly<{ channel: 'project:choose'; payload: Record<string, never> }>
+  | Readonly<{ channel: 'codex:check'; payload: Record<string, never> }>
   | Readonly<{ channel: 'proposal:classify'; payload: Readonly<{ actions: readonly string[] }> }>
   | Readonly<{ channel: 'proposal:preflight'; payload: Readonly<{ approved: Record<string, unknown>; current: Record<string, unknown> }> }>
   | Readonly<{ channel: 'task:get'; payload: Readonly<{ taskId: string }> }>
@@ -33,6 +38,8 @@ export type IpcRequest =
 
 export type IpcResponse =
   | Readonly<{ onboarding: OnboardingProjection; classification?: 'READ_ONLY' | 'SIDE_EFFECTING'; preflight?: 'READY' | 'STALE' }>
+  | Readonly<{ projects: readonly ProjectRendererProjection[]; status?: 'REGISTERED' | 'CANCELLED' | 'ERROR' }>
+  | Readonly<{ codex: CodexCheckProjection }>
   | Readonly<{ task: TaskRendererProjection }>
   | Readonly<{ tasks: readonly TaskRendererProjection[] }>
   | Readonly<{ artifact: ArtifactRendererProjection }>
@@ -48,6 +55,9 @@ export type IpcResponse =
 export interface SuperAssistantDesktopApi {
   getOnboarding(): Promise<IpcResponse>;
   setOnboarding(projection: OnboardingProjection): Promise<IpcResponse>;
+  listProjects?(): Promise<IpcResponse>;
+  chooseProject?(): Promise<IpcResponse>;
+  checkCodex?(): Promise<IpcResponse>;
   getTask(taskId: string): Promise<IpcResponse>;
   listTasks(): Promise<IpcResponse>;
   getArtifact(input: Readonly<{ artifactVersionId: string; authorizationGrantId: string; checksum: string }>): Promise<IpcResponse>;

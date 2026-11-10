@@ -10,16 +10,24 @@ import type { ProposalIpcPort } from './proposal-ipc.js';
 import { listTasksForRenderer, projectTaskForRenderer, type TaskReadPort } from './task-ipc.js';
 import { projectMonitoringStatusForRenderer, type MonitoringStatusReadPort } from './monitoring-status-ipc.js';
 import { projectTeamWorkspace, type TeamWorkspacePort } from './team-ipc.js';
+import type { LocalProjectCatalog } from './project-ipc.js';
+import type { CodexCheck } from './codex-discovery-ipc.js';
 
 export interface OnboardingPort {
   get(): Promise<OnboardingProjection>;
   set(projection: OnboardingProjection): Promise<OnboardingProjection>;
 }
 
-export async function routeIpc(request: unknown, onboarding: OnboardingPort, proposal?: ProposalIpcPort, task?: TaskReadPort, artifact?: ArtifactReadPort, decision?: DecisionReadPort, history?: HistoryReadPort, changes?: ProjectChangeReadPort, acceptance?: AcceptanceReadPort, auditExport?: AuditExportPort, monitoring?: MonitoringStatusReadPort, team?: TeamWorkspacePort): Promise<IpcResponse> {
+export async function routeIpc(request: unknown, onboarding: OnboardingPort, proposal?: ProposalIpcPort, task?: TaskReadPort, artifact?: ArtifactReadPort, decision?: DecisionReadPort, history?: HistoryReadPort, changes?: ProjectChangeReadPort, acceptance?: AcceptanceReadPort, auditExport?: AuditExportPort, monitoring?: MonitoringStatusReadPort, team?: TeamWorkspacePort, projects?: Pick<LocalProjectCatalog, 'list' | 'choose'>, codex?: () => Promise<CodexCheck>): Promise<IpcResponse> {
   const valid: IpcRequest = validateRequest(request);
   if (valid.channel === 'onboarding:get') return { onboarding: await onboarding.get() };
   if (valid.channel === 'onboarding:set') return { onboarding: await onboarding.set(valid.payload) };
+  if (valid.channel === 'project:list') {
+    try { return projects ? { projects: projects.list() } : { projects: [], status: 'ERROR' }; }
+    catch { return { projects: [], status: 'ERROR' }; }
+  }
+  if (valid.channel === 'project:choose') return projects ? await projects.choose() : { projects: [], status: 'ERROR' };
+  if (valid.channel === 'codex:check') return { codex: codex ? await codex() : { state: 'UNAVAILABLE' } };
   if (valid.channel === 'task:get') {
     if (!task) throw new Error('Task IPC port is unavailable.');
     return { task: projectTaskForRenderer(task, valid.payload) };

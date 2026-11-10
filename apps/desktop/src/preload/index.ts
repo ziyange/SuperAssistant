@@ -5,6 +5,9 @@ import { teamApi } from './team-api.js';
 const api: SuperAssistantDesktopApi = {
   getOnboarding: () => ipcRenderer.invoke('onboarding:get', {}),
   setOnboarding: (projection: OnboardingProjection) => ipcRenderer.invoke('onboarding:set', projection),
+  listProjects: () => ipcRenderer.invoke('project:list', {}),
+  chooseProject: () => ipcRenderer.invoke('project:choose', {}),
+  checkCodex: () => ipcRenderer.invoke('codex:check', {}),
   getTask: (taskId) => ipcRenderer.invoke('task:get', { taskId }),
   listTasks: () => ipcRenderer.invoke('task:list', {}),
   getArtifact: (input) => ipcRenderer.invoke('artifact:get', input)

@@ -2,8 +2,30 @@ import { expect, test } from 'vitest';
 import { createTeamApi } from '../src/team-api.js';
 import { createAuthenticatedTeamServer } from '../src/server.js';
 import { createPersistentSessionRequestAuthenticator, createSessionRequestAuthenticator, PersistentTeamSessionService, TeamSessionService } from '../src/session-service.js';
+import { TeamAuthorizationService } from '../src/team-authorization.js';
 
 const permitAll = { async authorize() { return { allowed: true as const }; } };
+
+test('audit export requires EXPORT_AUDIT before reading protected data', async () => {
+  let protectedReads = 0;
+  const roles = new TeamAuthorizationService([
+    { actor: 'member', workspaceId: 'team-1', role: 'MEMBER' },
+    { actor: 'operator', workspaceId: 'team-1', role: 'OPERATOR' },
+    { actor: 'auditor', workspaceId: 'team-1', role: 'AUDITOR' }
+  ]);
+  const api = createTeamApi({
+    async createWorkspace() {}, async getWorkspace() { return undefined; }, async listEvents() { return []; },
+    async exportAudit() { protectedReads += 1; return { records: ['protected'] }; }
+  }, undefined, { async authorize(input) { return roles.authorize(input); } });
+  for (const actor of ['member', 'operator']) {
+    expect((await api.handle({ method: 'GET', path: '/v1/workspaces/team-1/audit-export', actor, workspaceId: 'team-1' })).status).toBe(403);
+  }
+  expect(protectedReads).toBe(0);
+  expect((await api.handle({ method: 'GET', path: '/v1/workspaces/team-2/audit-export', actor: 'auditor', workspaceId: 'team-1' })).status).toBe(403);
+  expect(protectedReads).toBe(0);
+  expect((await api.handle({ method: 'GET', path: '/v1/workspaces/team-1/audit-export', actor: 'auditor', workspaceId: 'team-1' })).status).toBe(200);
+  expect(protectedReads).toBe(1);
+});
 
 test('rejects unauthenticated and cross-workspace API requests before repository access', async () => {
   let calls = 0;

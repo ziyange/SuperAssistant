@@ -22,5 +22,16 @@ export default [
       '@typescript-eslint/no-explicit-any': 'error',
       '@typescript-eslint/no-unused-vars': ['error', { 'argsIgnorePattern': '^_' }]
     }
+  },
+  {
+    // The TypeScript-aware rule remains enabled; the base rule misreads type-only parameters.
+    files: [
+      'apps/desktop/src/main/team-client.ts',
+      'apps/desktop/src/main/team-ipc.ts',
+      'apps/desktop/src/preload/team-api.ts',
+      'services/team/src/retention-operation-service.ts',
+      'services/team/src/team-audit-export-service.ts'
+    ],
+    rules: { 'no-unused-vars': 'off' }
   }
 ];

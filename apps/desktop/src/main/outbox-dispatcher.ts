@@ -2,6 +2,7 @@
 export interface StartOutboxMessage {
   messageId: string;
   attemptId: string;
+  claimToken: string;
   kind?: 'start';
   payload: { attemptId: string };
 }
@@ -9,13 +10,15 @@ export interface StartOutboxMessage {
 export interface ResumeOutboxMessage {
   messageId: string;
   attemptId: string;
+  claimToken: string;
   kind: 'resume';
   payload: { attemptId: string; decisionId: string; resolutionId: string };
 }
 
 export interface ExecutionOutboxPort {
   claimNext(): StartOutboxMessage | ResumeOutboxMessage | null;
-  acknowledge(messageId: string): void;
+  acknowledge(messageId: string, claimToken: string): boolean;
+  markUncertain(messageId: string, claimToken: string): boolean;
 }
 
 export interface ExecutionAdapterPort {
@@ -29,13 +32,18 @@ export class OutboxDispatcher {
   async dispatchOne(): Promise<{ messageId?: string; dispatched: boolean }> {
     const message = this.outbox.claimNext();
     if (!message) return { dispatched: false };
-    if (message.kind === 'resume') {
-      if (!this.adapter.resume) throw new Error('RESUME_NOT_SUPPORTED');
-      await this.adapter.resume(message.payload);
-    } else {
-      await this.adapter.start(message.payload);
+    try {
+      if (message.kind === 'resume') {
+        if (!this.adapter.resume) throw new Error('RESUME_NOT_SUPPORTED');
+        await this.adapter.resume(message.payload);
+      } else {
+        await this.adapter.start(message.payload);
+      }
+      if (!this.outbox.acknowledge(message.messageId, message.claimToken)) throw new Error('CLAIM_FENCE_LOST');
+      return { messageId: message.messageId, dispatched: true };
+    } catch {
+      try { this.outbox.markUncertain(message.messageId, message.claimToken); } catch { /* preserve claim for recovery */ }
+      throw new Error('DISPATCH_OUTCOME_UNKNOWN');
     }
-    this.outbox.acknowledge(message.messageId);
-    return { messageId: message.messageId, dispatched: true };
   }
 }

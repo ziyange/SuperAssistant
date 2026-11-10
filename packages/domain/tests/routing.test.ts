@@ -2,6 +2,9 @@ import { describe, expect, test } from 'vitest';
 import { classifyGoalActions, routeSingleCandidate } from '../src/routing.js';
 
 describe('goal action classification', () => {
+  test.each([[['UNKNOWN']], [['READ', 'SHELL']], [[null]], [[1]], [[]], [new Array(1)]])('rejects invalid action %# instead of treating it as read-only', (actions) => {
+    expect(() => classifyGoalActions(actions as never)).toThrow();
+  });
   test('keeps a read-only query outside the authorization flow', () => {
     expect(classifyGoalActions(['READ'])).toEqual({ kind: 'READ_ONLY', actions: ['READ'] });
   });

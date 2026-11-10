@@ -1,5 +1,68 @@
 # Super Assistant operations
 
+Before applying any pending migration to an existing on-disk SQLite
+database, create a unique consistent backup beside it. Backup failure stops
+startup before migration. Do not delete backups automatically; recovery
+requires stopping writers and restoring a verified backup explicitly.
+Migration acquires exclusive write ownership and verifies that no other
+SQLite connection committed between the snapshot and ownership. If that
+check fails, it preserves both database and backup and stops for inspection.
+
+## Codex integration evidence
+
+On 2026-11-05 the local Codex CLI reported 0.157.1; its locally generated
+protocol schemas were inspected without a model request. Existing tests based
+on synthetic discovery/execution frames do not prove live compatibility. The
+current compatibility gate is not widened until separately verified evidence
+and an authorized integration task establish the exact version and behavior.
+
+## TASK-721 notification delivery safety contract
+
+This contract is planned until durable storage and a real channel pass G2.
+Each atomic outbox claim returns a monotonically increasing fencing generation.
+The in-progress outbox port carries this generation in the `attempts` field;
+the durable store must increment it atomically and compare it during confirmation.
+Until a trusted channel reconciliation adapter is integrated, PostgreSQL may claim only rows
+with no prior claim and no delivery. A claimed row, including one left behind
+by a crash, remains reserved and is never automatically reclaimed based on age.
+This fail-closed policy sacrifices availability when delivery outcome is
+uncertain. The notification table must be provisioned by an approved migration;
+repository methods alone do not make the Team notification feature available.
+For a claimed item, the delivery boundary validates its identity and generation,
+reauthorizes the exact Workspace/principal/target, and only then invokes a
+configured channel with the stable idempotency key. Before channel invocation,
+an atomic, durable claim-generation transition must prove that this worker alone
+began delivery; reusing the same claim concurrently must not invoke the channel
+twice. The additive notification schema records `delivery_started_at`; existing
+claimed records remain reserved on upgrade, including ambiguous older records.
+Only the current generation may atomically set that field from NULL. No existing
+row is reset or inferred to be safe to resend. Any channel or acknowledgement
+exception, or rejected acknowledgement, returns `UNKNOWN` and does not retry.
+An explicit authorization denial does not call the channel or acknowledge the
+claim. Only channel success followed by fenced store confirmation is `DELIVERED`.
+The in-progress batch entry point is explicitly invoked and claims at most 20
+items per call; it reauthorizes and processes each item separately, reports
+delivered, denied, not-started and unknown counts, and does not aggregate or
+start a background worker. Aggregation and actual channel configuration remain
+separate incomplete work and must not be inferred from this entry point.
+Acknowledgement and state transitions must match both notification identity and
+the current generation as well as the persisted Workspace, principal and target
+reference; a stale or cross-scope worker cannot acknowledge a newer claim. A
+channel result that might have committed but cannot be confirmed is `UNKNOWN`:
+it must be reconciled by a stable idempotency key before any repeat delivery.
+Only a trusted channel reconciliation port may attest `DELIVERED` or
+`FINAL_NOT_DELIVERED`; the latter must mean no delayed delivery can still occur.
+`UNKNOWN`, missing or failed reconciliation never releases the claim. A final
+negative permits a fenced, scope-matched release; the next claim increments its
+generation. The release or reconciled confirmation and its non-secret evidence
+reference are persisted atomically as an append-only reconciliation record.
+Channel implementations without this guarantee cannot attest it.
+Already confirmed delivery is never sent again. A channel without a trustworthy
+idempotency or reconciliation capability must remain blocked rather than guess.
+Aggregation must retain membership and confirmation evidence for every covered
+outbox item; a partially acknowledged group cannot be silently resent. These
+rules do not authorize editing or deleting the preserved TASK-716 worktree.
+
 This document defines H1 local runtime lifecycle, persistence, health, observability, recovery, retention, upgrade, and support behavior. Operational automation never widens authorization or treats missing evidence as successful execution.
 
 ## PHASE-007 recovery constraint
@@ -272,6 +335,11 @@ an employment action.
 
 ## PHASE-006 external DSH Adapter profile
 
+TASK-740 adds a production-build gate for the Codex Adapter: root build must
+emit its ESM package after domain, and a Node runtime import must resolve the
+discovery supervisor. This does not connect the adapter to Electron or verify
+real Codex compatibility.
+
 Gemini Core `0.55.1` remains a completed compatibility block: its public
 surface does not prove durable external `status`, `result`, or reconciliation,
 so Gemini remains Disabled. [ADR-007](decisions/ADR-007-external-dsh-adapter.md)
@@ -300,3 +368,23 @@ digest with the Attempt evidence. The launched Guard receives only that frozen
 policy and can deny a call when its tool binding, target rule, budget, Grant,
 snapshot, fence, plugin digest, or profile digest does not match. Policy changes
 are not live updates: they require a successor Attempt and normal authorization.
+
+For pending SQLite migrations, create and retain a consistent adjacent backup
+for every nonempty disk path, including a newly created database; checking
+whether the path existed before opening is not a safe exemption. Compare
+SQLite data_version under exclusive migration ownership before changing schema.
+Empty temporary and in-memory databases do not use adjacent backup files.
+This does not establish single-instance ownership or protect against
+out-of-band filesystem replacement.
+
+Migration 020 adds lease renewal and expiry timestamps without fabricating a
+deadline for legacy leases. Back up before migration and reconcile any legacy
+or expired active lease; do not automatically release it. The database clock
+check is not proof that a worker has stopped or that a real Adapter enforces
+fencing.
+
+The isolated renewal supervisor schedules 10-second checks and reports loss
+once. It is not wired into production startup and its callback is not durable
+reconciliation evidence. A stopped supervisor does not release its Lease.
+Synchronous notification errors and asynchronous notification rejections are
+recorded as failures; a pending notification is not proof of durable delivery.

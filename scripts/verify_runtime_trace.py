@@ -215,7 +215,8 @@ def run_verification(
     schemas_md_path: str = "references/schemas.md",
     expansions_path: str = "docs/delivery/expansions.json",
     runtime_event_reason: Optional[str] = None,
-    require_task_evidence: bool = False
+    require_task_evidence: bool = False,
+    task_start_tx: Optional[str] = None
 ) -> Tuple[int, Dict]:
     """
     Executes core verification and returns (exit_code, payload_dict).
@@ -339,6 +340,33 @@ def run_verification(
             payload["reason_details"][tx_id] = "RESULT_WITHOUT_INTENT"
         return 4, payload
 
+    # The complete chain and all transaction states remain mandatory. The
+    # optional anchor only bounds which writes are checked against this pack.
+    scope_start_idx = 0
+    if task_start_tx is not None:
+        anchor = audit_map.get(task_start_tx)
+        anchor_result = trace_map.get(task_start_tx)
+        expected = 'docs/delivery/tasks/' + os.path.basename(task_pack_path)
+        if (anchor is None or anchor_result is None
+                or anchor.get('action_type') != 'FILE_WRITE'
+                or anchor.get('status') != 'COMMITTED'
+                or normalize_path(anchor.get('normalized_path', '')) != normalize_path(expected)
+                or os.path.splitext(os.path.basename(task_pack_path))[0].lower() not in task_start_tx.lower()
+                or anchor_result.get('intent_hash') != anchor.get('intent_hash')
+                or anchor_result.get('action_type') != anchor.get('action_type')
+                or anchor_result.get('normalized_path') != anchor.get('normalized_path')):
+            payload['exit_code'] = 3
+            payload['reason'] = 'TASK_START_INVALID'
+            return 3, payload
+        scope_start_idx = next(i for i, item in enumerate(audit_entries) if item['tx_id'] == task_start_tx)
+        if any(item.get('action_type') == 'FILE_WRITE'
+               and normalize_path(item.get('normalized_path', '')) == normalize_path(expected)
+               and os.path.splitext(os.path.basename(task_pack_path))[0].lower() in item.get('tx_id', '').lower()
+               for item in audit_entries[:scope_start_idx]):
+            payload['exit_code'] = 3
+            payload['reason'] = 'TASK_START_INVALID'
+            return 3, payload
+
     # Find latest MODE_SWITCH index for Post-MODE_SWITCH isolation
     last_mode_switch_idx = -1
     for idx, entry in enumerate(audit_entries):
@@ -348,7 +376,7 @@ def run_verification(
     # Build Post-MODE_SWITCH approved whitelist for Plan/Goal mode
     approved_patterns = set(allowed_files)
     for idx, entry in enumerate(audit_entries):
-        if idx > last_mode_switch_idx and entry.get("action_type") == "PERMISSION_GRANT" and entry.get("status") == "COMMITTED":
+        if idx > last_mode_switch_idx and idx >= scope_start_idx and entry.get("action_type") == "PERMISSION_GRANT" and entry.get("status") == "COMMITTED":
             approved_patterns.add(entry.get("normalized_path", ""))
 
     scanned_exit_codes = []
@@ -397,7 +425,7 @@ def run_verification(
                 return 5, payload
 
         # Whitelist Boundary Check on writes/deletes
-        if action_type in ["FILE_WRITE", "FILE_DELETE"]:
+        if idx >= scope_start_idx and action_type in ["FILE_WRITE", "FILE_DELETE"]:
             if mode.lower() == "build":
                 if matches_glob(path, BUILD_MODE_BLACKLIST):
                     payload["exit_code"] = 2
@@ -413,10 +441,11 @@ def run_verification(
 
     if require_task_evidence and not scanned_exit_codes:
         task_id = os.path.splitext(os.path.basename(task_pack_path))[0].lower()
-        matched = any(task_id in tx_id.lower() and entry.get('action_type') == 'FILE_WRITE'
-                      and entry.get('normalized_path') in allowed_files
-                      and tx_id in trace_map
-                      for tx_id, entry in audit_map.items())
+        current_entries = audit_entries[scope_start_idx:]
+        matched = any(task_id in entry['tx_id'].lower() and entry.get('action_type') == 'FILE_WRITE'
+                      and matches_glob(entry.get('normalized_path', ''), allowed_files)
+                      and entry['tx_id'] in trace_map
+                      for entry in current_entries)
         if not matched:
             payload['exit_code'] = 3
             payload['reason'] = 'TASK_EVIDENCE_MISSING'
@@ -449,6 +478,7 @@ def main():
     parser.add_argument("--expansions", default="docs/delivery/expansions.json", help="Path to expansions.json")
     parser.add_argument("--runtime-event-reason", default=None, help="Runtime event reason string")
     parser.add_argument("--require-task-evidence", action="store_true", help="Require a matched task-specific FILE_WRITE intent and result")
+    parser.add_argument("--task-start-tx", default=None, help="Committed matching Task Pack write marking the current scope start")
     parser.add_argument("--json", action="store_true", help="Output JSON payload")
 
     args = parser.parse_args()
@@ -462,7 +492,8 @@ def main():
         schemas_md_path=args.schemas,
         expansions_path=args.expansions,
         runtime_event_reason=args.runtime_event_reason,
-        require_task_evidence=args.require_task_evidence
+        require_task_evidence=args.require_task_evidence,
+        task_start_tx=args.task_start_tx
     )
 
     if args.json:

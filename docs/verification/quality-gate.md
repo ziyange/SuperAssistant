@@ -1,5 +1,13 @@
 # Quality gate
 
+## Adapter typecheck coverage correction
+
+TASK-738 found that previous root typecheck runs reported exit 0 while both
+Codex and DSH adapter configurations selected zero files. Those historical
+results are not evidence of adapter type safety. The corrected gate requires
+the compiler file list to include each adapter's source and tests; a zero-file
+or partial scan cannot pass even when the compiler returns exit 0.
+
 This is the authoritative gate order for moving from an approved Task Pack to task acceptance, phase acceptance, and archive. Gates are fail-close: missing inputs, unavailable validators, malformed evidence, or ambiguous scope do not count as a pass.
 
 ## Gate order
@@ -99,5 +107,14 @@ A phase can be marked `PASS` and archived only when all of the following are tru
 Merge, push, publication, deletion, history rewrite, and release remain separate user-confirmation gates even after phase `PASS`.
 
 ## Remote CI status
+
+For a development-baseline merge, Windows build, lint, typecheck, nonempty
+unit and contract tests and isolated PostgreSQL 16 compatibility tests must
+pass on the candidate SHA. The Windows unit job may omit only the six named
+PostgreSQL cases when the separate database job executes them with no skips.
+The summary checker must reject missing, failed, inconsistent, zero-test or
+unexpectedly skipped reports. Deferred real Codex and Electron sandbox tests
+remain required for their original acceptance or release gates; a development
+baseline is not H1/M1 acceptance.
 
 The workflow in `.github/workflows/docs-gates.yml` mirrors the Python governance commands and validates each Task Pack individually. Its presence is only `planned` evidence. It becomes `external` evidence only after a specific run completes and its URL, commit, jobs, and conclusion are recorded. A locally passing gate must not be labeled as CI, and an unrun workflow must not be listed as passing.

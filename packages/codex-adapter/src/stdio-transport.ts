@@ -30,7 +30,7 @@ export function readStdioDiscovery(child: ChildProcess, timeoutMs: number): Prom
     child.once('error', () => settle(() => reject(new Error('Codex App Server discovery failed.'))));
     timer = setTimeout(() => settle(() => { child.kill(); reject(new Error('Codex discovery timed out.')); }), timeoutMs);
     child.stdout.once('data', (chunk: Buffer) => settle(() => {
-      try { resolve(parseDiscoveryFrame(chunk.toString('utf8').split(/\r?\n/, 1)[0])); } catch (error) { child.kill(); reject(error); }
+      try { resolve(parseDiscoveryFrame(chunk.toString('utf8').split(/\r?\n/, 1)[0] ?? '')); } catch (error) { child.kill(); reject(error); }
     }));
     child.stdout.once('end', () => {
       if (exited) settle(() => reject(new Error('Codex App Server exited before discovery.')));

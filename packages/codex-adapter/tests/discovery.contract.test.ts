@@ -1,5 +1,5 @@
 /* global URL, process, Buffer, setTimeout */
-import { describe, expect, test } from 'vitest';
+import { describe, expect, test, vi } from 'vitest';
 import { spawn } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import { PassThrough } from 'node:stream';
@@ -8,6 +8,7 @@ import { CodexDiscoveryAdapter } from '../src/discovery.js';
 import { normalizeDiscoveryEvent } from '../src/protocol.js';
 import { CodexWorker, createReadOnlyCodexLaunch, createStdioCodexWorker, terminateProcessTree } from '../src/worker.js';
 import { readStdioDiscovery } from '../src/stdio-transport.js';
+import * as worker from '../src/worker.js';
 
 const fakeAppServer = fileURLToPath(new URL('./fixtures/fake-app-server.mjs', import.meta.url));
 const FIXTURE_DISCOVERY_TIMEOUT_MS = 5_000;
@@ -21,7 +22,7 @@ async function readTreeChildPid(): Promise<{ parentPid: number; childPid: number
     parent.once('error', reject);
   });
   const childPid = Number(line.trim().replace('child:', ''));
-  if (!Number.isInteger(parent.pid) || !Number.isInteger(childPid)) throw new Error('Tree fixture did not provide process IDs.');
+  if (typeof parent.pid !== 'number' || !Number.isInteger(parent.pid) || !Number.isInteger(childPid)) throw new Error('Tree fixture did not provide process IDs.');
   return { parentPid: parent.pid, childPid };
 }
 async function waitForExit(pid: number): Promise<void> {
@@ -33,6 +34,19 @@ async function waitForExit(pid: number): Promise<void> {
 }
 
 describe('read-only Codex discovery', () => {
+  test('process existence errors fail closed except explicit no-such-process', () => {
+    const check = Reflect.get(worker, 'isProcessGone');
+    expect(typeof check).toBe('function');
+    const kill = vi.spyOn(process, 'kill');
+    try {
+      kill.mockImplementation(() => { throw Object.assign(new Error('denied'), { code: 'EPERM' }); });
+      expect(check(123)).toBe(false);
+      kill.mockImplementation(() => { throw null; });
+      expect(check(123)).toBe(false);
+      kill.mockImplementation(() => { throw Object.assign(new Error('gone'), { code: 'ESRCH' }); });
+      expect(check(123)).toBe(true);
+    } finally { kill.mockRestore(); }
+  });
   test('normalizes describe and health without provider execution identifiers', async () => {
     const adapter = new CodexDiscoveryAdapter(async () => ({ version: '0.121.0', authenticated: true, capabilities: ['develop'] }));
     await expect(adapter.describe()).resolves.toEqual(expect.objectContaining({ adapter: 'codex', functions: ['develop'] }));
@@ -54,9 +68,9 @@ describe('read-only Codex discovery', () => {
     const launch = createReadOnlyCodexLaunch('C:\\Tools\\codex.exe', 'C:\\Project', (command, args, options) => {
       received = [command, args, options];
       return { kill: () => undefined } as never;
-    }, { SystemRoot: 'C:\\Windows', TEMP: 'C:\\Temp', USERPROFILE: 'C:\\User' });
+    }, { SystemRoot: 'C:\\Windows', TEMP: 'C:\\Temp', USERPROFILE: 'C:\\User', APPDATA: 'C:\\User\\AppData\\Roaming', SECRET_TOKEN: 'secret' });
     launch();
-    expect(received).toEqual(['C:\\Tools\\codex.exe', ['app-server'], expect.objectContaining({ cwd: 'C:\\Project', shell: false, windowsHide: true, env: { SystemRoot: 'C:\\Windows', TEMP: 'C:\\Temp' } })]);
+    expect(received).toEqual(['C:\\Tools\\codex.exe', ['app-server'], expect.objectContaining({ cwd: 'C:\\Project', shell: false, windowsHide: true, env: { SystemRoot: 'C:\\Windows', TEMP: 'C:\\Temp', USERPROFILE: 'C:\\User', APPDATA: 'C:\\User\\AppData\\Roaming' } })]);
     expect(() => createReadOnlyCodexLaunch('codex.exe', 'C:\\Project', () => ({}) as never, {})).toThrow(/absolute/i);
   });
   test('terminates the child when initialization exceeds the frozen discovery timeout', async () => {

@@ -13,7 +13,7 @@ export class GitWorktreeService implements WorktreeService {
     mkdirSync(root, { recursive: true }); const task = safeTaskPart(input.taskId); const project = safeTaskPart(input.projectId); const path = join(root, `${project}-${task}`); if (resolve(path).slice(0, root.length) !== root || existsSync(path)) throw new Error('Requested worktree path is unsafe or already exists.');
     const baselineCommit = git(source, ['rev-parse', 'HEAD']); const branch = `codex/phase-001-${task}`;
     try { execFileSync('git', ['-C', source, 'worktree', 'add', '--detach', path, baselineCommit], { stdio: 'pipe' }); execFileSync('git', ['-C', path, 'switch', '-c', branch], { stdio: 'pipe' }); }
-    catch (error) { if (existsSync(path)) { try { execFileSync('git', ['-C', source, 'worktree', 'remove', '--force', path], { stdio: 'pipe' }); } catch { /* preserve unknown evidence */ } } throw error; }
+    catch (error) { if (existsSync(path)) { try { execFileSync('git', ['-C', source, 'worktree', 'remove', path], { stdio: 'pipe' }); } catch { /* preserve dirty or ambiguous evidence */ } } throw error; }
     return { projectId: input.projectId, taskId: input.taskId, path, branch, baselineCommit, resourceKey: `project:${input.projectId}`, disposition: 'ACTIVE' };
   }
   reconcile(path: string): 'QUARANTINED' | 'UNKNOWN' { return existsSync(path) ? 'QUARANTINED' : 'UNKNOWN'; }

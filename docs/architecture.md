@@ -1,5 +1,28 @@
 # Super Assistant architecture
 
+## Desktop preload build contract under integration
+
+TASK-734 specifies a single CommonJS preload bundle at
+`dist/preload/index.cjs`, produced using the existing pinned Vite toolchain.
+The bundle externalizes only Electron and main points to the bundle. This
+build contract does not prove Electron sandbox startup or IPC authorization;
+those tests remain deferred to pre-release acceptance.
+
+## H1 Project registration boundary under integration
+
+TASK-733 binds this service to an application-window-owned native directory
+chooser and a Workspace-scoped controller. List is read-only; the first
+successful registration transactionally creates the local-owner Workspace if
+absent. More than one active local-owner Workspace fails closed rather than
+choosing silently. Renderer receives Project card projections, never a raw path.
+
+TASK-732 defines a main-process registration service: resolve the candidate
+directory with filesystem realpath, reject roots and inaccessible/non-directory
+paths, then call the Workspace-scoped catalog exactly once. Aliases resolve to
+one identity; undiscovered metadata remains null. The service does not itself
+expose IPC or select a folder. Filesystem identity must be checked again at
+execution preflight because paths can change after registration.
+
 This document is the engineering source of truth for system shape, ownership, boundaries, and H1-H3 evolution. Product behavior is implemented only through the contracts linked below; accepted decisions are indexed in [architecture decisions](decisions/README.md).
 
 ## PHASE-007 recovery constraint
@@ -219,3 +242,7 @@ Breaking changes require additive-read/dual-read migration, explicit deprecation
 - [Orchestration](orchestration.md)
 - [UX](ux.md)
 - [Operations](operations.md)
+
+The desktop main-process lease supervisor is a separately constructed component
+over a lease port and ownership predicate. It is not yet connected to a live
+worker or application startup; its timer alone provides no process fencing.

@@ -9,8 +9,14 @@ export interface RoutingCandidate { projectId: string; agentId: string; function
 export type RoutingResult = { status: 'ROUTED'; candidate: RoutingCandidate } | { status: 'AMBIGUOUS'; candidates: readonly RoutingCandidate[] } | { status: 'UNROUTABLE'; candidates: [] };
 
 const sideEffectingActions = new Set<GoalAction>(['FILE_WRITE', 'COMMAND', 'NETWORK', 'EXTERNAL_WRITE', 'CREDENTIAL']);
+const validActions = new Set<unknown>(['READ', ...sideEffectingActions]);
+
+export function isGoalAction(value: unknown): value is GoalAction {
+  return validActions.has(value);
+}
 
 export function classifyGoalActions(actions: readonly GoalAction[]): GoalClassification {
+  if (!Array.isArray(actions) || actions.length === 0 || !Array.from(actions).every(isGoalAction)) throw new Error('Invalid goal action.');
   return {
     kind: actions.some((action) => sideEffectingActions.has(action)) ? 'SIDE_EFFECTING' : 'READ_ONLY',
     actions: [...actions]

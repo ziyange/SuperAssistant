@@ -13,19 +13,43 @@ test('creates durable execution before invoking the adapter and refuses unknown 
 test('dispatches only a claimed durable start message and acknowledges it after adapter acceptance', async () => {
   const calls: string[] = [];
   const dispatcher = new OutboxDispatcher(
-    { claimNext: () => ({ messageId: 'message-1', attemptId: 'attempt-1', payload: { attemptId: 'attempt-1' } }), acknowledge: (messageId) => { calls.push(`ack:${messageId}`); } },
+    { claimNext: () => ({ messageId: 'message-1', attemptId: 'attempt-1', claimToken: 'claim-1', payload: { attemptId: 'attempt-1' } }), acknowledge: (messageId, token) => { calls.push(`ack:${messageId}:${token}`); return true; }, markUncertain: () => false },
     { start: async (command) => { calls.push(`start:${command.attemptId}`); } }
   );
   expect(await dispatcher.dispatchOne()).toEqual({ messageId: 'message-1', dispatched: true });
-  expect(calls).toEqual(['start:attempt-1', 'ack:message-1']);
+  expect(calls).toEqual(['start:attempt-1', 'ack:message-1:claim-1']);
 });
 
 test('dispatches one claimed Decision resume command and acknowledges it only after adapter acceptance', async () => {
   const calls: string[] = [];
   const dispatcher = new OutboxDispatcher(
-    { claimNext: () => ({ messageId: 'resume:decision-1', attemptId: 'attempt-1', kind: 'resume' as const, payload: { attemptId: 'attempt-1', decisionId: 'decision-1', resolutionId: 'resolution-1' } }), acknowledge: (messageId) => { calls.push(`ack:${messageId}`); } },
+    { claimNext: () => ({ messageId: 'resume:decision-1', attemptId: 'attempt-1', claimToken: 'claim-2', kind: 'resume' as const, payload: { attemptId: 'attempt-1', decisionId: 'decision-1', resolutionId: 'resolution-1' } }), acknowledge: (messageId, token) => { calls.push(`ack:${messageId}:${token}`); return true; }, markUncertain: () => false },
     { start: async () => { calls.push('unexpected-start'); }, resume: async (command) => { calls.push(`resume:${command.attemptId}:${command.decisionId}`); } }
   );
   expect(await dispatcher.dispatchOne()).toEqual({ messageId: 'resume:decision-1', dispatched: true });
-  expect(calls).toEqual(['resume:attempt-1:decision-1', 'ack:resume:decision-1']);
+  expect(calls).toEqual(['resume:attempt-1:decision-1', 'ack:resume:decision-1:claim-2']);
+});
+
+test('dispatch failure preserves the claim as uncertain and never acknowledges it', async () => {
+  const calls: string[] = [];
+  const outbox = {
+    claimNext: () => ({ messageId: 'message-1', attemptId: 'attempt-1', claimToken: 'token-1', payload: { attemptId: 'attempt-1' } }),
+    acknowledge: () => { calls.push('ack'); return true; },
+    markUncertain: (messageId: string, token: string) => { calls.push(`uncertain:${messageId}:${token}`); return true; }
+  };
+  const dispatcher = new OutboxDispatcher(outbox, { start: async () => { calls.push('start'); throw new Error('lost after write'); } });
+  await expect(dispatcher.dispatchOne()).rejects.toThrow('DISPATCH_OUTCOME_UNKNOWN');
+  expect(calls).toEqual(['start', 'uncertain:message-1:token-1']);
+});
+
+test('lost acknowledgement fencing never reports a successful dispatch', async () => {
+  const calls: string[] = [];
+  const outbox = {
+    claimNext: () => ({ messageId: 'message-1', attemptId: 'attempt-1', claimToken: 'old-token', payload: { attemptId: 'attempt-1' } }),
+    acknowledge: () => false,
+    markUncertain: () => { calls.push('uncertain'); return false; }
+  };
+  const dispatcher = new OutboxDispatcher(outbox, { start: async () => { calls.push('start'); } });
+  await expect(dispatcher.dispatchOne()).rejects.toThrow('DISPATCH_OUTCOME_UNKNOWN');
+  expect(calls).toEqual(['start', 'uncertain']);
 });

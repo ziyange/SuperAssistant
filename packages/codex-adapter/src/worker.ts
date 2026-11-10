@@ -11,9 +11,13 @@ type SpawnReadOnly = () => ChildProcess;
 type SpawnProcess = (command: string, args: readonly string[], options: SpawnOptionsWithoutStdio) => ChildProcess;
 type ProcessTreeTerminator = (pid: number) => Promise<void>;
 
+export function codexDiscoveryEnvironment(environment: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  return Object.fromEntries(['SystemRoot', 'TEMP', 'TMP', 'USERPROFILE', 'HOME', 'APPDATA', 'LOCALAPPDATA'].flatMap((key) => environment[key] ? [[key, environment[key] as string]] : []));
+}
+
 export function createReadOnlyCodexLaunch(executablePath: string, projectPath: string, launch: SpawnProcess = spawn, environment: NodeJS.ProcessEnv = process.env): SpawnReadOnly {
   if (!isAbsolute(executablePath) || !isAbsolute(projectPath)) throw new Error('Codex executable and Project paths must be absolute.');
-  const env = Object.fromEntries(['SystemRoot', 'TEMP'].flatMap((key) => environment[key] ? [[key, environment[key] as string]] : []));
+  const env = codexDiscoveryEnvironment(environment);
   return () => launch(executablePath, ['app-server'], { cwd: projectPath, env, shell: false, windowsHide: true });
 }
 
@@ -29,8 +33,9 @@ export function terminateProcessTree(pid: number): Promise<void> {
   });
 }
 
-function isProcessGone(pid: number): boolean {
-  try { process.kill(pid, 0); return false; } catch { return true; }
+export function isProcessGone(pid: number): boolean {
+  try { process.kill(pid, 0); return false; }
+  catch (error) { return error !== null && typeof error === 'object' && (error as NodeJS.ErrnoException).code === 'ESRCH'; }
 }
 
 export function createStdioCodexWorker(spawnReadOnly: SpawnReadOnly, discoveryTimeoutMs = DISCOVERY_TIMEOUT_MS): CodexWorker {

@@ -12,8 +12,33 @@ test('suppresses uncertain authorization and aggregates matching notifications',
   expect(decideNotificationDelivery({ workspaceId: 'workspace-1', principal: 'user-1', authorized: true, priority: 'NORMAL', hour: 12, aggregateKey: 'task-1', pendingAggregateCount: 3 })).toEqual({ deliver: true, aggregateCount: 4 });
 });
 
-test('deep links are resolved only after target authorization', () => {
-  expect(resolveNotificationDeepLink({ authorized: false, taskId: 'task-1' })).toBeUndefined();
-  expect(resolveNotificationDeepLink({ authorized: true, taskId: 'task-1', decisionId: 'decision-1' })).toBeUndefined();
-  expect(resolveNotificationDeepLink({ authorized: true, decisionId: 'decision-1' })).toEqual({ kind: 'DECISION', id: 'decision-1' });
+test('deep links resolve the authorized reference rather than a caller-selected object', async () => {
+  const calls: string[] = [];
+  const ports = {
+    async authorize(workspaceId: string, principal: string, targetRef: string) {
+      calls.push(`authorize:${workspaceId}:${principal}:${targetRef}`);
+      return workspaceId === 'w1' && principal === 'user' && targetRef === 'target:opaque';
+    },
+    async resolve(workspaceId: string, targetRef: string) {
+      calls.push(`resolve:${workspaceId}:${targetRef}`);
+      return { kind: 'TASK' as const, id: 'actual-task' };
+    }
+  };
+  const input = { workspaceId: 'w1', principal: 'user', targetRef: 'target:opaque' };
+  expect(await resolveNotificationDeepLink(input, ports)).toEqual({ kind: 'TASK', id: 'actual-task' });
+  expect(calls).toEqual(['authorize:w1:user:target:opaque', 'resolve:w1:target:opaque']);
+  calls.length = 0;
+  expect(await resolveNotificationDeepLink({ ...input, requested: { kind: 'TASK', id: 'other-task' } }, ports)).toBeUndefined();
+  expect(await resolveNotificationDeepLink({ ...input, requested: { kind: 'DECISION', id: 'actual-task' } }, ports)).toBeUndefined();
+  calls.length = 0;
+  expect(await resolveNotificationDeepLink({ ...input, workspaceId: 'other' }, ports)).toBeUndefined();
+  expect(calls).toEqual(['authorize:other:user:target:opaque']);
+  calls.length = 0;
+  expect(await resolveNotificationDeepLink({ ...input, targetRef: 'target:' }, ports)).toBeUndefined();
+  expect(await resolveNotificationDeepLink({ ...input, targetRef: 'target:opaque\nforged' }, ports)).toBeUndefined();
+  expect(await resolveNotificationDeepLink({ ...input, targetRef: 'target:opaque trailing' }, ports)).toBeUndefined();
+  expect(calls).toEqual([]);
+  expect(await resolveNotificationDeepLink(input, { ...ports, async authorize() { throw new Error('offline'); } })).toBeUndefined();
+  expect(await resolveNotificationDeepLink(input, { ...ports, async resolve() { throw new Error('offline'); } })).toBeUndefined();
+  expect(await resolveNotificationDeepLink(input, { ...ports, async resolve() { return undefined; } })).toBeUndefined();
 });
