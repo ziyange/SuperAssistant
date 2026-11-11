@@ -6214,4 +6214,125 @@
   "status": "COMMITTED",
   "artifact_metadata": { "sha256": "bbcf614e5fb4042c00edc17523e567bb658b461dd7662ca31d5bffac5173f45e" }
 }
+,
+{
+  "tx_id": "task-772-plan-pack-001",
+  "timestamp": "2026-11-11T02:20:17.459Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "docs/delivery/tasks/TASK-772.md",
+  "prev_hash": "4c4c81a84d06a3b5e2ac825583531b03c9faffc6f790c9ce6f1d713deb2d6a7e",
+  "intent_hash": "fba418cdb6885839d34533ca8e2d0b2665079aabfcc40ce3837f8638f4c627d4",
+  "status": "COMMITTED",
+  "artifact_metadata": { "sha256": "bab8dd0f1d3119cea1022d4e7e3ea66a2f20a4f9faa9be3e8f1e364d2bec2d13" }
+}
+,
+{
+  "tx_id": "task-772-doc-contract-001",
+  "timestamp": "2026-11-11T02:20:30.655Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "docs/orchestration.md",
+  "prev_hash": "fba418cdb6885839d34533ca8e2d0b2665079aabfcc40ce3837f8638f4c627d4",
+  "intent_hash": "942ec150e2417b44ea01440eee81cee2f59aa68fcc9af33b68ea3cc324c97f6f",
+  "status": "COMMITTED",
+  "artifact_metadata": { "sha256": "b6892fc65ba078bf1819750d8ddd6f55da464397336b6e83dfb78b1b7901689d" }
+}
+,
+{
+  "tx_id": "task-772-red-guard-001",
+  "timestamp": "2026-11-11T02:20:54.618Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "apps/desktop/tests/main/orchestrator.test.ts",
+  "prev_hash": "942ec150e2417b44ea01440eee81cee2f59aa68fcc9af33b68ea3cc324c97f6f",
+  "intent_hash": "04befe072d70a3027e006d221d9381d46b84eb01a70dca76394783413d0f7333",
+  "status": "COMMITTED",
+  "artifact_metadata": { "sha256": "48e496543be79b087fed48fb0bb73614f8839a55f9c19b65e7a151ebfa5cb13b" }
+}
+,
+{
+  "tx_id": "task-772-dispatch-guard-001",
+  "timestamp": "2026-11-11T02:21:17.636Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "apps/desktop/src/main/outbox-dispatcher.ts",
+  "prev_hash": "04befe072d70a3027e006d221d9381d46b84eb01a70dca76394783413d0f7333",
+  "intent_hash": "0f77b9a9a967403d6bce2d7d1d70983a239fc31ace770fbd0bd137b8e70ab442",
+  "status": "COMMITTED",
+  "artifact_metadata": { "sha256": "ff30d103059bdf54b8797af5e714f82beac1a8fdd94e7c17946e345ef7c33883" }
+}
+,
+{
+  "tx_id": "task-772-test-orchestrator-001",
+  "timestamp": "2026-11-11T02:21:33.603Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "apps/desktop/tests/main/orchestrator.test.ts",
+  "prev_hash": "0f77b9a9a967403d6bce2d7d1d70983a239fc31ace770fbd0bd137b8e70ab442",
+  "intent_hash": "ca919a1060e7d4da0f0af49cdb10527facd5fa72733c531f0cfeee4995bdc4c0",
+  "status": "COMMITTED",
+  "artifact_metadata": { "sha256": "f40bdba2e4c85f0e487f065748d140931d6d67924c05f3c1be3b6ae221b90507" }
+}
+,
+{
+  "tx_id": "task-772-test-sqlite-001",
+  "timestamp": "2026-11-11T02:21:58.201Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "packages/persistence/tests/outbox-inbox.test.ts",
+  "prev_hash": "ca919a1060e7d4da0f0af49cdb10527facd5fa72733c531f0cfeee4995bdc4c0",
+  "intent_hash": "00d813ee6caa38f8403c9832be6696697db83af3745ceb66488e5786053acc4b",
+  "status": "COMMITTED",
+  "artifact_metadata": { "sha256": "191e403eaa0a7dedca4777b9bc00b91d7d18b9e1f39758ffac51bbe1f0a7504a" }
+}
+,
+{
+  "tx_id": "task-772-test-sqlite-denial-001",
+  "timestamp": "2026-11-11T02:22:17.795Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "packages/persistence/tests/outbox-inbox.test.ts",
+  "prev_hash": "00d813ee6caa38f8403c9832be6696697db83af3745ceb66488e5786053acc4b",
+  "intent_hash": "17600684045cfe0d7cc9a8168ceb5c5cd6e7db98e3df14b64c98643774223572",
+  "status": "COMMITTED",
+  "artifact_metadata": { "sha256": "c37cf6b63162588e0d50fa3bed907985198523dc3d5e01e4064edb92c682ab76" }
+}
+,
+{
+  "tx_id": "task-772-doc-anchor-001",
+  "timestamp": "2026-11-11T02:22:46.414Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": ".github/workflows/docs-gates.yml",
+  "prev_hash": "17600684045cfe0d7cc9a8168ceb5c5cd6e7db98e3df14b64c98643774223572",
+  "intent_hash": "5affbb08973d485481a77266c1e0988f649f6e5a301a5669791a2d26325da329",
+  "status": "COMMITTED",
+  "artifact_metadata": { "sha256": "21572a6e5fef152d905b02af4d1aabd8b0179e8fd1e97081f3dfdf5e08da3dba" }
+}
+,
+{
+  "tx_id": "task-772-test-exact-message-001",
+  "timestamp": "2026-11-11T02:25:27.343Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "apps/desktop/tests/main/orchestrator.test.ts",
+  "prev_hash": "5affbb08973d485481a77266c1e0988f649f6e5a301a5669791a2d26325da329",
+  "intent_hash": "f8f48b288b845b53c436a6b8d6545b023fdb5f42e36981acaeba196c48992198",
+  "status": "COMMITTED",
+  "artifact_metadata": { "sha256": "83b441b428c9065724d42d9dcd3200834733ff6335b9d3f7a0b6deb914def00d" }
+}
+,
+{
+  "tx_id": "task-772-test-nonboolean-001",
+  "timestamp": "2026-11-11T02:25:41.587Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "apps/desktop/tests/main/orchestrator.test.ts",
+  "prev_hash": "f8f48b288b845b53c436a6b8d6545b023fdb5f42e36981acaeba196c48992198",
+  "intent_hash": "a6ab3b293582bbbcb75b9b451756963e8e81595dab8fc988c22c5ca10b0fd8af",
+  "status": "COMMITTED",
+  "artifact_metadata": { "sha256": "13b8f181e68035af881c75de314b0af79c9a3b2f21cc1b2febd10248dcb1832e" }
+}
+,
+{
+  "tx_id": "task-772-report-001",
+  "timestamp": "2026-11-11T02:29:58.406Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "docs/verification/reports/phase-007-task-772.md",
+  "prev_hash": "a6ab3b293582bbbcb75b9b451756963e8e81595dab8fc988c22c5ca10b0fd8af",
+  "intent_hash": "0e992b7569678ea7d821159b4e757458ee1df2c588ea3eb794f4edeed02454fc",
+  "status": "COMMITTED",
+  "artifact_metadata": { "sha256": "55d53e327269e7e3945c3b416cf472d3539494039b5e514c74800174bfbbfec8" }
+}
 ]

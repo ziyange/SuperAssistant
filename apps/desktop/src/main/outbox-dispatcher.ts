@@ -26,13 +26,17 @@ export interface ExecutionAdapterPort {
   resume?(command: { attemptId: string; decisionId: string; resolutionId: string }): Promise<void>;
 }
 
+export type DispatchGuard = (message: StartOutboxMessage | ResumeOutboxMessage) => boolean | Promise<boolean>;
+
 export class OutboxDispatcher {
-  constructor(private readonly outbox: ExecutionOutboxPort, private readonly adapter: ExecutionAdapterPort) {}
+  constructor(private readonly outbox: ExecutionOutboxPort, private readonly adapter: ExecutionAdapterPort, private readonly guard?: DispatchGuard) {}
 
   async dispatchOne(): Promise<{ messageId?: string; dispatched: boolean }> {
+    if (!this.guard) throw new Error('DISPATCH_GUARD_UNAVAILABLE');
     const message = this.outbox.claimNext();
     if (!message) return { dispatched: false };
     try {
+      if (await this.guard(message) !== true) throw new Error('DISPATCH_GUARD_REJECTED');
       if (message.kind === 'resume') {
         if (!this.adapter.resume) throw new Error('RESUME_NOT_SUPPORTED');
         await this.adapter.resume(message.payload);

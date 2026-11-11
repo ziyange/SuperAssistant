@@ -49,7 +49,7 @@ test('a real claimed SQLite start and resume reach the dispatcher with matching 
     const dispatcher = new OutboxDispatcher(outbox, {
       start: async command => { received.push(['start', command]); },
       resume: async command => { received.push(['resume', command]); }
-    });
+    }, () => true);
     expect(await dispatcher.dispatchOne()).toEqual({ messageId: 'outbox:attempt-1', dispatched: true });
     db.prepare("UPDATE execution_attempts SET state = 'WAITING_USER' WHERE attempt_id = 'attempt-1'").run();
     const decisions = new SqliteDecisionRepository(db);
@@ -76,9 +76,25 @@ test.each([
     db.prepare("UPDATE outbox SET message_type = ?, payload_json = ? WHERE message_id = 'outbox:attempt-1'").run(kind, payload);
     const received: unknown[] = [];
     const outbox = new SqliteOutboxRepository(db);
-    const dispatcher = new OutboxDispatcher(outbox, { start: async command => { received.push(command); } });
+    const dispatcher = new OutboxDispatcher(outbox, { start: async command => { received.push(command); } }, () => true);
     await expect(dispatcher.dispatchOne()).rejects.toThrow('INVALID_OUTBOX_MESSAGE');
     expect(received).toEqual([]);
+    expect(db.prepare("SELECT state FROM outbox WHERE message_id = 'outbox:attempt-1'").get()).toEqual({ state: 'RECONCILING' });
+    expect(db.prepare("SELECT state FROM execution_attempts WHERE attempt_id = 'attempt-1'").get()).toEqual({ state: 'UNKNOWN' });
+    expect(outbox.claimNext()).toBeNull();
+  } finally { db.close(); }
+});
+
+test('a denied dispatch guard quarantines the real claimed row without an external effect', async () => {
+  const db = createFoundationDatabase(':memory:');
+  try {
+    seedAuthorizedProposal(db);
+    new SqliteExecutionRepository(db, () => '2026-08-13T00:00:00.000Z', () => 'owner-1').createAuthorizedExecution({ taskId: 'task-1', workItemId: 'work-1', attemptId: 'attempt-1', leaseId: 'lease-1', requestId: 'request-1', idempotencyKey: 'initial-key', workspaceId: 'workspace-1', projectId: 'project-1', agentId: 'agent-1', functionId: 'function-1', proposalVersionId: 'proposal-1', authorizationGrantId: 'grant-1', resourceKey: 'project:project-1', fencingToken: 1, createdAt: '2026-08-13T00:00:00.000Z' });
+    const effects: unknown[] = [];
+    const outbox = new SqliteOutboxRepository(db);
+    const dispatcher = new OutboxDispatcher(outbox, { start: async command => { effects.push(command); } }, () => false);
+    await expect(dispatcher.dispatchOne()).rejects.toThrow('DISPATCH_OUTCOME_UNKNOWN');
+    expect(effects).toEqual([]);
     expect(db.prepare("SELECT state FROM outbox WHERE message_id = 'outbox:attempt-1'").get()).toEqual({ state: 'RECONCILING' });
     expect(db.prepare("SELECT state FROM execution_attempts WHERE attempt_id = 'attempt-1'").get()).toEqual({ state: 'UNKNOWN' });
     expect(outbox.claimNext()).toBeNull();
@@ -91,7 +107,7 @@ test('a failed fake dispatch quarantines the claimed SQLite row and its Attempt'
     seedAuthorizedProposal(db);
     new SqliteExecutionRepository(db, () => '2026-08-13T00:00:00.000Z', () => 'owner-1').createAuthorizedExecution({ taskId: 'task-1', workItemId: 'work-1', attemptId: 'attempt-1', leaseId: 'lease-1', requestId: 'request-1', idempotencyKey: 'initial-key', workspaceId: 'workspace-1', projectId: 'project-1', agentId: 'agent-1', functionId: 'function-1', proposalVersionId: 'proposal-1', authorizationGrantId: 'grant-1', resourceKey: 'project:project-1', fencingToken: 1, createdAt: '2026-08-13T00:00:00.000Z' });
     const outbox = new SqliteOutboxRepository(db);
-    const dispatcher = new OutboxDispatcher(outbox, { start: async () => { throw new Error('unknown fake result'); } });
+    const dispatcher = new OutboxDispatcher(outbox, { start: async () => { throw new Error('unknown fake result'); } }, () => true);
     await expect(dispatcher.dispatchOne()).rejects.toThrow('DISPATCH_OUTCOME_UNKNOWN');
     expect(db.prepare("SELECT state FROM outbox WHERE message_id = 'outbox:attempt-1'").get()).toEqual({ state: 'RECONCILING' });
     expect(db.prepare("SELECT state FROM execution_attempts WHERE attempt_id = 'attempt-1'").get()).toEqual({ state: 'UNKNOWN' });
@@ -107,7 +123,7 @@ test.each(['UNKNOWN', 'RECONCILING'])('does not claim a pending message for an a
     db.prepare("UPDATE execution_attempts SET state = ? WHERE attempt_id = 'attempt-1'").run(state);
     const received: unknown[] = [];
     const outbox = new SqliteOutboxRepository(db);
-    const dispatcher = new OutboxDispatcher(outbox, { start: async command => { received.push(command); } });
+    const dispatcher = new OutboxDispatcher(outbox, { start: async command => { received.push(command); } }, () => true);
     expect(await dispatcher.dispatchOne()).toEqual({ dispatched: false });
     expect(received).toEqual([]);
     expect(db.prepare("SELECT state, claim_token FROM outbox WHERE message_id = 'outbox:attempt-1'").get()).toEqual({ state: 'RECONCILING', claim_token: null });
@@ -123,7 +139,7 @@ test.each(['SUCCEEDED', 'FAILED', 'CANCELLED', 'NOT_STARTED', 'RUNNING', 'CANCEL
     new SqliteExecutionRepository(db, () => '2026-08-13T00:00:00.000Z', () => 'owner-1').createAuthorizedExecution({ taskId: 'task-1', workItemId: 'work-1', attemptId: 'attempt-1', leaseId: 'lease-1', requestId: 'request-1', idempotencyKey: 'initial-key', workspaceId: 'workspace-1', projectId: 'project-1', agentId: 'agent-1', functionId: 'function-1', proposalVersionId: 'proposal-1', authorizationGrantId: 'grant-1', resourceKey: 'project:project-1', fencingToken: 1, createdAt: '2026-08-13T00:00:00.000Z' });
     db.prepare("UPDATE execution_attempts SET state = ? WHERE attempt_id = 'attempt-1'").run(state);
     const effects: unknown[] = [];
-    const dispatcher = new OutboxDispatcher(new SqliteOutboxRepository(db), { start: async command => { effects.push(command); } });
+    const dispatcher = new OutboxDispatcher(new SqliteOutboxRepository(db), { start: async command => { effects.push(command); } }, () => true);
     expect(await dispatcher.dispatchOne()).toEqual({ dispatched: false });
     expect(effects).toEqual([]);
     expect(db.prepare("SELECT state FROM outbox WHERE message_id = 'outbox:attempt-1'").get()).toEqual({ state: 'RECONCILING' });
@@ -145,7 +161,7 @@ test.each(['missing', 'wrong-resolution', 'wrong-work-item', 'wrong-key', 'open'
     }
     db.prepare("UPDATE outbox SET message_type = 'resume', idempotency_key = ?, payload_json = ? WHERE message_id = 'outbox:attempt-1'").run(kind === 'wrong-key' ? 'other-key' : 'resume-key', JSON.stringify({ attempt_id: 'attempt-1', decision_id: 'decision-1', resolution_id: kind === 'wrong-resolution' ? 'other' : 'resolution-1' }));
     const effects: unknown[] = [];
-    const dispatcher = new OutboxDispatcher(new SqliteOutboxRepository(db), { start: async command => { effects.push(command); }, resume: async command => { effects.push(command); } });
+    const dispatcher = new OutboxDispatcher(new SqliteOutboxRepository(db), { start: async command => { effects.push(command); }, resume: async command => { effects.push(command); } }, () => true);
     await expect(dispatcher.dispatchOne()).rejects.toThrow('INVALID_OUTBOX_MESSAGE');
     expect(effects).toEqual([]);
     expect(db.prepare("SELECT state FROM outbox WHERE message_id = 'outbox:attempt-1'").get()).toEqual({ state: 'RECONCILING' });
@@ -160,7 +176,7 @@ test.each(['DISPATCH_PENDING', 'RUNNING', 'SUCCEEDED', 'CANCELLED', 'NOT_STARTED
     db.prepare("UPDATE execution_attempts SET state = ? WHERE attempt_id = 'attempt-1'").run(state);
     db.prepare("UPDATE outbox SET message_type = 'resume', payload_json = ? WHERE message_id = 'outbox:attempt-1'").run('{"attempt_id":"attempt-1","decision_id":"decision-1","resolution_id":"resolution-1"}');
     const effects: unknown[] = [];
-    const dispatcher = new OutboxDispatcher(new SqliteOutboxRepository(db), { start: async command => { effects.push(command); }, resume: async command => { effects.push(command); } });
+    const dispatcher = new OutboxDispatcher(new SqliteOutboxRepository(db), { start: async command => { effects.push(command); }, resume: async command => { effects.push(command); } }, () => true);
     expect(await dispatcher.dispatchOne()).toEqual({ dispatched: false });
     expect(effects).toEqual([]);
     expect(db.prepare("SELECT state FROM outbox WHERE message_id = 'outbox:attempt-1'").get()).toEqual({ state: 'RECONCILING' });

@@ -9,6 +9,14 @@ Outbox claim is a conditional PENDING-to-DISPATCHING transition: a contender
 that loses the update receives no message. This is not an acknowledgement
 fence or crash recovery and does not by itself authorize dispatch.
 
+The currently unwired OutboxDispatcher requires an explicit guard. If absent,
+it refuses before claiming; after claim, only literal true from the guard for
+the complete message permits start or resume. Refusal or guard failure marks
+the claim uncertain and never calls the Adapter or acknowledges it. This is
+only a fail-closed interface boundary: an injected guard is not proof of live
+Grant, snapshot, lease, ownership or per-write fencing checks. Production
+dispatch remains disabled until those independent controls are implemented.
+
 Grant issuance rejects invalid or read-only action scopes; new Attempt
 creation verifies the persisted Proposal digest and exact Grant action scope
 inside the same transaction before consuming authorization.
