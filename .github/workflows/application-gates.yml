@@ -42,7 +42,7 @@ jobs:
       - name: Unit tests with explicit PostgreSQL deferral
         shell: pwsh
         run: |
-          npx vitest run --project unit --maxWorkers=1 --reporter=json --outputFile="$env:RUNNER_TEMP/unit-report.json"
+          npx vitest run --project unit --maxWorkers=1 --reporter=default --reporter=json --outputFile.json="$env:RUNNER_TEMP/unit-report.json"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python scripts/check_vitest_summary.py "$env:RUNNER_TEMP/unit-report.json" --min-tests 400 --expected-skipped 6 --allow-skipped-file services/team/tests/postgres-team-repository.test.ts --allow-skipped-file services/team/tests/migration.test.ts --require-file apps/desktop/tests/main/window-policy.test.ts --require-file packages/persistence/tests/migration-runner.test.ts --require-file packages/persistence/tests/outbox-inbox.test.ts --require-file packages/persistence/tests/resource-lease-expiry.test.ts --require-file apps/desktop/tests/main/lease-renewal-supervisor.test.ts
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
