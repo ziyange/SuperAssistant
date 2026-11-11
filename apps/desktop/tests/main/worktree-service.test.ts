@@ -1,8 +1,9 @@
 import { expect, test } from 'vitest';
-import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
+import process from 'node:process';
 import { GitWorktreeService } from '../../src/main/worktree-service.js';
 
 function git(path: string, ...args: string[]) { return execFileSync('git', ['-C', path, ...args], { encoding: 'utf8' }).trim(); }
@@ -34,7 +35,14 @@ test('preserves an untracked file created during a failed worktree setup', () =>
     expect(() => new GitWorktreeService().create({ projectId: 'project' as never, taskId: 'task-one' as never, projectPath: repository, worktreeRoot: worktrees })).toThrow();
     expect(existsSync(join(created, 'user-evidence.txt'))).toBe(true);
     expect(readFileSync(join(created, 'user-evidence.txt'), 'utf8')).toBe('preserved');
-    expect(git(repository, 'worktree', 'list', '--porcelain')).toContain(created.replaceAll('\\', '/'));
+    const canonical = (path: string) => {
+      const resolved = realpathSync.native(path);
+      return process.platform === 'win32' ? resolved.toLowerCase() : resolved;
+    };
+    const registered = git(repository, 'worktree', 'list', '--porcelain').split('\n')
+      .filter((line) => line.startsWith('worktree ')).map((line) => canonical(line.slice('worktree '.length)));
+    expect(registered).toContain(canonical(created));
+    expect(registered).not.toContain(canonical(root));
     expect(readFileSync(join(repository, 'source.txt'), 'utf8')).toBe('original');
   } finally {
     rmSync(root, { recursive: true, force: true });

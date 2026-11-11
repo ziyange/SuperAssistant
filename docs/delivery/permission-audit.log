@@ -6159,4 +6159,59 @@
   "status": "COMMITTED",
   "artifact_metadata": { "sha256": "9450cca761e0f1ebebbd7d476c01e75e040a71849ceae0769848111c5d90540d" }
 }
+,
+{
+  "tx_id": "task-771-plan-pack-001",
+  "timestamp": "2026-11-11T01:54:28.108Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "docs/delivery/tasks/TASK-771.md",
+  "prev_hash": "0d4163f3b94221bee7009dee2e83946abf319617d5cceb7fabd455d9d4a8d6bf",
+  "intent_hash": "6e2e2156f532d01046eee0947842588ba418619588a9260401bf8a14260cd6f7",
+  "status": "COMMITTED",
+  "artifact_metadata": { "sha256": "6ad22252dda653f5695ee9c38e0a8508614d29c21929b0880be2ba6a00db63cf" }
+}
+,
+{
+  "tx_id": "task-771-fix-worktree-test-001",
+  "timestamp": "2026-11-11T01:54:59.315Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "apps/desktop/tests/main/worktree-service.test.ts",
+  "prev_hash": "6e2e2156f532d01046eee0947842588ba418619588a9260401bf8a14260cd6f7",
+  "intent_hash": "bc46aa8b8d404ed98deaf23bbe5b0d1a72abb9e8cf1e7cb0b7241f43c7c7711e",
+  "status": "COMMITTED",
+  "artifact_metadata": { "sha256": "7e430375b3e87ad8bfc4a79219bfd45a972a0be8f0ca45aa3b3e39b2f13620d5" }
+}
+,
+{
+  "tx_id": "task-771-doc-anchor-001",
+  "timestamp": "2026-11-11T01:55:07.112Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": ".github/workflows/docs-gates.yml",
+  "prev_hash": "bc46aa8b8d404ed98deaf23bbe5b0d1a72abb9e8cf1e7cb0b7241f43c7c7711e",
+  "intent_hash": "7b3cbb14cecb04f89c85245f964df1579040684f2bd2f58f9c4b9a89f6334122",
+  "status": "COMMITTED",
+  "artifact_metadata": { "sha256": "df175424d02419c237b22d2a191191844e8c5396f03748c03c231415331a4db0" }
+}
+,
+{
+  "tx_id": "task-771-report-001",
+  "timestamp": "2026-11-11T01:56:18.874Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "docs/verification/reports/phase-007-task-771.md",
+  "prev_hash": "7b3cbb14cecb04f89c85245f964df1579040684f2bd2f58f9c4b9a89f6334122",
+  "intent_hash": "f76bd99fa940f77564f3190f864986a3c985f8b735c7e15156b5b7684736127d",
+  "status": "COMMITTED",
+  "artifact_metadata": { "sha256": "f8b981dd8e5ae5efbe182636bfbed25a1bc13bcfdff1f0ee00928736323873ce" }
+}
+,
+{
+  "tx_id": "task-771-fix-lint-001",
+  "timestamp": "2026-11-11T01:56:51.436Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "apps/desktop/tests/main/worktree-service.test.ts",
+  "prev_hash": "f76bd99fa940f77564f3190f864986a3c985f8b735c7e15156b5b7684736127d",
+  "intent_hash": "4c4c81a84d06a3b5e2ac825583531b03c9faffc6f790c9ce6f1d713deb2d6a7e",
+  "status": "COMMITTED",
+  "artifact_metadata": { "sha256": "bbcf614e5fb4042c00edc17523e567bb658b461dd7662ca31d5bffac5173f45e" }
+}
 ]
