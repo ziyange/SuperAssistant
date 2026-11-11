@@ -3,6 +3,18 @@ import { validateRequest } from '../../src/main/ipc-schemas.js';
 import { routeIpc } from '../../src/main/ipc-router.js';
 
 describe('IPC request validation', () => {
+  test('reads only sanitized cached Codex registration and rejects renderer-supplied paths', async () => {
+    expect(validateRequest({ channel: 'codex:registration', payload: {} })).toEqual({ channel: 'codex:registration', payload: {} });
+    expect(() => validateRequest({ channel: 'codex:registration', payload: { path: 'C:/evil.exe' } })).toThrow();
+    const onboarding = { async get() { return { completed: false }; }, async set(value: { completed: boolean }) { return value; } };
+    const registration = () => ({ state: 'RECHECK_REQUIRED' as const, version: '0.121.0', executablePath: 'C:/private/codex.exe' });
+    const result = await routeIpc({ channel: 'codex:registration', payload: {} }, onboarding, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, registration);
+    expect(result).toEqual({ codexRegistration: { state: 'RECHECK_REQUIRED', version: '0.121.0' } });
+    expect(JSON.stringify(result)).not.toContain('private');
+    const invalid = () => ({ state: 'RECHECK_REQUIRED' as const, version: 'not-a-version' });
+    const denied = await routeIpc({ channel: 'codex:registration', payload: {} }, onboarding, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, invalid);
+    expect(denied).toEqual({ codexRegistration: { state: 'UNAVAILABLE' } });
+  });
   test('rejects unknown or malformed action types at the IPC boundary', () => {
     expect(validateRequest({ channel: 'proposal:classify', payload: { actions: ['READ'] } })).toEqual({ channel: 'proposal:classify', payload: { actions: ['READ'] } });
     expect(() => validateRequest({ channel: 'proposal:classify', payload: { actions: ['READ', 'SHELL'] } })).toThrow();

@@ -1,5 +1,17 @@
 # Super Assistant security model
 
+Local Codex registration accepts a path only from the trusted native picker
+after successful read-only discovery. The Renderer receives no executable
+path or credential. Cached registration never authorizes execution or starts
+the binary; a future execution boundary must revalidate its identity, version,
+permissions, current health and policy before use.
+Discovery observations require a canonical valid UTC timestamp and cannot
+combine a non-CONNECTED connection with AVAILABLE status; invalid observations
+are rejected before registration and never shown as current health.
+Local Workspace selection must not create a replacement Workspace when an
+existing local-owner Workspace is locked; locked or ambiguous authority fails
+closed before a Project picker or Codex registration can modify state.
+
 SQLite migration must fail closed if another connection commits after the
 backup snapshot and before exclusive migration ownership. A backup predating
 an intervening write must not be blindly restored over newer data.

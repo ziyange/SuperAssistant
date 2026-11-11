@@ -12,6 +12,7 @@ import { createWindowOptions, isAllowedNavigation, isTrustedIpcSender } from './
 import { unavailableTeamPort } from './team-ipc.js';
 import { LocalProjectCatalog } from './project-ipc.js';
 import { createCodexDiscoveryCheck, createCodexProbe, createVersionProbe, type CodexCheck } from './codex-discovery-ipc.js';
+import { LocalCodexRegistration } from './local-codex-registration.js';
 
 const moduleDirectory = dirname(fileURLToPath(import.meta.url));
 let database: Database.Database | undefined;
@@ -42,6 +43,7 @@ app.whenReady().then(async () => {
   const auditExportPort = new SqliteAuditExportRepository(database);
   const monitoringStatusPort = new SqliteMonitoringStatusRepository(database);
   const teamPort = unavailableTeamPort();
+  const codexRegistration = new LocalCodexRegistration(database);
   const readVersion = createVersionProbe(
     executable => spawn(executable, ['--version'], { cwd: app.getPath('userData'), env: codexDiscoveryEnvironment(process.env), windowsHide: true, shell: false, stdio: ['ignore', 'pipe', 'ignore'] }),
     async child => {
@@ -67,7 +69,7 @@ app.whenReady().then(async () => {
     const canonical = await realpath(selected);
     if (extname(canonical).toLowerCase() !== '.exe' || !(await stat(canonical)).isFile()) throw new Error('Invalid executable.');
     return canonical;
-  }, probe);
+  }, probe, async (path, observation) => { codexRegistration.save(path, observation.version); });
   const runCodexCheck = (): Promise<CodexCheck> => {
     if (!pendingCodexCheck) {
       const current = checkCodex();
@@ -83,7 +85,7 @@ app.whenReady().then(async () => {
   });
   const routeTrustedIpc = (event: IpcMainInvokeEvent, channel: string, payload: unknown) => {
     if (!isTrustedIpcSender(event.senderFrame?.url ?? '', rendererUrl, event.sender === applicationWindow?.webContents, event.senderFrame === event.sender.mainFrame)) throw new Error('Untrusted IPC sender.');
-    return routeIpc({ channel, payload }, onboardingPort, undefined, taskPort, artifactPort, decisionPort, historyPort, changePort, acceptancePort, auditExportPort, monitoringStatusPort, teamPort, projectPort, runCodexCheck);
+    return routeIpc({ channel, payload }, onboardingPort, undefined, taskPort, artifactPort, decisionPort, historyPort, changePort, acceptancePort, auditExportPort, monitoringStatusPort, teamPort, projectPort, runCodexCheck, () => codexRegistration.get());
   };
   ipcMain.handle('onboarding:get', (event, payload) => {
     return routeTrustedIpc(event, 'onboarding:get', payload);
@@ -94,6 +96,7 @@ app.whenReady().then(async () => {
   ipcMain.handle('project:list', (event, payload) => routeTrustedIpc(event, 'project:list', payload));
   ipcMain.handle('project:choose', (event, payload) => routeTrustedIpc(event, 'project:choose', payload));
   ipcMain.handle('codex:check', (event, payload) => routeTrustedIpc(event, 'codex:check', payload));
+  ipcMain.handle('codex:registration', (event, payload) => routeTrustedIpc(event, 'codex:registration', payload));
   ipcMain.handle('task:get', (event, payload) => routeTrustedIpc(event, 'task:get', payload));
   ipcMain.handle('task:list', (event, payload) => routeTrustedIpc(event, 'task:list', payload));
   ipcMain.handle('artifact:get', (event, payload) => routeTrustedIpc(event, 'artifact:get', payload));

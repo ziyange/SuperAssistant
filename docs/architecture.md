@@ -1,5 +1,13 @@
 # Super Assistant architecture
 
+## Local Codex registration boundary
+
+A completed native-picker discovery may atomically persist one local Codex
+runtime and stable Agent identity in the local-owner Workspace. The executable
+path remains in the main process and SQLite, never the Renderer. A reopened
+registration is displayed as unavailable and requiring recheck; it does not
+start the executable, claim current health, invent Functions or authorize work.
+
 ## Desktop preload build contract under integration
 
 TASK-734 specifies a single CommonJS preload bundle at

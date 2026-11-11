@@ -8,6 +8,7 @@ const api: SuperAssistantDesktopApi = {
   listProjects: () => ipcRenderer.invoke('project:list', {}),
   chooseProject: () => ipcRenderer.invoke('project:choose', {}),
   checkCodex: () => ipcRenderer.invoke('codex:check', {}),
+  getCodexRegistration: () => ipcRenderer.invoke('codex:registration', {}),
   getTask: (taskId) => ipcRenderer.invoke('task:get', { taskId }),
   listTasks: () => ipcRenderer.invoke('task:list', {}),
   getArtifact: (input) => ipcRenderer.invoke('artifact:get', input)

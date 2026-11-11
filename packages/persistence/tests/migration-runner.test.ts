@@ -16,7 +16,7 @@ describe('migration runner', () => {
     const file = pathFor('fresh.sqlite');
     const opened = createFoundationDatabase(file);
     try {
-      expect(opened.prepare('SELECT max(version) AS version FROM schema_migrations').get()).toEqual({ version: 20 });
+      expect(opened.prepare('SELECT max(version) AS version FROM schema_migrations').get()).toEqual({ version: 21 });
       const backups = readdirSync(dirname(file)).filter(name => name.startsWith('fresh.sqlite.pre-migration-') && name.endsWith('.sqlite'));
       expect(backups).toHaveLength(1);
       const backup = new Database(join(dirname(file), backups[0]!), { readonly: true, fileMustExist: true });
@@ -36,7 +36,7 @@ describe('migration runner', () => {
     original.close();
     const upgraded = createFoundationDatabase(file);
     try {
-      expect(upgraded.prepare('SELECT max(version) AS version FROM schema_migrations').get()).toEqual({ version: 20 });
+      expect(upgraded.prepare('SELECT max(version) AS version FROM schema_migrations').get()).toEqual({ version: 21 });
       expect(upgraded.prepare("SELECT name FROM workspaces WHERE workspace_id = 'w'").get()).toEqual({ name: 'WAL' });
       const backups = readdirSync(dirname(file)).filter(name => name.startsWith('wal.sqlite.pre-migration-') && name.endsWith('.sqlite'));
       expect(backups).toHaveLength(1);
@@ -90,14 +90,14 @@ describe('migration runner', () => {
         expect(backup.prepare("SELECT name FROM workspaces WHERE workspace_id = 'w'").get()).toEqual({ name: 'Before' });
         expect(backup.prepare('SELECT max(version) AS version FROM schema_migrations').get()).toEqual({ version: 18 });
       } finally { backup.close(); }
-      expect(upgraded.prepare('SELECT max(version) AS version FROM schema_migrations').get()).toEqual({ version: 20 });
+      expect(upgraded.prepare('SELECT max(version) AS version FROM schema_migrations').get()).toEqual({ version: 21 });
       expect(upgraded.prepare("SELECT name FROM workspaces WHERE workspace_id = 'w'").get()).toEqual({ name: 'Before' });
     } finally { upgraded.close(); }
     const reopened = createFoundationDatabase(file);
     try {
       const backups = readdirSync(dirname(file)).filter(name => name.startsWith('existing.sqlite.pre-migration-') && name.endsWith('.sqlite'));
       expect(backups).toHaveLength(1);
-      expect(reopened.prepare('SELECT max(version) AS version FROM schema_migrations').get()).toEqual({ version: 20 });
+      expect(reopened.prepare('SELECT max(version) AS version FROM schema_migrations').get()).toEqual({ version: 21 });
     } finally { reopened.close(); }
   });
 
@@ -139,13 +139,13 @@ describe('migration runner', () => {
   });
   test('creates and repeats foundation migration without changing its version', () => {
     const db = new Database(pathFor('foundation.sqlite')); applyMigrations(db); applyMigrations(db);
-    expect(db.prepare('select version from schema_migrations').all()).toEqual(Array.from({ length: 20 }, (_, index) => ({ version: index + 1 })));
+    expect(db.prepare('select version from schema_migrations').all()).toEqual(Array.from({ length: 21 }, (_, index) => ({ version: index + 1 })));
     expect(db.prepare("select name from sqlite_master where type = 'table' and name = 'workspaces'").get()).toBeTruthy(); db.close();
   });
   test('rolls back a failed migration and leaves the prior schema usable', () => {
     const db = new Database(':memory:'); applyMigrations(db);
-    expect(() => applyMigrations(db, [{ version: 21, name: 'bad', sql: 'create table impossible (;' }])).toThrow();
-    expect(db.prepare('select version from schema_migrations').all()).toEqual(Array.from({ length: 20 }, (_, index) => ({ version: index + 1 })));
+    expect(() => applyMigrations(db, [{ version: 22, name: 'bad', sql: 'create table impossible (;' }])).toThrow();
+    expect(db.prepare('select version from schema_migrations').all()).toEqual(Array.from({ length: 21 }, (_, index) => ({ version: index + 1 })));
     expect(db.prepare('select count(*) as count from workspaces').get()).toEqual({ count: 0 }); db.close();
   });
 });

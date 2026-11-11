@@ -68,6 +68,12 @@ Read-only questions skip ProposalVersion creation while clearly indicating that 
 
 ## Agent UX
 
+On restart, Agent Center may display a saved Codex version with an
+UNAVAILABLE state and a recheck-required notice. The existing Check Codex
+button performs the native picker and read-only probe; cached registration
+never silently reconnects or enables execution. Loading, cancellation and
+error states retain the existing interaction design.
+
 Agent cards show name, role, Availability as primary state, WorkItem count, Project count, and recent Activity. Connection warnings override the ordinary Availability presentation. Illegal combinations such as Disabled plus Available never render.
 
 Agent Detail contains overview, Functions, supporting Capabilities, Projects, Tasks/WorkItems, and settings. Skill/MCP/Tool/Plugin/API details are collapsed by default. Function eligibility is Project- and version-specific. Product copy never exposes App Server Thread or Turn.

@@ -1,5 +1,10 @@
 # Super Assistant operations
 
+Local Codex registration is persisted through additive migration 021 and is
+not an active process or health lease. After restart, show recheck required;
+do not automatically launch a previously selected binary. Migration uses the
+existing backup-before-migration protocol and fails closed on errors.
+
 Before applying any pending migration to an existing on-disk SQLite
 database, create a unique consistent backup beside it. Backup failure stops
 startup before migration. Do not delete backups automatically; recovery

@@ -15,6 +15,33 @@ function factory() {
   return create as (choose: () => Promise<string | null>, probe: (path: string) => Promise<unknown>) => () => Promise<unknown>;
 }
 
+test('persists only a validated completed discovery and hides its selected path', async () => {
+  const saved: unknown[] = [];
+  const observation = { state: 'CHECKED' as const, connection: 'CONNECTED' as const, availability: 'AVAILABLE' as const, version: '0.121.0', observedAt: '2026-11-09T00:00:00.000Z' };
+  const check = discovery.createCodexDiscoveryCheck(async () => 'C:/private/codex.exe', async () => ({ ...observation, extra: 'secret' }), async (path, value) => { saved.push({ path, value }); });
+  expect(await check()).toEqual(observation);
+  expect(saved).toEqual([{ path: 'C:/private/codex.exe', value: observation }]);
+  expect(JSON.stringify(await check())).not.toContain('private');
+});
+
+test('a failed persistence does not report a successful Codex registration', async () => {
+  const observation = { state: 'CHECKED', connection: 'CONNECTED', availability: 'AVAILABLE', version: '0.121.0', observedAt: '2026-11-09T00:00:00.000Z' };
+  const check = discovery.createCodexDiscoveryCheck(async () => 'C:/private/codex.exe', async () => observation, async () => { throw new Error('private path'); });
+  expect(await check()).toEqual({ state: 'UNAVAILABLE' });
+});
+
+test.each([
+  { connection: 'AUTH_REQUIRED', availability: 'AVAILABLE', observedAt: '2026-11-09T00:00:00.000Z' },
+  { connection: 'UNAVAILABLE', availability: 'AVAILABLE', observedAt: '2026-11-09T00:00:00.000Z' },
+  { connection: 'CONNECTED', availability: ['AVAILABLE'], observedAt: '2026-11-09T00:00:00.000Z' },
+  { connection: 'CONNECTED', availability: 'AVAILABLE', observedAt: '2026-02-30T00:00:00.000Z' }
+])('invalid discovery observation is never saved %#', async invalid => {
+  let saves = 0;
+  const check = discovery.createCodexDiscoveryCheck(async () => 'C:/private/codex.exe', async () => ({ state: 'CHECKED', version: '0.121.0', ...invalid }), async () => { saves += 1; });
+  expect(await check()).toEqual({ state: 'UNAVAILABLE' });
+  expect(saves).toBe(0);
+});
+
 test('cancelled selection never starts a probe', async () => {
   const probe = vi.fn();
   const check = factory()(async () => null, probe);

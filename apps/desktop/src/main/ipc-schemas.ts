@@ -28,6 +28,9 @@ export function validateRequest(value: unknown): IpcRequest {
   if (value.channel === 'codex:check' && Object.keys(value.payload).length === 0) {
     return { channel: 'codex:check', payload: {} };
   }
+  if (value.channel === 'codex:registration' && Object.keys(value.payload).length === 0) {
+    return { channel: 'codex:registration', payload: {} };
+  }
   if (value.channel === 'onboarding:set' && hasOnlyKeys(value.payload, ['completed']) && typeof value.payload.completed === 'boolean') {
     return { channel: 'onboarding:set', payload: { completed: value.payload.completed } };
   }

@@ -7736,4 +7736,520 @@
   "ignored_candidates": [],
   "artifact_metadata": { "sha256": "8fa466f145d2a7158e9a54861b234c13be445b1e71240daeaff9d3f35951f59b" }
 }
+,
+{
+  "tx_id": "task-777-plan-pack-001",
+  "iteration_index": 1,
+  "timestamp": "2026-11-11T05:03:41.338Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "docs/delivery/tasks/TASK-777.md",
+  "intent_hash": "8b1ee9ee0be82391ba2096802c7ea817afea8bc22a6da35ed7cdcf49a7e50284",
+  "result_status": "COMPLETED",
+  "ignored_candidates": [],
+  "artifact_metadata": { "sha256": "b16a1fa08b5cbd9d4491c24650dd3231fa55d2a5c3081e4413b7f42b018c3585" }
+}
+,
+{
+  "tx_id": "task-777-architecture-001",
+  "iteration_index": 1,
+  "timestamp": "2026-11-11T05:04:18.283Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "docs/architecture.md",
+  "intent_hash": "e1974f486c1cf502e936047dc8e1ccbe6b041a59f4694818b499b3d8ad041f11",
+  "result_status": "COMPLETED",
+  "ignored_candidates": [],
+  "artifact_metadata": { "sha256": "f466af1c51dfa02131b6875e9261f5c256891ae1e568f16788e410add91aeccd" }
+}
+,
+{
+  "tx_id": "task-777-data-model-001",
+  "iteration_index": 1,
+  "timestamp": "2026-11-11T05:04:24.994Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "docs/data-model.md",
+  "intent_hash": "5413535106d4387a3e667a01b2ea7d3a663f737a4b6d3f3c039b4fbe3bd404ba",
+  "result_status": "COMPLETED",
+  "ignored_candidates": [],
+  "artifact_metadata": { "sha256": "5fb42f0c147860dcc530d880e871f97c9368742ff00bed28e7bd121b2654d15f" }
+}
+,
+{
+  "tx_id": "task-777-security-001",
+  "iteration_index": 1,
+  "timestamp": "2026-11-11T05:04:31.958Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "docs/security.md",
+  "intent_hash": "021e55c6ead7f38447db3c9fb7b140a759037d05e83deaaca2d5fb9cb26880a0",
+  "result_status": "COMPLETED",
+  "ignored_candidates": [],
+  "artifact_metadata": { "sha256": "e44667c6ad4f72795163317c0fbe9a1876adbc2a386574e7f98c5c32d417fcba" }
+}
+,
+{
+  "tx_id": "task-777-ux-001",
+  "iteration_index": 1,
+  "timestamp": "2026-11-11T05:04:55.249Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "docs/ux.md",
+  "intent_hash": "5ac1be2c7d3f60aa0ba18729acaea1325844b68e5e149c6c6b15eea9a83ef025",
+  "result_status": "COMPLETED",
+  "ignored_candidates": [],
+  "artifact_metadata": { "sha256": "e303fc7763b4005b40f87fdb7fe003caa03dd3512164d1176418e3b47c723208" }
+}
+,
+{
+  "tx_id": "task-777-operations-001",
+  "iteration_index": 1,
+  "timestamp": "2026-11-11T05:05:02.077Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "docs/operations.md",
+  "intent_hash": "8f27734f1d28b0b7f86699d4e2a33bcd61aa630214de06a0f479f08c99c9d1f0",
+  "result_status": "COMPLETED",
+  "ignored_candidates": [],
+  "artifact_metadata": { "sha256": "e589207c5223ae28016754023ddc61902399b05623578881ce51b9863250efaa" }
+}
+,
+{
+  "tx_id": "task-777-red-discovery-001",
+  "iteration_index": 1,
+  "timestamp": "2026-11-11T05:05:51.718Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "apps/desktop/tests/main/codex-discovery-ipc.test.ts",
+  "intent_hash": "cc003cff9e6f89a4d5539488b82b0082ca88f90a228b99920d6a07795a30a3e9",
+  "result_status": "COMPLETED",
+  "ignored_candidates": [],
+  "artifact_metadata": { "sha256": "f5eb219ad2e75e76b6fd139fc07dd5117b2af84e224ec1d6d6c0c3abc4566301" }
+}
+,
+{
+  "tx_id": "task-777-discovery-persist-001",
+  "iteration_index": 1,
+  "timestamp": "2026-11-11T05:06:34.472Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "apps/desktop/src/main/codex-discovery-ipc.ts",
+  "intent_hash": "9fbe70b861d18c2f59c638cf8ea171d888d66f17a1e835c815e55643d4cef0ec",
+  "result_status": "COMPLETED",
+  "ignored_candidates": [],
+  "artifact_metadata": { "sha256": "f69f0a3ae51d9bafa954db41605beb162bd6b6e5b6c0ce7e509ae7a00e2c0614" }
+}
+,
+{
+  "tx_id": "task-777-red-registration-001",
+  "iteration_index": 1,
+  "timestamp": "2026-11-11T05:07:15.114Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "apps/desktop/tests/main/local-codex-registration.test.ts",
+  "intent_hash": "1c093997714b454a3dbf90d4a51ab2d61811ac9c2e81415989558b058c23f84a",
+  "result_status": "COMPLETED",
+  "ignored_candidates": [],
+  "artifact_metadata": { "sha256": "02e36166dad9e5cda5a3bac7ff08db27ea9ec86397f6a1bb841d237cc3c8ccad" }
+}
+,
+{
+  "tx_id": "task-777-registration-shell-001",
+  "iteration_index": 1,
+  "timestamp": "2026-11-11T05:07:37.730Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "apps/desktop/src/main/local-codex-registration.ts",
+  "intent_hash": "b10660c7d431d2c6192e134bc86a2487c704572ae99ff205a217d30ea1720605",
+  "result_status": "COMPLETED",
+  "ignored_candidates": [],
+  "artifact_metadata": { "sha256": "8e609bb71c20b858c77f0e9f90bb1319db8477b13f9f965f1a1e18524bf50881" }
+}
+,
+{
+  "tx_id": "task-777-migration-001",
+  "iteration_index": 1,
+  "timestamp": "2026-11-11T05:08:24.936Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "packages/persistence/src/sqlite/migrations/021-local-codex-registration.sql",
+  "intent_hash": "eccc66eb64c682ddcc64548df12174fa67122ad3c16e50f0c76a114007ba7051",
+  "result_status": "COMPLETED",
+  "ignored_candidates": [],
+  "artifact_metadata": { "sha256": "3a435089b965e5ffc889d2048c53c259da5a7d55878f17e28d597b3e3c164495" }
+}
+,
+{
+  "tx_id": "task-777-migration-runner-001",
+  "iteration_index": 1,
+  "timestamp": "2026-11-11T05:08:47.626Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "packages/persistence/src/sqlite/migration-runner.ts",
+  "intent_hash": "aa50bdd192bbc8185a7e4818d65bb10129e6f2f0622623a96bce1990cd03985a",
+  "result_status": "COMPLETED",
+  "ignored_candidates": [],
+  "artifact_metadata": { "sha256": "61e6e5946157deb4ae900a5ca9f46c48f6e4436901da989ee8d6c4e3e07b094f" }
+}
+,
+{
+  "tx_id": "task-777-workspace-helper-001",
+  "iteration_index": 1,
+  "timestamp": "2026-11-11T05:09:08.593Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "apps/desktop/src/main/local-workspace.ts",
+  "intent_hash": "f1ec24bc7b2c24a96901fd833e17209220079d1f9648cd3d38f233c76b9481b5",
+  "result_status": "COMPLETED",
+  "ignored_candidates": [],
+  "artifact_metadata": { "sha256": "8e8fd6009c0163fda3221214fe48f116eb87435bdbe554ef998fd6ba21c46b9a" }
+}
+,
+{
+  "tx_id": "task-777-project-workspace-001",
+  "iteration_index": 1,
+  "timestamp": "2026-11-11T05:09:29.887Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "apps/desktop/src/main/project-ipc.ts",
+  "intent_hash": "1a5fa66bd832c4b66d85b3f18e725b4fee8dee1133219d1a18851533fa38f855",
+  "result_status": "COMPLETED",
+  "ignored_candidates": [],
+  "artifact_metadata": { "sha256": "6b1ee1bc7521870c5c060fd95334fe02bd08460e6ff689b03b1a7a21cd0f8bdb" }
+}
+,
+{
+  "tx_id": "task-777-registration-service-001",
+  "iteration_index": 1,
+  "timestamp": "2026-11-11T05:10:08.723Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "apps/desktop/src/main/local-codex-registration.ts",
+  "intent_hash": "ff8d07b7b623365b4e42592e0b4b005b1f7ca1c87b657d826d10dfdb8d765214",
+  "result_status": "COMPLETED",
+  "ignored_candidates": [],
+  "artifact_metadata": { "sha256": "e18590718ea145bd83fd2e85bf4f0d45c85bec206fe661edcbe619496a5562b9" }
+}
+,
+{
+  "tx_id": "task-777-migration-tests-001",
+  "iteration_index": 1,
+  "timestamp": "2026-11-11T05:11:23.562Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "packages/persistence/tests/migration-runner.test.ts",
+  "intent_hash": "ea6d9e90d4e29abf6946e6732063e3758bfe23bf350e9a2f102e43e1f261293f",
+  "result_status": "COMPLETED",
+  "ignored_candidates": [],
+  "artifact_metadata": { "sha256": "4841564e303f3f01cde363c3e63b712606bc29c337f03882cf8041c55b2b32eb" }
+}
+,
+{
+  "tx_id": "task-777-red-ipc-001",
+  "iteration_index": 1,
+  "timestamp": "2026-11-11T05:11:52.739Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "apps/desktop/tests/main/ipc-router.test.ts",
+  "intent_hash": "4182cb22465f3303732a81e72b9f262126637b468349bd756ea88f7dcfb03acf",
+  "result_status": "COMPLETED",
+  "ignored_candidates": [],
+  "artifact_metadata": { "sha256": "e4e83721c082d79fde722f85eb1ffdbdc138102082ff546c3baf5d8a7f0681a9" }
+}
+,
+{
+  "tx_id": "task-777-red-ui-001",
+  "iteration_index": 1,
+  "timestamp": "2026-11-11T05:12:30.523Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "apps/desktop/tests/renderer/agent-center.test.tsx",
+  "intent_hash": "7fdfb61ffc06ada19e522d9e56ac1a385358f61c1326880a5ce952d385ec2e03",
+  "result_status": "COMPLETED",
+  "ignored_candidates": [],
+  "artifact_metadata": { "sha256": "5a824b1f4e943f1bb44b1b8210823e250868f6a635bd514394a7fb6a649a4e9a" }
+}
+,
+{
+  "tx_id": "task-777-ipc-contract-001",
+  "iteration_index": 1,
+  "timestamp": "2026-11-11T05:13:24.009Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "apps/desktop/src/shared/ipc-contract.ts",
+  "intent_hash": "01535cbd5a051c3f16396c7c4361894a50742610e79e3e3e65d276921b64cd36",
+  "result_status": "COMPLETED",
+  "ignored_candidates": [],
+  "artifact_metadata": { "sha256": "0f4a584f2f0830815e95053e4d8e028d0abe981e3441cd7537c829d0237e2606" }
+}
+,
+{
+  "tx_id": "task-777-ipc-schema-001",
+  "iteration_index": 1,
+  "timestamp": "2026-11-11T05:13:38.031Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "apps/desktop/src/main/ipc-schemas.ts",
+  "intent_hash": "7ef747d5918339b11fd59078cdca78192ba450f7781d8b9632df2ef3311809a9",
+  "result_status": "COMPLETED",
+  "ignored_candidates": [],
+  "artifact_metadata": { "sha256": "355a9fc6e1f39e8c87a33487be49adc7d3f6de7e412fe6c4a2afc9634e94842b" }
+}
+,
+{
+  "tx_id": "task-777-ipc-router-001",
+  "iteration_index": 1,
+  "timestamp": "2026-11-11T05:14:00.938Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "apps/desktop/src/main/ipc-router.ts",
+  "intent_hash": "4d7f1fa5fe2ab94058ea1c6e85366d338b1fb579ebd286b4e94313e407779f20",
+  "result_status": "COMPLETED",
+  "ignored_candidates": [],
+  "artifact_metadata": { "sha256": "3410e42c952697dfc3e51ead50ee5a745c5629b3c8b8bf2efcf2c7dbd5a43fb7" }
+}
+,
+{
+  "tx_id": "task-777-preload-001",
+  "iteration_index": 1,
+  "timestamp": "2026-11-11T05:14:21.346Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "apps/desktop/src/preload/index.ts",
+  "intent_hash": "120c1b38ba0a773efea300e7646c2a85427fe30a588b89abfedc6ce363eb6292",
+  "result_status": "COMPLETED",
+  "ignored_candidates": [],
+  "artifact_metadata": { "sha256": "e8cae74611acf1273e671dc6d414e5b5b7661c339fc8e733b1f8d2e3341de3e7" }
+}
+,
+{
+  "tx_id": "task-777-main-wiring-001",
+  "iteration_index": 1,
+  "timestamp": "2026-11-11T05:14:28.071Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "apps/desktop/src/main/main.ts",
+  "intent_hash": "e414cc12801df7a6ee12201b2adb5fffc4123d2a26f95dbf80405f718dd8379e",
+  "result_status": "COMPLETED",
+  "ignored_candidates": [],
+  "artifact_metadata": { "sha256": "b437941a353a209bcd03458050df4cfb541643840339c26bdf66e6bbbf3b5c5c" }
+}
+,
+{
+  "tx_id": "task-777-renderer-001",
+  "iteration_index": 1,
+  "timestamp": "2026-11-11T05:14:51.418Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "apps/desktop/src/renderer/App.tsx",
+  "intent_hash": "e6bc0db0511774e8b827dcbe165ff8c7b4d52e86c6ee2f4e3f96c6ae41ca170e",
+  "result_status": "COMPLETED",
+  "ignored_candidates": [],
+  "artifact_metadata": { "sha256": "34ff3f114234c56143173da4ef330af61649868e064f946f7888a1b0f786d649" }
+}
+,
+{
+  "tx_id": "task-777-migration-fixture-001",
+  "iteration_index": 1,
+  "timestamp": "2026-11-11T05:15:57.587Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "packages/persistence/tests/migration-runner.test.ts",
+  "intent_hash": "0b077eec4433faaf185eec2f64c20d92694dc1bf05ebc6060918284f21bd4d99",
+  "result_status": "COMPLETED",
+  "ignored_candidates": [],
+  "artifact_metadata": { "sha256": "7b8324988fc6402034a371d9e89e60b5a263e51ff6a166ed2b21515da08483ee" }
+}
+,
+{
+  "tx_id": "task-777-test-ui-lint-001",
+  "iteration_index": 1,
+  "timestamp": "2026-11-11T06:38:26.886Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "apps/desktop/tests/renderer/agent-center.test.tsx",
+  "intent_hash": "e42002e4ed6ae10e8a9a01d318dda4adc93a8cd0beac3f187c7cf162e79c999f",
+  "result_status": "COMPLETED",
+  "ignored_candidates": [],
+  "artifact_metadata": { "sha256": "e4c4b902bbb1475c860f58a1b910bdd0406af8738ec652e8359cb7551578e85c" }
+}
+,
+{
+  "tx_id": "task-777-red-legacy-agent-001",
+  "iteration_index": 1,
+  "timestamp": "2026-11-11T06:38:59.929Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "apps/desktop/tests/main/local-codex-registration.test.ts",
+  "intent_hash": "c4e15e6f041fd56ff73417551181e6f74106335135a7665dab87e9aebb2c33d4",
+  "result_status": "COMPLETED",
+  "ignored_candidates": [],
+  "artifact_metadata": { "sha256": "d69336098d4fed735295e2123333640663f5e4eda5c9a42292c5b358fd68966e" }
+}
+,
+{
+  "tx_id": "task-777-legacy-contract-001",
+  "iteration_index": 1,
+  "timestamp": "2026-11-11T06:39:57.143Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "docs/data-model.md",
+  "intent_hash": "802327615878c470f16ba03eeeb56f5433f7498f3b39bbfcff0be77d8462e473",
+  "result_status": "COMPLETED",
+  "ignored_candidates": [],
+  "artifact_metadata": { "sha256": "3852a444233ea36b03cfb0ed61340258ca1a6ca76198c5082d43bae9ebab8d1f" }
+}
+,
+{
+  "tx_id": "task-777-legacy-pack-001",
+  "iteration_index": 1,
+  "timestamp": "2026-11-11T06:40:14.628Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "docs/delivery/tasks/TASK-777.md",
+  "intent_hash": "119b77e0a74d0bba8509bae5033c66076027329ed144466ec9ec13bb0e0537b1",
+  "result_status": "COMPLETED",
+  "ignored_candidates": [],
+  "artifact_metadata": { "sha256": "fc0d5f77e103cd0860b423b2094244ea712aa9b7d07362e7c3688cd672a9e175" }
+}
+,
+{
+  "tx_id": "task-777-legacy-agent-guard-001",
+  "iteration_index": 1,
+  "timestamp": "2026-11-11T06:40:46.193Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "apps/desktop/src/main/local-codex-registration.ts",
+  "intent_hash": "d29d80bcbfe33629597f2a76ef76888a64250e1ccabe226cb1899cdfaecc77de",
+  "result_status": "COMPLETED",
+  "ignored_candidates": [],
+  "artifact_metadata": { "sha256": "1a84c6ff515d93ec5dd645e11c511a2249f50b938654c6700f03601c341f4be5" }
+}
+,
+{
+  "tx_id": "task-777-red-invalid-observation-001",
+  "iteration_index": 1,
+  "timestamp": "2026-11-11T06:42:35.428Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "apps/desktop/tests/main/codex-discovery-ipc.test.ts",
+  "intent_hash": "6c474ee497af91874c6037d28b89cc5b763c71e4020340de15851c707994d5de",
+  "result_status": "COMPLETED",
+  "ignored_candidates": [],
+  "artifact_metadata": { "sha256": "3a3374d8cd7c1c8e1e1b0967fd82f09c58916e9e78525a6383fd20beb1792e02" }
+}
+,
+{
+  "tx_id": "task-777-observation-doc-001",
+  "iteration_index": 1,
+  "timestamp": "2026-11-11T06:43:22.112Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "docs/security.md",
+  "intent_hash": "99d6731cee3c3c935f539a6f119917396c4a4512e535c2d3194657d1aac2dbc3",
+  "result_status": "COMPLETED",
+  "ignored_candidates": [],
+  "artifact_metadata": { "sha256": "5fa92873f2ab600832bed00868f7c82944189fd1b4f99beefe2064cfe8d2aeda" }
+}
+,
+{
+  "tx_id": "task-777-observation-code-001",
+  "iteration_index": 1,
+  "timestamp": "2026-11-11T06:43:38.557Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "apps/desktop/src/main/codex-discovery-ipc.ts",
+  "intent_hash": "aae2ee57cd58cfbbb856ab8530cd6fa4ebbd748479c020dd3ce6722440eb6518",
+  "result_status": "COMPLETED",
+  "ignored_candidates": [],
+  "artifact_metadata": { "sha256": "3c5d10aa24bdbc55902221d4561a270510f43176a5b8458e1295fadac577d720" }
+}
+,
+{
+  "tx_id": "task-777-ipc-projection-test-001",
+  "iteration_index": 1,
+  "timestamp": "2026-11-11T06:44:11.844Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "apps/desktop/tests/main/ipc-router.test.ts",
+  "intent_hash": "0a7232dc82f4d4ba71ca6ef1fd0cad536f7ad1a5dd290f95355f8eb0b1b9844c",
+  "result_status": "COMPLETED",
+  "ignored_candidates": [],
+  "artifact_metadata": { "sha256": "771b9660cab19faaadb07be867e8d07faf60bb054a4032220e94229568bacdbe" }
+}
+,
+{
+  "tx_id": "task-777-ci-anchor-001",
+  "iteration_index": 1,
+  "timestamp": "2026-11-11T06:45:29.551Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": ".github/workflows/docs-gates.yml",
+  "intent_hash": "96e1808bf2d933224fbd0a90b452e093ef2f71f54aa5036ecb023fa874ae3ffd",
+  "result_status": "COMPLETED",
+  "ignored_candidates": [],
+  "artifact_metadata": { "sha256": "2303ed73526f2d20f448a0c69b5a7ca293307816624aa7c0a7b5dd1bdf042b61" }
+}
+,
+{
+  "tx_id": "task-777-locked-doc-001",
+  "iteration_index": 1,
+  "timestamp": "2026-11-11T06:49:00.387Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "docs/security.md",
+  "intent_hash": "36f19907e355deaf594d71f821e52442ffff9c1ecaa391d1ff58acbbbdd56a4a",
+  "result_status": "COMPLETED",
+  "ignored_candidates": [],
+  "artifact_metadata": { "sha256": "9b218b366c095d9695609fa8d42a53a03cc0f0e2953fc5f2b427b272b65abe79" }
+}
+,
+{
+  "tx_id": "task-777-locked-pack-001",
+  "iteration_index": 1,
+  "timestamp": "2026-11-11T06:49:12.288Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "docs/delivery/tasks/TASK-777.md",
+  "intent_hash": "97fbb1f9c310b4402c1ac149c2b4f2e686a1452b91c5dcd1c29d3df2f48742bd",
+  "result_status": "COMPLETED",
+  "ignored_candidates": [],
+  "artifact_metadata": { "sha256": "2e1dea36e26e69df1cbdb93501ef7aa82d0482408a871af94a554ac78a937d52" }
+}
+,
+{
+  "tx_id": "task-777-red-locked-001",
+  "iteration_index": 1,
+  "timestamp": "2026-11-11T06:49:36.099Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "apps/desktop/tests/main/local-codex-registration.test.ts",
+  "intent_hash": "90545b6d874a84d4fedb51b15852e556fd39b302a38523e317b4cbaab653ad19",
+  "result_status": "COMPLETED",
+  "ignored_candidates": [],
+  "artifact_metadata": { "sha256": "a52e0d63417c2ed04a8104270d0d78ea984e7ad39448b714d683d038815089a5" }
+}
+,
+{
+  "tx_id": "task-777-locked-workspace-001",
+  "iteration_index": 1,
+  "timestamp": "2026-11-11T06:50:18.663Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "apps/desktop/src/main/local-workspace.ts",
+  "intent_hash": "9d0d63e96855e285f6a602a50136b0422e7d16f1991bcf560b58dd474245e078",
+  "result_status": "COMPLETED",
+  "ignored_candidates": [],
+  "artifact_metadata": { "sha256": "dff5d8f690088545c6c7f8333af363fbea72fd6b2f18306250612a0df52b6f49" }
+}
+,
+{
+  "tx_id": "task-777-registration-type-001",
+  "iteration_index": 1,
+  "timestamp": "2026-11-11T06:52:32.864Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "apps/desktop/src/main/local-codex-registration.ts",
+  "intent_hash": "6e4e2f2536dc058333321fe9a411f71426e38e80d3915b7e6af799bdf437a7d2",
+  "result_status": "COMPLETED",
+  "ignored_candidates": [],
+  "artifact_metadata": { "sha256": "bdf7a688d8228ff8f3ca06f7e0eebb4fb74abdc3c29838f62290af51c36d9a60" }
+}
+,
+{
+  "tx_id": "task-777-red-nonstring-state-001",
+  "iteration_index": 1,
+  "timestamp": "2026-11-11T06:53:50.125Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "apps/desktop/tests/main/codex-discovery-ipc.test.ts",
+  "intent_hash": "5bca54fc7c23a21410ab83c4621d0e4e4c03f892c43a8bce2b850f9375777fb3",
+  "result_status": "COMPLETED",
+  "ignored_candidates": [],
+  "artifact_metadata": { "sha256": "6d24849e1345327dbac652c1becf4c737204ce614068cbfefdcb418995cde8b0" }
+}
+,
+{
+  "tx_id": "task-777-nonstring-state-guard-001",
+  "iteration_index": 1,
+  "timestamp": "2026-11-11T06:54:28.767Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "apps/desktop/src/main/codex-discovery-ipc.ts",
+  "intent_hash": "8e671f24e5e3db2179ed029a57742ba830f2c06d64fb8ede1b03ea27c1add5fd",
+  "result_status": "COMPLETED",
+  "ignored_candidates": [],
+  "artifact_metadata": { "sha256": "7902ef4c965c52d65e830318bb5dcfecf1a8ccd1dee2d8830c5dd56744201f9f" }
+}
+,
+{
+  "tx_id": "task-777-report-001",
+  "iteration_index": 1,
+  "timestamp": "2026-11-11T07:04:18.461Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "docs/verification/reports/phase-007-task-777.md",
+  "intent_hash": "29adfb1f64f2648960e2d08458af6105bdeed388378b1c52c0e949727fdc6a06",
+  "result_status": "COMPLETED",
+  "ignored_candidates": [],
+  "artifact_metadata": { "sha256": "f561a9ff23e41397c5cfc77cdebf35160686d6ecf551b36f2211b15ef221e6c1" }
+}
 ]

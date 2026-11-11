@@ -1,5 +1,5 @@
 /* eslint-disable no-unused-vars -- type-only port parameter names are part of the public contract. */
-import type { IpcRequest, IpcResponse, OnboardingProjection } from '../shared/ipc-contract.js';
+import type { CodexRegistrationProjection, IpcRequest, IpcResponse, OnboardingProjection } from '../shared/ipc-contract.js';
 import { validateRequest } from './ipc-schemas.js';
 import { projectArtifactForRenderer, type ArtifactReadPort } from './artifact-ipc.js';
 import { listDecisionsForRenderer, projectDecisionForRenderer, type DecisionReadPort } from './decision-ipc.js';
@@ -18,7 +18,7 @@ export interface OnboardingPort {
   set(projection: OnboardingProjection): Promise<OnboardingProjection>;
 }
 
-export async function routeIpc(request: unknown, onboarding: OnboardingPort, proposal?: ProposalIpcPort, task?: TaskReadPort, artifact?: ArtifactReadPort, decision?: DecisionReadPort, history?: HistoryReadPort, changes?: ProjectChangeReadPort, acceptance?: AcceptanceReadPort, auditExport?: AuditExportPort, monitoring?: MonitoringStatusReadPort, team?: TeamWorkspacePort, projects?: Pick<LocalProjectCatalog, 'list' | 'choose'>, codex?: () => Promise<CodexCheck>): Promise<IpcResponse> {
+export async function routeIpc(request: unknown, onboarding: OnboardingPort, proposal?: ProposalIpcPort, task?: TaskReadPort, artifact?: ArtifactReadPort, decision?: DecisionReadPort, history?: HistoryReadPort, changes?: ProjectChangeReadPort, acceptance?: AcceptanceReadPort, auditExport?: AuditExportPort, monitoring?: MonitoringStatusReadPort, team?: TeamWorkspacePort, projects?: Pick<LocalProjectCatalog, 'list' | 'choose'>, codex?: () => Promise<CodexCheck>, codexRegistration?: () => CodexRegistrationProjection): Promise<IpcResponse> {
   const valid: IpcRequest = validateRequest(request);
   if (valid.channel === 'onboarding:get') return { onboarding: await onboarding.get() };
   if (valid.channel === 'onboarding:set') return { onboarding: await onboarding.set(valid.payload) };
@@ -28,6 +28,14 @@ export async function routeIpc(request: unknown, onboarding: OnboardingPort, pro
   }
   if (valid.channel === 'project:choose') return projects ? await projects.choose() : { projects: [], status: 'ERROR' };
   if (valid.channel === 'codex:check') return { codex: codex ? await codex() : { state: 'UNAVAILABLE' } };
+  if (valid.channel === 'codex:registration') {
+    try {
+      const saved = codexRegistration?.();
+      if (saved?.state === 'NOT_REGISTERED') return { codexRegistration: { state: 'NOT_REGISTERED' } };
+      if (saved?.state === 'RECHECK_REQUIRED' && saved.version.length <= 64 && /^\d+\.\d+\.\d+$/.test(saved.version)) return { codexRegistration: { state: 'RECHECK_REQUIRED', version: saved.version } };
+    } catch { /* return a safe unavailable projection */ }
+    return { codexRegistration: { state: 'UNAVAILABLE' } };
+  }
   if (valid.channel === 'task:get') {
     if (!task) throw new Error('Task IPC port is unavailable.');
     return { task: projectTaskForRenderer(task, valid.payload) };

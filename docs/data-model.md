@@ -1,5 +1,12 @@
 # Super Assistant data model
 
+Migration 021 adds a Workspace-scoped local Codex registration with one
+stable Agent reference, selected canonical executable path and observed
+version. It is additive. The linked durable Agent remains UNAVAILABLE/PAUSED:
+cached registration is not live health or a Function capability.
+An unlinked legacy Agent named Codex is not silently adopted or duplicated:
+registration fails closed until its identity can be reconciled explicitly.
+
 ### Outbox claim fencing
 
 Migration 019 adds a nullable, unique claim token to each Outbox row. Only

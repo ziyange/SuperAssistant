@@ -11,7 +11,8 @@ export type CodexCheck = { state: 'CANCELLED' | 'UNAVAILABLE' } | {
 
 export function createCodexDiscoveryCheck(
   choose: () => Promise<string | null>,
-  probe: (path: string) => Promise<unknown>
+  probe: (path: string) => Promise<unknown>,
+  persist?: (path: string, observation: Observation) => Promise<void>
 ): () => Promise<CodexCheck> {
   let pending: Promise<CodexCheck> | undefined;
   async function run(): Promise<CodexCheck> {
@@ -22,12 +23,16 @@ export function createCodexDiscoveryCheck(
       if (!result || typeof result !== 'object') return { state: 'UNAVAILABLE' };
       const value = result as Record<string, unknown>;
       if (value.state !== 'CHECKED'
-        || !['CONNECTED', 'AUTH_REQUIRED', 'VERSION_UNSUPPORTED', 'UNAVAILABLE'].includes(String(value.connection))
-        || !['AVAILABLE', 'PAUSED', 'UNAVAILABLE'].includes(String(value.availability))
+        || typeof value.connection !== 'string' || !['CONNECTED', 'AUTH_REQUIRED', 'VERSION_UNSUPPORTED', 'UNAVAILABLE'].includes(value.connection)
+        || typeof value.availability !== 'string' || !['AVAILABLE', 'PAUSED', 'UNAVAILABLE'].includes(value.availability)
         || typeof value.version !== 'string' || !/^\d+\.\d+\.\d+$/.test(value.version)
-        || typeof value.observedAt !== 'string' || !/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/.test(value.observedAt))
+        || typeof value.observedAt !== 'string' || !/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/.test(value.observedAt)
+        || !Number.isFinite(Date.parse(value.observedAt)) || new Date(value.observedAt).toISOString() !== value.observedAt
+        || (value.connection !== 'CONNECTED' && value.availability === 'AVAILABLE'))
         return { state: 'UNAVAILABLE' };
-      return { state: 'CHECKED', connection: value.connection as Extract<CodexCheck, {state: 'CHECKED'}>['connection'], availability: value.availability as Extract<CodexCheck, {state: 'CHECKED'}>['availability'], version: value.version, observedAt: value.observedAt };
+      const observation: Observation = { state: 'CHECKED', connection: value.connection as Observation['connection'], availability: value.availability as Observation['availability'], version: value.version, observedAt: value.observedAt };
+      if (persist) await persist(selected, observation);
+      return observation;
     } catch { return { state: 'UNAVAILABLE' }; }
   }
   return () => {

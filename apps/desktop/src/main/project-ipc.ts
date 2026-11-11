@@ -4,8 +4,9 @@ import { execFileSync } from 'node:child_process';
 import process from 'node:process';
 import type { FoundationId, ProjectRepository, RegisteredProject } from '@super-assistant/domain';
 import type Database from 'better-sqlite3';
-import { SqliteFoundationRepository, SqliteProjectRepository } from '@super-assistant/persistence';
+import { SqliteProjectRepository } from '@super-assistant/persistence';
 import type { ProjectRendererProjection } from '../shared/ipc-contract.js';
+import { ensureLocalWorkspace, findLocalWorkspace } from './local-workspace.js';
 
 function hasControl(value: string): boolean { return Array.from(value).some(character => character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127); }
 function safeRepository(value: string | null): string | null {
@@ -64,14 +65,8 @@ export class LocalProjectCatalog {
     this.registration = new ProjectRegistrationService(this.repository);
   }
 
-  private workspace(): FoundationId | null {
-    const rows = this.database.prepare("SELECT workspace_id FROM workspaces WHERE owner_id = ? AND status = 'ACTIVE' ORDER BY workspace_id LIMIT 2").all('local-owner') as { workspace_id: string }[];
-    if (rows.length > 1) throw new Error('Ambiguous local workspace.');
-    return rows[0] ? rows[0].workspace_id as FoundationId : null;
-  }
-
   list(): ProjectRendererProjection[] {
-    const workspace = this.workspace();
+    const workspace = findLocalWorkspace(this.database);
     if (!workspace) return [];
     return this.repository.list(workspace).map(project => ({
       id: project.projectId, name: project.name, status: project.status,
@@ -82,11 +77,11 @@ export class LocalProjectCatalog {
 
   async choose(): Promise<{ status: 'REGISTERED' | 'CANCELLED' | 'ERROR'; projects: ProjectRendererProjection[] }> {
     try {
-      this.workspace();
+      findLocalWorkspace(this.database);
       const candidatePath = await this.selectDirectory();
       if (candidatePath === null) return { status: 'CANCELLED', projects: this.list() };
       const register = this.database.transaction(() => {
-        const workspaceId = this.workspace() ?? new SqliteFoundationRepository(this.database).createWorkspace({ ownerId: 'local-owner', name: 'Local Workspace' }).workspaceId;
+        const workspaceId = ensureLocalWorkspace(this.database);
         this.registration.register({ workspaceId, candidatePath });
         return this.list();
       });
