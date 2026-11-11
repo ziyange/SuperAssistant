@@ -168,7 +168,7 @@ Every state uses text and iconography, not color alone. Focus order, keyboard ac
 - H2 adds Agent templates, parallel multi-Agent graphs, monitoring, event aggregation, cooldown and budget surfaces without adding top-level navigation.
 - PHASE-005 exposes monitoring health inside Project Center. It shows only raw-evidence, aggregate, and blocked-follow-up counts plus a truthful collector state; raw payloads, credentials, and an automatic follow-up action are never rendered.
 - H3 adds Workspace switcher, membership, RBAC, multi-party approvals, audit export, and retention controls inside the existing five destinations. Existing Task/Decision/ArtifactVersion URLs and product labels remain stable; adapter-specific concepts remain hidden.
-- H3 notification preferences are scoped to one Workspace and principal. Normal delivery is suppressed during configured quiet hours; an Emergency bypass is visibly marked for audit. Notification aggregation is bounded to an authorized aggregate key. A Task or Decision deep link reauthorizes its target before any content is displayed; uncertainty suppresses delivery and resolves no link.
+- H3 notification preferences are scoped to one Workspace and principal. Delivery is suppressed during configured quiet hours unless Emergency bypass is explicitly enabled; such a bypass is visibly marked for audit. Notification aggregation is bounded to an authorized aggregate key. A Task or Decision deep link reauthorizes its target before any content is displayed; uncertainty suppresses delivery and resolves no link.
 
 ### PHASE-007 Team Workspace projection
 

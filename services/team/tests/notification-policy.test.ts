@@ -1,10 +1,14 @@
 import { expect, test } from 'vitest';
 import { decideNotificationDelivery, resolveNotificationDeepLink } from '../src/notification-policy.js';
 
-test('suppresses normal notifications during principal-scoped quiet hours and allows audited Emergency bypass', () => {
+test('suppresses notifications during quiet hours unless Emergency bypass is explicitly enabled', () => {
   const quiet = { workspaceId: 'workspace-1', principal: 'user-1', startHour: 22, endHour: 7 };
   expect(decideNotificationDelivery({ workspaceId: 'workspace-1', principal: 'user-1', authorized: true, priority: 'NORMAL', hour: 23, quietHours: quiet })).toEqual({ deliver: false, reason: 'QUIET_HOURS' });
-  expect(decideNotificationDelivery({ workspaceId: 'workspace-1', principal: 'user-1', authorized: true, priority: 'EMERGENCY', hour: 23, quietHours: quiet })).toEqual({ deliver: true, audit: 'EMERGENCY_BYPASS' });
+  expect(decideNotificationDelivery({ workspaceId: 'workspace-1', principal: 'user-1', authorized: true, priority: 'EMERGENCY', hour: 23, quietHours: quiet })).toEqual({ deliver: false, reason: 'QUIET_HOURS' });
+  expect(decideNotificationDelivery({ workspaceId: 'workspace-1', principal: 'user-1', authorized: true, priority: 'EMERGENCY', hour: 23, quietHours: quiet, emergencyBypassAllowed: false })).toEqual({ deliver: false, reason: 'QUIET_HOURS' });
+  expect(decideNotificationDelivery({ workspaceId: 'workspace-1', principal: 'user-1', authorized: true, priority: 'EMERGENCY', hour: 23, quietHours: quiet, emergencyBypassAllowed: 1 as unknown as boolean })).toEqual({ deliver: false, reason: 'QUIET_HOURS' });
+  expect(decideNotificationDelivery({ workspaceId: 'workspace-1', principal: 'user-1', authorized: true, priority: 'EMERGENCY', hour: 23, quietHours: quiet, emergencyBypassAllowed: true })).toEqual({ deliver: true, audit: 'EMERGENCY_BYPASS' });
+  expect(decideNotificationDelivery({ workspaceId: 'workspace-1', principal: 'user-1', authorized: false, priority: 'EMERGENCY', hour: 23, quietHours: quiet, emergencyBypassAllowed: true })).toEqual({ deliver: false, reason: 'AUTHORIZATION_DENIED' });
 });
 
 test('suppresses uncertain authorization and aggregates matching notifications', () => {
