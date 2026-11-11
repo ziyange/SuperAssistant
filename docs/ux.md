@@ -74,6 +74,11 @@ Agent Detail contains overview, Functions, supporting Capabilities, Projects, Ta
 
 ## Project UX
 
+The existing Project card consumes the Project catalog's sanitized repository
+basename and evidenced origin default branch. Unknown metadata retains the
+existing unavailable labels; no remote URL, credential, or local path is shown.
+Folder-picker loading, cancel, success, and error interactions stay unchanged.
+
 TASK-733 integration contract: Project Center presents an “Add Project”
 button before the existing card list. While the system folder picker or
 registration is active the button is disabled; a cancelled picker leaves the

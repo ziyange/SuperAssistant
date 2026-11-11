@@ -1,9 +1,35 @@
 import { accessSync, constants, realpathSync, statSync } from 'node:fs';
 import { basename, isAbsolute, parse } from 'node:path';
+import { execFileSync } from 'node:child_process';
+import process from 'node:process';
 import type { FoundationId, ProjectRepository, RegisteredProject } from '@super-assistant/domain';
 import type Database from 'better-sqlite3';
 import { SqliteFoundationRepository, SqliteProjectRepository } from '@super-assistant/persistence';
 import type { ProjectRendererProjection } from '../shared/ipc-contract.js';
+
+function hasControl(value: string): boolean { return Array.from(value).some(character => character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127); }
+function safeRepository(value: string | null): string | null {
+  return value && value.length <= 128 && value.trim() === value && !/[\\/:@]/.test(value) && !hasControl(value) ? value : null;
+}
+function safeBranch(value: string | null): string | null {
+  return value && value.length <= 128 && value.trim() === value && !/[\\:@\s]/.test(value) && !hasControl(value) && !value.includes('..') && !value.startsWith('/') && !value.endsWith('/') ? value : null;
+}
+function discoverGit(path: string): { repository: string | null; defaultBranch: string | null } {
+  const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !/^GIT_/i.test(key)));
+  env.GIT_CONFIG_NOSYSTEM = '1';
+  env.GIT_CONFIG_GLOBAL = process.platform === 'win32' ? 'NUL' : '/dev/null';
+  env.GIT_TERMINAL_PROMPT = '0';
+  env.GIT_OPTIONAL_LOCKS = '0';
+  const git = (...args: string[]) => execFileSync('git', ['-C', path, ...args], { encoding: 'utf8', env, timeout: 4000, maxBuffer: 16384, windowsHide: true, stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+  try {
+    const root = git('rev-parse', '--show-toplevel');
+    if (!isAbsolute(root) || hasControl(root)) return { repository: null, defaultBranch: null };
+    const repository = safeRepository(basename(realpathSync(root)));
+    let defaultBranch: string | null = null;
+    try { const ref = git('symbolic-ref', '--quiet', '--short', 'refs/remotes/origin/HEAD'); if (ref.startsWith('origin/')) defaultBranch = safeBranch(ref.slice('origin/'.length)); } catch { /* no evidenced default branch */ }
+    return { repository, defaultBranch };
+  } catch { return { repository: null, defaultBranch: null }; }
+}
 
 export class ProjectRegistrationService {
   // eslint-disable-next-line no-unused-vars -- TypeScript parameter property.
@@ -14,11 +40,12 @@ export class ProjectRegistrationService {
     const canonicalPath = realpathSync(input.candidatePath);
     if (canonicalPath === parse(canonicalPath).root || !statSync(canonicalPath).isDirectory()) throw new Error('Invalid Project directory.');
     accessSync(canonicalPath, constants.R_OK);
+    const discovered = discoverGit(canonicalPath);
     return this.repository.register({
       workspaceId: input.workspaceId,
       name: basename(canonicalPath),
       canonicalPath,
-      metadata: { repository: null, defaultBranch: null, technology: null, provenance: 'DISCOVERED' }
+      metadata: { ...discovered, technology: null, provenance: 'DISCOVERED' }
     });
   }
 }
@@ -48,7 +75,7 @@ export class LocalProjectCatalog {
     if (!workspace) return [];
     return this.repository.list(workspace).map(project => ({
       id: project.projectId, name: project.name, status: project.status,
-      repository: null, branch: project.metadata.defaultBranch,
+      repository: safeRepository(project.metadata.repository), branch: safeBranch(project.metadata.defaultBranch),
       provenance: project.metadata.provenance
     }));
   }

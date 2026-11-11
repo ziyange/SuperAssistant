@@ -23,6 +23,13 @@ one identity; undiscovered metadata remains null. The service does not itself
 expose IPC or select a folder. Filesystem identity must be checked again at
 execution preflight because paths can change after registration.
 
+TASK-776 extends registration with bounded read-only Git discovery. The
+platform sanitizes the Git environment and never invokes a shell or network.
+It stores only a sanitized repository basename and, when the local origin HEAD
+symbolic reference proves it, a default branch. Unknown or failed discovery
+leaves both values unavailable and does not prevent non-Git registration.
+These display facts are not a current baseline or execution authorization.
+
 This document is the engineering source of truth for system shape, ownership, boundaries, and H1-H3 evolution. Product behavior is implemented only through the contracts linked below; accepted decisions are indexed in [architecture decisions](decisions/README.md).
 
 ## PHASE-007 recovery constraint

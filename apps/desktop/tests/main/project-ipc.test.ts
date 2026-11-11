@@ -2,6 +2,8 @@ import { expect, test } from 'vitest';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, parse } from 'node:path';
+import { execFileSync } from 'node:child_process';
+import process from 'node:process';
 import * as projectModule from '../../src/main/project-ipc.js';
 import { projectRegistrationError } from '../../src/main/project-ipc.js';
 import { LocalProjectCatalog } from '../../src/main/project-ipc.js';
@@ -9,6 +11,48 @@ import { routeIpc } from '../../src/main/ipc-router.js';
 import { createFoundationDatabase } from '../../../../packages/persistence/src/sqlite/database.js';
 import { SqliteFoundationRepository } from '../../../../packages/persistence/src/repositories/foundation-repository.js';
 import { SqliteProjectRepository } from '../../../../packages/persistence/src/repositories/project-repository.js';
+
+test('discovers safe Git metadata, retains non-Git Projects and persists both after restart', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'sa-project-metadata-'));
+  const repository = join(root, 'git-repo');
+  const plain = join(root, 'plain');
+  const noDefault = join(root, 'no-default');
+  const databasePath = join(root, 'platform.sqlite');
+  let db = createFoundationDatabase(databasePath);
+  try {
+    mkdirSync(repository); mkdirSync(plain); mkdirSync(noDefault);
+    execFileSync('git', ['init', '-b', 'working-branch', repository]);
+    execFileSync('git', ['init', '-b', 'working-only', noDefault]);
+    execFileSync('git', ['-C', repository, 'symbolic-ref', 'refs/remotes/origin/HEAD', 'refs/remotes/origin/main']);
+    execFileSync('git', ['-C', repository, 'remote', 'add', 'origin', 'https://user:fake-secret@example.invalid/repo.git']);
+    writeFileSync(join(repository, 'source.txt'), 'original');
+    const before = execFileSync('git', ['-C', repository, 'status', '--porcelain'], { encoding: 'utf8' });
+    let selected = repository;
+    const catalog = new LocalProjectCatalog(db, async () => selected);
+    const priorGitDir = process.env.GIT_DIR;
+    process.env.GIT_DIR = join(root, 'wrong-git-dir');
+    let first: Awaited<ReturnType<LocalProjectCatalog['choose']>>;
+    try { first = await catalog.choose(); }
+    finally { if (priorGitDir === undefined) delete process.env.GIT_DIR; else process.env.GIT_DIR = priorGitDir; }
+    expect(first.status).toBe('REGISTERED');
+    expect(first.projects).toContainEqual(expect.objectContaining({ name: 'git-repo', repository: 'git-repo', branch: 'main' }));
+    expect(JSON.stringify(first)).not.toContain('fake-secret');
+    expect(JSON.stringify(first)).not.toContain(root);
+    selected = plain;
+    const second = await catalog.choose();
+    expect(second.projects).toContainEqual(expect.objectContaining({ name: 'plain', repository: null, branch: null }));
+    selected = noDefault;
+    const third = await catalog.choose();
+    expect(third.projects).toContainEqual(expect.objectContaining({ name: 'no-default', repository: 'no-default', branch: null }));
+    db.close(); db = createFoundationDatabase(databasePath);
+    const reopened = new LocalProjectCatalog(db, async () => null).list();
+    expect(reopened).toContainEqual(expect.objectContaining({ name: 'git-repo', repository: 'git-repo', branch: 'main' }));
+    expect(reopened).toContainEqual(expect.objectContaining({ name: 'plain', repository: null, branch: null }));
+    expect(reopened).toContainEqual(expect.objectContaining({ name: 'no-default', repository: 'no-default', branch: null }));
+    expect(readFileSync(join(repository, 'source.txt'), 'utf8')).toBe('original');
+    expect(execFileSync('git', ['-C', repository, 'status', '--porcelain'], { encoding: 'utf8' })).toBe(before);
+  } finally { if (db.open) db.close(); rmSync(root, { recursive: true, force: true }); }
+}, 30_000);
 
 test('maps project validation failures to a safe user message', () => {
   expect(projectRegistrationError(new Error('ENOENT secret-token --verbose'))).toBe('Project path could not be validated.');
@@ -68,8 +112,9 @@ test('local Project picker persists only successful selections and rejects ambig
     expect(JSON.stringify(result)).not.toContain(directory);
     expect((await catalog.choose()).projects).toHaveLength(1);
     expect(db.prepare('SELECT count(*) AS count FROM projects').get()).toEqual({ count: 1 });
-    db.prepare('UPDATE project_metadata SET repository = ?').run('https://user:fake-secret@host.invalid/repo');
+    db.prepare('UPDATE project_metadata SET repository = ?, default_branch = ?').run('https://user:fake-secret@host.invalid/repo', 'https://user:fake-secret@host.invalid/branch');
     expect(JSON.stringify(catalog.list())).not.toContain('fake-secret');
+    expect(catalog.list()[0]).toMatchObject({ repository: null, branch: null });
     new SqliteFoundationRepository(db).createWorkspace({ ownerId: 'local-owner', name: 'Ambiguous' });
     expect(() => catalog.list()).toThrow(/workspace/i);
     expect((await catalog.choose()).status).toBe('ERROR');
