@@ -25,6 +25,9 @@ export function validateRequest(value: unknown): IpcRequest {
   if ((value.channel === 'project:list' || value.channel === 'project:choose') && Object.keys(value.payload).length === 0) {
     return { channel: value.channel, payload: {} };
   }
+  if (value.channel === 'project:assign-codex' && hasOnlyKeys(value.payload, ['projectId']) && typeof value.payload.projectId === 'string' && /^[a-z0-9_-]{1,128}$/i.test(value.payload.projectId)) {
+    return { channel: 'project:assign-codex', payload: { projectId: value.payload.projectId } };
+  }
   if (value.channel === 'codex:check' && Object.keys(value.payload).length === 0) {
     return { channel: 'codex:check', payload: {} };
   }

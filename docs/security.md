@@ -5,6 +5,9 @@ after successful read-only discovery. The Renderer receives no executable
 path or credential. Cached registration never authorizes execution or starts
 the binary; a future execution boundary must revalidate its identity, version,
 permissions, current health and policy before use.
+Project assignment accepts only an explicit Project ID from the Renderer;
+main resolves the locally registered Agent in the same active Workspace.
+Assignment does not permit execution or supersede a different Agent silently.
 Discovery observations require a canonical valid UTC timestamp and cannot
 combine a non-CONNECTED connection with AVAILABLE status; invalid observations
 are rejected before registration and never shown as current health.

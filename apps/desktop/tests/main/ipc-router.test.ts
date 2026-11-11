@@ -3,6 +3,18 @@ import { validateRequest } from '../../src/main/ipc-schemas.js';
 import { routeIpc } from '../../src/main/ipc-router.js';
 
 describe('IPC request validation', () => {
+  test('Project-Codex assignment accepts only an explicit Project ID', async () => {
+    expect(validateRequest({ channel: 'project:assign-codex', payload: { projectId: 'project-1' } })).toEqual({ channel: 'project:assign-codex', payload: { projectId: 'project-1' } });
+    expect(() => validateRequest({ channel: 'project:assign-codex', payload: { projectId: 'project-1', agentId: 'foreign-agent' } })).toThrow();
+    expect(() => validateRequest({ channel: 'project:assign-codex', payload: { projectId: 'project-1', path: 'C:/private' } })).toThrow();
+    expect(() => validateRequest({ channel: 'project:assign-codex', payload: { projectId: '../escape' } })).toThrow();
+    const onboarding = { async get() { return { completed: false }; }, async set(value: { completed: boolean }) { return value; } };
+    const calls: string[] = [];
+    const projects = { list: () => [], async choose() { return { status: 'CANCELLED' as const, projects: [] }; }, async assignCodex(id: string) { calls.push(id); return { status: 'ASSIGNED' as const, projects: [] }; } };
+    const result = await routeIpc({ channel: 'project:assign-codex', payload: { projectId: 'project-1' } }, onboarding, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, projects);
+    expect(result).toEqual({ status: 'ASSIGNED', projects: [] });
+    expect(calls).toEqual(['project-1']);
+  });
   test('reads only sanitized cached Codex registration and rejects renderer-supplied paths', async () => {
     expect(validateRequest({ channel: 'codex:registration', payload: {} })).toEqual({ channel: 'codex:registration', payload: {} });
     expect(() => validateRequest({ channel: 'codex:registration', payload: { path: 'C:/evil.exe' } })).toThrow();

@@ -38,6 +38,10 @@ symbolic reference proves it, a default branch. Unknown or failed discovery
 leaves both values unavailable and does not prevent non-Git registration.
 These display facts are not a current baseline or execution authorization.
 
+Project cards may explicitly assign the locally registered Codex identity.
+Main resolves that identity within the local-owner Workspace; the Renderer
+does not select an arbitrary Agent. This is configuration, not execution.
+
 This document is the engineering source of truth for system shape, ownership, boundaries, and H1-H3 evolution. Product behavior is implemented only through the contracts linked below; accepted decisions are indexed in [architecture decisions](decisions/README.md).
 
 ## PHASE-007 recovery constraint

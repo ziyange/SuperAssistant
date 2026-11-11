@@ -68,6 +68,19 @@ export function App() {
     }).catch(() => setProjectError('Project path could not be validated.')).finally(() => setProjectLoading(false));
   };
 
+  const assignCodex = (projectId: string) => {
+    const api = window.superAssistant;
+    if (!api?.assignProjectCodex || projectLoading) { setProjectError('Codex assignment is unavailable.'); return; }
+    setProjectLoading(true);
+    setProjectError(undefined);
+    setProjectNotice(undefined);
+    void api.assignProjectCodex(projectId).then(response => {
+      if (!('projects' in response) || response.status !== 'ASSIGNED') { setProjectError('Codex assignment is unavailable.'); return; }
+      setProjects(response.projects);
+      setProjectNotice('Codex configured for Project.');
+    }).catch(() => setProjectError('Codex assignment is unavailable.')).finally(() => setProjectLoading(false));
+  };
+
   const checkCodex = () => {
     if (codexChecking) return;
     const check = window.superAssistant?.checkCodex;
@@ -110,5 +123,5 @@ export function App() {
     });
   }, []);
 
-  return <main><Navigation current={current} onNavigate={setCurrent} /><h1>{current === 'super-assistant' ? 'Super Assistant' : current}</h1>{current === 'agent-center' ? <AgentCenter connection={codex?.state === 'CHECKED' ? codex.connection : 'UNAVAILABLE'} availability={codex?.state === 'CHECKED' ? codex.availability : 'PAUSED'} version={codex?.state === 'CHECKED' ? codex.version : codexRegistration?.state === 'RECHECK_REQUIRED' ? codexRegistration.version : 'unknown'} functions={[]} onCheck={checkCodex} checking={codexChecking} observedAt={codex?.state === 'CHECKED' ? codex.observedAt : undefined} notice={codex?.state === 'CANCELLED' ? 'Codex selection cancelled.' : codex?.state === 'UNAVAILABLE' ? 'Codex check unavailable.' : codex === undefined && codexRegistration?.state === 'RECHECK_REQUIRED' ? 'Codex registration requires a new check.' : undefined} /> : current === 'project-center' ? <><ProjectCenter projects={projects} onAdd={chooseProject} loading={projectLoading} error={projectError} notice={projectNotice} /><MonitoringStatus status={monitoring} /><ProjectChanges changes={changes} /><AuditExport /><TeamWorkspace team={team} /><TeamMembers members={team.members} /><TeamApprovals approvals={team.approvals} /><TeamGovernance team={team} /></> : current === 'task-center' ? <><TaskCenter tasks={tasks} /><TaskHistory history={history} /></> : current === 'super-assistant' ? <><DegradedState reason="Adapter status is unavailable until reconciliation completes." /><ProposalReview objective="Side-effecting plan review" classification="SIDE_EFFECTING" preflight="STALE" onConfirm={() => undefined} />{decisions.map((decision) => <DecisionCenter key={decision.decisionId} decision={decision} />)}</> : <Onboarding completed={completed} onAddProject={() => setCurrent('project-center')} onConnectCodex={() => setCurrent('agent-center')} />}</main>;
+  return <main><Navigation current={current} onNavigate={setCurrent} /><h1>{current === 'super-assistant' ? 'Super Assistant' : current}</h1>{current === 'agent-center' ? <AgentCenter connection={codex?.state === 'CHECKED' ? codex.connection : 'UNAVAILABLE'} availability={codex?.state === 'CHECKED' ? codex.availability : 'PAUSED'} version={codex?.state === 'CHECKED' ? codex.version : codexRegistration?.state === 'RECHECK_REQUIRED' ? codexRegistration.version : 'unknown'} functions={[]} onCheck={checkCodex} checking={codexChecking} observedAt={codex?.state === 'CHECKED' ? codex.observedAt : undefined} notice={codex?.state === 'CANCELLED' ? 'Codex selection cancelled.' : codex?.state === 'UNAVAILABLE' ? 'Codex check unavailable.' : codex === undefined && codexRegistration?.state === 'RECHECK_REQUIRED' ? 'Codex registration requires a new check.' : undefined} /> : current === 'project-center' ? <><ProjectCenter projects={projects} onAdd={chooseProject} onAssignCodex={assignCodex} codexRegistered={codex?.state === 'CHECKED' || codexRegistration?.state === 'RECHECK_REQUIRED'} loading={projectLoading} error={projectError} notice={projectNotice} /><MonitoringStatus status={monitoring} /><ProjectChanges changes={changes} /><AuditExport /><TeamWorkspace team={team} /><TeamMembers members={team.members} /><TeamApprovals approvals={team.approvals} /><TeamGovernance team={team} /></> : current === 'task-center' ? <><TaskCenter tasks={tasks} /><TaskHistory history={history} /></> : current === 'super-assistant' ? <><DegradedState reason="Adapter status is unavailable until reconciliation completes." /><ProposalReview objective="Side-effecting plan review" classification="SIDE_EFFECTING" preflight="STALE" onConfirm={() => undefined} />{decisions.map((decision) => <DecisionCenter key={decision.decisionId} decision={decision} />)}</> : <Onboarding completed={completed} onAddProject={() => setCurrent('project-center')} onConnectCodex={() => setCurrent('agent-center')} />}</main>;
 }

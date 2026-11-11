@@ -18,7 +18,7 @@ export interface OnboardingPort {
   set(projection: OnboardingProjection): Promise<OnboardingProjection>;
 }
 
-export async function routeIpc(request: unknown, onboarding: OnboardingPort, proposal?: ProposalIpcPort, task?: TaskReadPort, artifact?: ArtifactReadPort, decision?: DecisionReadPort, history?: HistoryReadPort, changes?: ProjectChangeReadPort, acceptance?: AcceptanceReadPort, auditExport?: AuditExportPort, monitoring?: MonitoringStatusReadPort, team?: TeamWorkspacePort, projects?: Pick<LocalProjectCatalog, 'list' | 'choose'>, codex?: () => Promise<CodexCheck>, codexRegistration?: () => CodexRegistrationProjection): Promise<IpcResponse> {
+export async function routeIpc(request: unknown, onboarding: OnboardingPort, proposal?: ProposalIpcPort, task?: TaskReadPort, artifact?: ArtifactReadPort, decision?: DecisionReadPort, history?: HistoryReadPort, changes?: ProjectChangeReadPort, acceptance?: AcceptanceReadPort, auditExport?: AuditExportPort, monitoring?: MonitoringStatusReadPort, team?: TeamWorkspacePort, projects?: Pick<LocalProjectCatalog, 'list' | 'choose'> & Partial<Pick<LocalProjectCatalog, 'assignCodex'>>, codex?: () => Promise<CodexCheck>, codexRegistration?: () => CodexRegistrationProjection): Promise<IpcResponse> {
   const valid: IpcRequest = validateRequest(request);
   if (valid.channel === 'onboarding:get') return { onboarding: await onboarding.get() };
   if (valid.channel === 'onboarding:set') return { onboarding: await onboarding.set(valid.payload) };
@@ -27,6 +27,10 @@ export async function routeIpc(request: unknown, onboarding: OnboardingPort, pro
     catch { return { projects: [], status: 'ERROR' }; }
   }
   if (valid.channel === 'project:choose') return projects ? await projects.choose() : { projects: [], status: 'ERROR' };
+  if (valid.channel === 'project:assign-codex') {
+    try { return projects?.assignCodex ? await projects.assignCodex(valid.payload.projectId) : { projects: [], status: 'ERROR' }; }
+    catch { return { projects: [], status: 'ERROR' }; }
+  }
   if (valid.channel === 'codex:check') return { codex: codex ? await codex() : { state: 'UNAVAILABLE' } };
   if (valid.channel === 'codex:registration') {
     try {

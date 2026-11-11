@@ -7,6 +7,11 @@ cached registration is not live health or a Function capability.
 An unlinked legacy Agent named Codex is not silently adopted or duplicated:
 registration fails closed until its identity can be reconciled explicitly.
 
+Explicit Project-to-Codex assignment updates `default_agent_id` inside one
+Workspace-scoped transaction and increments Project snapshot and row versions
+only when the assignment changes. Repetition is idempotent; an existing
+different Agent is not overwritten by this action.
+
 ### Outbox claim fencing
 
 Migration 019 adds a nullable, unique claim token to each Outbox row. Only

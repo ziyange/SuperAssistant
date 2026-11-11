@@ -68,11 +68,31 @@ export class LocalProjectCatalog {
   list(): ProjectRendererProjection[] {
     const workspace = findLocalWorkspace(this.database);
     if (!workspace) return [];
+    const codex = this.database.prepare('SELECT r.agent_id FROM local_codex_registrations r JOIN agents a ON a.agent_id = r.agent_id AND a.workspace_id = r.workspace_id WHERE r.workspace_id = ?').get(workspace) as { agent_id: string } | undefined;
     return this.repository.list(workspace).map(project => ({
       id: project.projectId, name: project.name, status: project.status,
       repository: safeRepository(project.metadata.repository), branch: safeBranch(project.metadata.defaultBranch),
-      provenance: project.metadata.provenance
+      provenance: project.metadata.provenance, codexAssigned: codex !== undefined && project.defaultAgentId === codex.agent_id, hasDefaultAgent: project.defaultAgentId !== null
     }));
+  }
+
+  async assignCodex(projectId: string): Promise<{ status: 'ASSIGNED' | 'ERROR'; projects: ProjectRendererProjection[] }> {
+    try {
+      if (typeof projectId !== 'string' || !/^[a-z0-9_-]{1,128}$/i.test(projectId)) throw new Error('Project identity invalid.');
+      const assign = this.database.transaction(() => {
+        const workspace = findLocalWorkspace(this.database);
+        if (!workspace) throw new Error('Local workspace unavailable.');
+        const project = this.database.prepare('SELECT default_agent_id, status FROM projects WHERE project_id = ? AND workspace_id = ?').get(projectId, workspace) as { default_agent_id: string | null; status: string } | undefined;
+        const codex = this.database.prepare("SELECT r.agent_id FROM local_codex_registrations r JOIN agents a ON a.agent_id = r.agent_id AND a.workspace_id = r.workspace_id WHERE r.workspace_id = ? AND a.name = 'Codex' COLLATE NOCASE AND a.connection <> 'DISABLED'").get(workspace) as { agent_id: string } | undefined;
+        if (!project || project.status !== 'ACTIVE' || !codex || (project.default_agent_id !== null && project.default_agent_id !== codex.agent_id)) throw new Error('Project assignment unavailable.');
+        if (project.default_agent_id === null) {
+          const changed = this.database.prepare("UPDATE projects SET default_agent_id = ?, snapshot_version = snapshot_version + 1, row_version = row_version + 1, updated_at = ? WHERE project_id = ? AND workspace_id = ? AND status = 'ACTIVE' AND default_agent_id IS NULL").run(codex.agent_id, new Date().toISOString(), projectId, workspace);
+          if (changed.changes !== 1) throw new Error('Project assignment changed.');
+        }
+        return this.list();
+      });
+      return { status: 'ASSIGNED', projects: assign() };
+    } catch { return { status: 'ERROR', projects: [] }; }
   }
 
   async choose(): Promise<{ status: 'REGISTERED' | 'CANCELLED' | 'ERROR'; projects: ProjectRendererProjection[] }> {

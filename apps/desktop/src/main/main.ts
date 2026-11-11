@@ -95,6 +95,7 @@ app.whenReady().then(async () => {
   });
   ipcMain.handle('project:list', (event, payload) => routeTrustedIpc(event, 'project:list', payload));
   ipcMain.handle('project:choose', (event, payload) => routeTrustedIpc(event, 'project:choose', payload));
+  ipcMain.handle('project:assign-codex', (event, payload) => routeTrustedIpc(event, 'project:assign-codex', payload));
   ipcMain.handle('codex:check', (event, payload) => routeTrustedIpc(event, 'codex:check', payload));
   ipcMain.handle('codex:registration', (event, payload) => routeTrustedIpc(event, 'codex:registration', payload));
   ipcMain.handle('task:get', (event, payload) => routeTrustedIpc(event, 'task:get', payload));

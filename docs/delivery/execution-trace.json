@@ -8252,4 +8252,424 @@
   "ignored_candidates": [],
   "artifact_metadata": { "sha256": "f561a9ff23e41397c5cfc77cdebf35160686d6ecf551b36f2211b15ef221e6c1" }
 }
+,
+{
+  "tx_id": "task-778-plan-pack-001",
+  "iteration_index": 1,
+  "timestamp": "2026-11-11T07:13:14.514Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "docs/delivery/tasks/TASK-778.md",
+  "intent_hash": "f607a57f95b444c36f382c24a1c115a670a7522461bed4d2342e0df419746595",
+  "result_status": "COMPLETED",
+  "ignored_candidates": [],
+  "artifact_metadata": { "sha256": "4d8f1765f7a7892c74409eeee64758693524a8cdfd3e511d2afc52dce6047f62" }
+}
+,
+{
+  "tx_id": "task-778-architecture-001",
+  "iteration_index": 1,
+  "timestamp": "2026-11-11T07:13:38.557Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "docs/architecture.md",
+  "intent_hash": "06cc19f4643ed16acf28c90fe4261424f5fb3f2ff9d16e8a984bcdcb6f021fd8",
+  "result_status": "COMPLETED",
+  "ignored_candidates": [],
+  "artifact_metadata": { "sha256": "3398d024c8c5fd264b6a099ba27c7365a3f9f5e5470a038001d8cd7d73b30116" }
+}
+,
+{
+  "tx_id": "task-778-data-001",
+  "iteration_index": 1,
+  "timestamp": "2026-11-11T07:13:50.437Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "docs/data-model.md",
+  "intent_hash": "54884b31796fa16cb5a8582f05f415661ba69529d4ae377330a3e9dca70f272b",
+  "result_status": "COMPLETED",
+  "ignored_candidates": [],
+  "artifact_metadata": { "sha256": "43aade8afcb82b39c7301e89053710486486729f4fdd8226307eda533c13b865" }
+}
+,
+{
+  "tx_id": "task-778-security-001",
+  "iteration_index": 1,
+  "timestamp": "2026-11-11T07:14:01.086Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "docs/security.md",
+  "intent_hash": "38d5121059c7184c88ccdca5d5b6a0433f91d674fa14dda5011c014a9b210588",
+  "result_status": "COMPLETED",
+  "ignored_candidates": [],
+  "artifact_metadata": { "sha256": "37f3c8cbb286d171c0dd27ede260068a6c287ab1a677e977957555c5300279ac" }
+}
+,
+{
+  "tx_id": "task-778-ux-001",
+  "iteration_index": 1,
+  "timestamp": "2026-11-11T07:14:25.937Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "docs/ux.md",
+  "intent_hash": "c1b50c398143266d3c21141bd6584b372eee67e9d8bd71d542009f24ca18fed7",
+  "result_status": "COMPLETED",
+  "ignored_candidates": [],
+  "artifact_metadata": { "sha256": "84fbf96b10c423d7c3afae13925bfdcd76032d012ea5489070eb5f31e07eaed4" }
+}
+,
+{
+  "tx_id": "task-778-red-assignment-001",
+  "iteration_index": 1,
+  "timestamp": "2026-11-11T07:15:09.145Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "apps/desktop/tests/main/project-ipc.test.ts",
+  "intent_hash": "39dd27be12784102dc62c81fdc880ea2825eec77c1c9c42a188a34499dad5d2a",
+  "result_status": "COMPLETED",
+  "ignored_candidates": [],
+  "artifact_metadata": { "sha256": "15c9b8379fb7dec48c99821b36bcf5ecab4e164fe06a35937ca13056ec75b25b" }
+}
+,
+{
+  "tx_id": "task-778-assignment-001",
+  "iteration_index": 1,
+  "timestamp": "2026-11-11T07:16:14.917Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "apps/desktop/src/main/project-ipc.ts",
+  "intent_hash": "9f486e13f5ce4d1a1d1946110075ea115708b9c191b3d70e0e9c6cf6d927ed20",
+  "result_status": "COMPLETED",
+  "ignored_candidates": [],
+  "artifact_metadata": { "sha256": "5c89f21c9b2fe28d7dcd9b47d9149166357493ded3815f20925c01cf561fe19b" }
+}
+,
+{
+  "tx_id": "task-778-negative-assignment-001",
+  "iteration_index": 1,
+  "timestamp": "2026-11-11T07:17:11.694Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "apps/desktop/tests/main/project-ipc.test.ts",
+  "intent_hash": "45e02b011dd9b4336b31cb5a8c37f935914199a03d1450715adce65821a0d425",
+  "result_status": "COMPLETED",
+  "ignored_candidates": [],
+  "artifact_metadata": { "sha256": "d3c3a2d670649c4a56c353a7aba365edba09365bfc52e29c9c836111f079b638" }
+}
+,
+{
+  "tx_id": "task-778-red-ipc-001",
+  "iteration_index": 1,
+  "timestamp": "2026-11-11T07:17:45.637Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "apps/desktop/tests/main/ipc-router.test.ts",
+  "intent_hash": "37f1549f18632a4d94e220abb317ff82231ae6dd56932e9d264f160a1b50c199",
+  "result_status": "COMPLETED",
+  "ignored_candidates": [],
+  "artifact_metadata": { "sha256": "185f9078c1f5afc615d7b51736fa7dfd583a509914e15f13de43a78be617f9c1" }
+}
+,
+{
+  "tx_id": "task-778-red-ui-001",
+  "iteration_index": 1,
+  "timestamp": "2026-11-11T07:18:34.540Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "apps/desktop/tests/renderer/project-center.test.tsx",
+  "intent_hash": "043b15440c166e88a002aa965600e6c494754531ccd20ce54e05240f071fd17e",
+  "result_status": "COMPLETED",
+  "ignored_candidates": [],
+  "artifact_metadata": { "sha256": "a9daaf951d8f5c683d2a224ca742e306ea04d3f0bebe803e2f5c371895ccace8" }
+}
+,
+{
+  "tx_id": "task-778-ipc-contract-001",
+  "iteration_index": 1,
+  "timestamp": "2026-11-11T07:19:44.158Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "apps/desktop/src/shared/ipc-contract.ts",
+  "intent_hash": "a3710f800b52de8a122689665e7a6ad9f0a3e20f7f84b5f709ed7d42e3e0522e",
+  "result_status": "COMPLETED",
+  "ignored_candidates": [],
+  "artifact_metadata": { "sha256": "1816bb527159f3f267a7e2e6f4e827990f075a2c96cae8d547327c38c51f764d" }
+}
+,
+{
+  "tx_id": "task-778-ipc-schema-001",
+  "iteration_index": 1,
+  "timestamp": "2026-11-11T07:20:12.088Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "apps/desktop/src/main/ipc-schemas.ts",
+  "intent_hash": "9ce3b44e4aefaaaf56bf3f1a829e1460156cb374d871ad58702047aa826b635f",
+  "result_status": "COMPLETED",
+  "ignored_candidates": [],
+  "artifact_metadata": { "sha256": "c63309c7609b2086e216cb43883dcf673851fb166df6443f46a35e74a64eed7b" }
+}
+,
+{
+  "tx_id": "task-778-ipc-router-001",
+  "iteration_index": 1,
+  "timestamp": "2026-11-11T07:20:45.325Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "apps/desktop/src/main/ipc-router.ts",
+  "intent_hash": "007e13f9e1c6605ec91f7dc9234e5e31cc9fd45532c3d7aaf845c24057af21f6",
+  "result_status": "COMPLETED",
+  "ignored_candidates": [],
+  "artifact_metadata": { "sha256": "4ca6e69a0be2430043a64d6103d18da0899a64fbd90e06dab99e0afba830c965" }
+}
+,
+{
+  "tx_id": "task-778-preload-001",
+  "iteration_index": 1,
+  "timestamp": "2026-11-11T07:21:27.050Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "apps/desktop/src/preload/index.ts",
+  "intent_hash": "0c77693077a45d37bc45622ab1ae813cd713e8ceac4e60c4b1bd323cf9cba65b",
+  "result_status": "COMPLETED",
+  "ignored_candidates": [],
+  "artifact_metadata": { "sha256": "021f24820d57f1115cba1ce78d6231d025ddf4ef9f3c3e377eef8dc360f1fcf8" }
+}
+,
+{
+  "tx_id": "task-778-main-001",
+  "iteration_index": 1,
+  "timestamp": "2026-11-11T07:21:54.714Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "apps/desktop/src/main/main.ts",
+  "intent_hash": "e9cacfb17f7d799656ae14e1342531d968b52d408f1a24a292c0a76e2933d6af",
+  "result_status": "COMPLETED",
+  "ignored_candidates": [],
+  "artifact_metadata": { "sha256": "c1871c1120dc01f28612ae18e27c598381765ea9f2cc29c99daec12c509a35b9" }
+}
+,
+{
+  "tx_id": "task-778-assignment-projection-pack-001",
+  "iteration_index": 1,
+  "timestamp": "2026-11-11T07:22:45.622Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "docs/delivery/tasks/TASK-778.md",
+  "intent_hash": "af46bbe2fd5bacb4073077a85ec0ad67bb81ed8b413edc23a196232e9a884140",
+  "result_status": "COMPLETED",
+  "ignored_candidates": [],
+  "artifact_metadata": { "sha256": "9eca8fa4cf7b468e35fb78a389a50e6b37683a55fcc91c0222864a291ab7758b" }
+}
+,
+{
+  "tx_id": "task-778-assignment-projection-ux-001",
+  "iteration_index": 1,
+  "timestamp": "2026-11-11T07:22:53.889Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "docs/ux.md",
+  "intent_hash": "50cac04f536a8adebfcab4391ebfc473f32f1c971992df050cdb37f6415c60bb",
+  "result_status": "COMPLETED",
+  "ignored_candidates": [],
+  "artifact_metadata": { "sha256": "c73e36d098913b213f830eadad4b84a6a5091640aa203beef02e82597ee748fa" }
+}
+,
+{
+  "tx_id": "task-778-project-projection-001",
+  "iteration_index": 1,
+  "timestamp": "2026-11-11T07:23:25.632Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "apps/desktop/src/main/project-ipc.ts",
+  "intent_hash": "e20ede51a951c6171f3557853a0cc0b0f4d6fbf0ab0b4ee2806e468f8ea55cca",
+  "result_status": "COMPLETED",
+  "ignored_candidates": [],
+  "artifact_metadata": { "sha256": "328f298e0231777dde54f3e52abcd472da4b9047db305e82ed3f0ca964eb2709" }
+}
+,
+{
+  "tx_id": "task-778-contract-projection-001",
+  "iteration_index": 1,
+  "timestamp": "2026-11-11T07:23:37.507Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "apps/desktop/src/shared/ipc-contract.ts",
+  "intent_hash": "6d8a131944a80522b00ce2e1a699c6989aeaf28f9d8eab3e537857d48d198096",
+  "result_status": "COMPLETED",
+  "ignored_candidates": [],
+  "artifact_metadata": { "sha256": "60b21ab974b6098fd488d8b582113d27972ecb8824498fb07c37606f3f627f0e" }
+}
+,
+{
+  "tx_id": "task-778-renderer-assignment-test-001",
+  "iteration_index": 1,
+  "timestamp": "2026-11-11T07:24:05.239Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "apps/desktop/tests/renderer/project-center.test.tsx",
+  "intent_hash": "fc922240dd19212c12c495621edbb9cac44cb04c34de6cecdb9005c24c5fbeb6",
+  "result_status": "COMPLETED",
+  "ignored_candidates": [],
+  "artifact_metadata": { "sha256": "3b3231eb636c104aabb55446b702bc2e75a4552b2975a212effdecb95a3e38ac" }
+}
+,
+{
+  "tx_id": "task-778-project-center-001",
+  "iteration_index": 1,
+  "timestamp": "2026-11-11T07:24:43.809Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "apps/desktop/src/renderer/project-center.tsx",
+  "intent_hash": "25a593c6d0ce8583fb55f06f6b57b01096e1dcf84041f8b04afbe212225b8628",
+  "result_status": "COMPLETED",
+  "ignored_candidates": [],
+  "artifact_metadata": { "sha256": "0f4bb02c879e3c3a23e295c11e4dc52db959a0616ed651a3b9bf858ccadd9387" }
+}
+,
+{
+  "tx_id": "task-778-app-wiring-001",
+  "iteration_index": 1,
+  "timestamp": "2026-11-11T07:25:20.772Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "apps/desktop/src/renderer/App.tsx",
+  "intent_hash": "6358a632eb7ca510b07181ddfba41f3c67799ae278e83cdf7af72f6d92ea6e1c",
+  "result_status": "COMPLETED",
+  "ignored_candidates": [],
+  "artifact_metadata": { "sha256": "5e50d9afcf9661d9649ad9ce4d0a4be4ba1a8ba31acec9a4a4a5e11c47fc8046" }
+}
+,
+{
+  "tx_id": "task-778-project-center-lint-001",
+  "iteration_index": 1,
+  "timestamp": "2026-11-11T07:31:50.326Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "apps/desktop/src/renderer/project-center.tsx",
+  "intent_hash": "5d0dd164da84205fc6c4e6245058c802f9c86509748e795df5cdcb403fef33af",
+  "result_status": "COMPLETED",
+  "ignored_candidates": [],
+  "artifact_metadata": { "sha256": "a51a745308e185ab1ed31dd5c0832ea50b8496a3bd61a9d07a6b359e5e38ba09" }
+}
+,
+{
+  "tx_id": "task-778-app-integration-test-001",
+  "iteration_index": 1,
+  "timestamp": "2026-11-11T07:32:23.786Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "apps/desktop/tests/renderer/project-center.test.tsx",
+  "intent_hash": "48a5ff61d1e205cde01861278047bdd1418e3b64569489ef11b0ecda10e5cc0e",
+  "result_status": "COMPLETED",
+  "ignored_candidates": [],
+  "artifact_metadata": { "sha256": "cbb6f65a8bcf1b172b254d43cb2762f195a047e9f5fa5cc7dbc2a678582fc2cb" }
+}
+,
+{
+  "tx_id": "task-778-mutation-app-red-001",
+  "iteration_index": 1,
+  "timestamp": "2026-11-11T07:32:53.446Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "apps/desktop/src/renderer/App.tsx",
+  "intent_hash": "74b94c08ba3c1378d2ab709232d55c6aebefe597e7ed5e501c364919d2e5669b",
+  "result_status": "COMPLETED",
+  "ignored_candidates": [],
+  "artifact_metadata": { "sha256": "baadd1781dfcc5a79c7b3378704962ec860d6b3eeccfc891b0bc8402ce5341ff" }
+}
+,
+{
+  "tx_id": "task-778-mutation-app-green-001",
+  "iteration_index": 1,
+  "timestamp": "2026-11-11T07:34:00.268Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "apps/desktop/src/renderer/App.tsx",
+  "intent_hash": "b62b2b43ec8537c517b98a41061cb7aad1659454b16384110946215af1f7496c",
+  "result_status": "COMPLETED",
+  "ignored_candidates": [],
+  "artifact_metadata": { "sha256": "5e50d9afcf9661d9649ad9ce4d0a4be4ba1a8ba31acec9a4a4a5e11c47fc8046" }
+}
+,
+{
+  "tx_id": "task-778-ipc-extra-negative-001",
+  "iteration_index": 1,
+  "timestamp": "2026-11-11T07:36:10.799Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "apps/desktop/tests/main/ipc-router.test.ts",
+  "intent_hash": "5b90dec293e73dba0d60149f42a06059808aa9abf411640e63a5a473ae5b7fe1",
+  "result_status": "COMPLETED",
+  "ignored_candidates": [],
+  "artifact_metadata": { "sha256": "801215cff42373a9995f60b00ff9c4f5d22a9b22d8762648ebc0566da1dd6418" }
+}
+,
+{
+  "tx_id": "task-778-ci-anchor-001",
+  "iteration_index": 1,
+  "timestamp": "2026-11-11T07:36:38.910Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": ".github/workflows/docs-gates.yml",
+  "intent_hash": "5ab49f192c971165b3f2dbc85e9dd4a4c395f0af18f65bf08ba15f56fd4b9be1",
+  "result_status": "COMPLETED",
+  "ignored_candidates": [],
+  "artifact_metadata": { "sha256": "4f551f382c1ef3f5d7c28b885ed9a44459e958b367fdb0b843857c15e33bc480" }
+}
+,
+{
+  "tx_id": "task-778-disabled-agent-test-001",
+  "iteration_index": 1,
+  "timestamp": "2026-11-11T07:37:10.954Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "apps/desktop/tests/main/project-ipc.test.ts",
+  "intent_hash": "23698fc981505047531ad565b0bd7b3b4523cc01a22a25f1b9185767f6a31850",
+  "result_status": "COMPLETED",
+  "ignored_candidates": [],
+  "artifact_metadata": { "sha256": "ecf65716a712e52ff114d1d69ffa8a5b7c01156a7736ae2e331ef254d658343e" }
+}
+,
+{
+  "tx_id": "task-778-disabled-mutation-red-001",
+  "iteration_index": 1,
+  "timestamp": "2026-11-11T07:37:44.078Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "apps/desktop/src/main/project-ipc.ts",
+  "intent_hash": "cde20727cab37fac624b88d1986989b1f178048aa1b3500b63aaaccccb700bd4",
+  "result_status": "COMPLETED",
+  "ignored_candidates": [],
+  "artifact_metadata": { "sha256": "0d1f9ea95f7f65968e2aefd81e9aa667ebbb3553e5c6fc47383ea5c47f1d33dc" }
+}
+,
+{
+  "tx_id": "task-778-disabled-mutation-green-001",
+  "iteration_index": 1,
+  "timestamp": "2026-11-11T07:38:47.440Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "apps/desktop/src/main/project-ipc.ts",
+  "intent_hash": "889412b850a9a488c9c8f81898c5eaf1b05ed088d22a550ecd3ef4e4a5bcdd13",
+  "result_status": "COMPLETED",
+  "ignored_candidates": [],
+  "artifact_metadata": { "sha256": "328f298e0231777dde54f3e52abcd472da4b9047db305e82ed3f0ca964eb2709" }
+}
+,
+{
+  "tx_id": "task-778-row-version-test-001",
+  "iteration_index": 1,
+  "timestamp": "2026-11-11T07:47:58.315Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "apps/desktop/tests/main/project-ipc.test.ts",
+  "intent_hash": "4262b11e81aa6afafa12931d5eeb4e4134027f99fe443a9cdd35ebaa75018926",
+  "result_status": "COMPLETED",
+  "ignored_candidates": [],
+  "artifact_metadata": { "sha256": "0228d7b0489bc07d56cca82bd96d6fb539382bc9b081b177da9680eee5d9e141" }
+}
+,
+{
+  "tx_id": "task-778-row-mutation-red-001",
+  "iteration_index": 1,
+  "timestamp": "2026-11-11T07:50:20.847Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "apps/desktop/src/main/project-ipc.ts",
+  "intent_hash": "d4384f02d013a169def1a7c9f7a3020bcf9faffed9d5190a85334e5702492e91",
+  "result_status": "COMPLETED",
+  "ignored_candidates": [],
+  "artifact_metadata": { "sha256": "85fb7087fbb2a644741159a91bca858305c7cfb91fa683270fac18eb31b4d721" }
+}
+,
+{
+  "tx_id": "task-778-row-mutation-green-001",
+  "iteration_index": 1,
+  "timestamp": "2026-11-11T07:53:31.338Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "apps/desktop/src/main/project-ipc.ts",
+  "intent_hash": "c280b20a1ef8b54e59f0c38dd39d546b920232cc6e3a2a7180cc7c6f4c468197",
+  "result_status": "COMPLETED",
+  "ignored_candidates": [],
+  "artifact_metadata": { "sha256": "328f298e0231777dde54f3e52abcd472da4b9047db305e82ed3f0ca964eb2709" }
+}
+,
+{
+  "tx_id": "task-778-report-001",
+  "iteration_index": 1,
+  "timestamp": "2026-11-11T08:01:50.394Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "docs/verification/reports/phase-007-task-778.md",
+  "intent_hash": "72cf287ca1c95accabe8725bd6bb2f3b0e1c14876e09d43a6fa8cffd1289da23",
+  "result_status": "COMPLETED",
+  "ignored_candidates": [],
+  "artifact_metadata": { "sha256": "2ac895ea4e0bac5bf74d806a43d3d9cb329b8de8653b67cc8d608f143dc96fcc" }
+}
 ]

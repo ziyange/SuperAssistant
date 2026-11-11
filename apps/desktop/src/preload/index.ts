@@ -7,6 +7,7 @@ const api: SuperAssistantDesktopApi = {
   setOnboarding: (projection: OnboardingProjection) => ipcRenderer.invoke('onboarding:set', projection),
   listProjects: () => ipcRenderer.invoke('project:list', {}),
   chooseProject: () => ipcRenderer.invoke('project:choose', {}),
+  assignProjectCodex: (projectId) => ipcRenderer.invoke('project:assign-codex', { projectId }),
   checkCodex: () => ipcRenderer.invoke('codex:check', {}),
   getCodexRegistration: () => ipcRenderer.invoke('codex:registration', {}),
   getTask: (taskId) => ipcRenderer.invoke('task:get', { taskId }),

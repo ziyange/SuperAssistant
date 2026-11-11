@@ -85,6 +85,14 @@ basename and evidenced origin default branch. Unknown metadata retains the
 existing unavailable labels; no remote URL, credential, or local path is shown.
 Folder-picker loading, cancel, success, and error interactions stay unchanged.
 
+When a local Codex registration exists, each active unassigned Project card
+offers an explicit “Assign Codex” action. A successful assignment shows
+“Codex configured; recheck required” rather than an available/executable
+claim. The action disables while the catalog is busy; errors are generic.
+An existing different default Agent is shown as configured and is not offered
+implicit replacement. No navigation
+or card layout outside this additional action and status changes.
+
 TASK-733 integration contract: Project Center presents an “Add Project”
 button before the existing card list. While the system folder picker or
 registration is active the button is disabled; a cancelled picker leaves the

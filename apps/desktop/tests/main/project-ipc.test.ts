@@ -11,6 +11,73 @@ import { routeIpc } from '../../src/main/ipc-router.js';
 import { createFoundationDatabase } from '../../../../packages/persistence/src/sqlite/database.js';
 import { SqliteFoundationRepository } from '../../../../packages/persistence/src/repositories/foundation-repository.js';
 import { SqliteProjectRepository } from '../../../../packages/persistence/src/repositories/project-repository.js';
+import { LocalCodexRegistration } from '../../src/main/local-codex-registration.js';
+
+test('explicit Project assignment is scoped, idempotent and persists without executing work', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'sa-project-assignment-'));
+  const directory = join(root, 'project');
+  const executable = join(root, 'codex.exe');
+  const databasePath = join(root, 'platform.sqlite');
+  let db = createFoundationDatabase(databasePath);
+  try {
+    mkdirSync(directory); writeFileSync(executable, 'fake executable; never launched');
+    new LocalCodexRegistration(db).save(executable, '0.121.0');
+    const catalog = new LocalProjectCatalog(db, async () => directory);
+    const created = await catalog.choose();
+    const projectId = created.projects[0]!.id;
+    const assign = Reflect.get(catalog, 'assignCodex');
+    expect(typeof assign).toBe('function');
+    expect(db.prepare('SELECT default_agent_id, snapshot_version, row_version FROM projects WHERE project_id = ?').get(projectId)).toEqual({ default_agent_id: null, snapshot_version: 1, row_version: 1 });
+    const first = await assign.call(catalog, projectId);
+    expect(first.status).toBe('ASSIGNED');
+    expect(first.projects).toContainEqual(expect.objectContaining({ id: projectId, codexAssigned: true }));
+    const after = db.prepare('SELECT default_agent_id, snapshot_version, row_version FROM projects WHERE project_id = ?').get(projectId);
+    expect(after).toMatchObject({ default_agent_id: expect.any(String), snapshot_version: 2, row_version: 2 });
+    expect((await assign.call(catalog, projectId)).status).toBe('ASSIGNED');
+    expect(db.prepare('SELECT default_agent_id, snapshot_version, row_version FROM projects WHERE project_id = ?').get(projectId)).toEqual(after);
+    expect(db.prepare('SELECT COUNT(*) AS count FROM tasks').get()).toEqual({ count: 0 });
+    expect(db.prepare('SELECT COUNT(*) AS count FROM authorization_grants').get()).toEqual({ count: 0 });
+    db.close(); db = createFoundationDatabase(databasePath);
+    expect(new LocalProjectCatalog(db, async () => null).list()).toContainEqual(expect.objectContaining({ id: projectId, codexAssigned: true }));
+    const other = new SqliteFoundationRepository(db).createWorkspace({ ownerId: 'other-owner', name: 'Other' });
+    const foreign = new SqliteFoundationRepository(db).createProject({ workspaceId: other.workspaceId, name: 'Foreign', canonicalPath: join(root, 'foreign') });
+    db.prepare("UPDATE projects SET status = 'ACTIVE' WHERE project_id = ?").run(foreign.projectId);
+    const reopened = new LocalProjectCatalog(db, async () => null);
+    expect((await Reflect.get(reopened, 'assignCodex').call(reopened, foreign.projectId)).status).toBe('ERROR');
+    expect(db.prepare('SELECT default_agent_id, snapshot_version FROM projects WHERE project_id = ?').get(foreign.projectId)).toEqual({ default_agent_id: null, snapshot_version: 1 });
+  } finally { if (db.open) db.close(); rmSync(root, { recursive: true, force: true }); }
+}, 30_000);
+
+test('assignment rejects missing, inactive, conflicting and locked authority without mutation', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'sa-project-assignment-negative-'));
+  const executable = join(root, 'codex.exe');
+  const db = createFoundationDatabase(':memory:');
+  try {
+    writeFileSync(executable, 'fake executable; never launched');
+    const foundation = new SqliteFoundationRepository(db);
+    const workspace = foundation.createWorkspace({ ownerId: 'local-owner', name: 'Local' });
+    const project = foundation.createProject({ workspaceId: workspace.workspaceId, name: 'P', canonicalPath: join(root, 'project') });
+    db.prepare("UPDATE projects SET status = 'ACTIVE' WHERE project_id = ?").run(project.projectId);
+    const catalog = new LocalProjectCatalog(db, async () => null);
+    const assign = Reflect.get(catalog, 'assignCodex');
+    expect((await assign.call(catalog, project.projectId)).status).toBe('ERROR');
+    new LocalCodexRegistration(db).save(executable, '0.121.0');
+    db.prepare("UPDATE agents SET connection = 'DISABLED' WHERE name = 'Codex'").run();
+    expect((await assign.call(catalog, project.projectId)).status).toBe('ERROR');
+    db.prepare("UPDATE agents SET connection = 'UNAVAILABLE' WHERE name = 'Codex'").run();
+    db.prepare("UPDATE projects SET status = 'PAUSED' WHERE project_id = ?").run(project.projectId);
+    expect((await assign.call(catalog, project.projectId)).status).toBe('ERROR');
+    const other = foundation.createAgent({ workspaceId: workspace.workspaceId, name: 'Other', connection: 'UNAVAILABLE', availability: 'PAUSED' });
+    db.prepare("UPDATE projects SET status = 'ACTIVE', default_agent_id = ? WHERE project_id = ?").run(other.agentId, project.projectId);
+    expect((await assign.call(catalog, project.projectId)).status).toBe('ERROR');
+    expect(db.prepare('SELECT default_agent_id, snapshot_version FROM projects WHERE project_id = ?').get(project.projectId)).toEqual({ default_agent_id: other.agentId, snapshot_version: 1 });
+    db.prepare('UPDATE projects SET default_agent_id = NULL WHERE project_id = ?').run(project.projectId);
+    db.prepare("UPDATE workspaces SET status = 'LOCKED' WHERE workspace_id = ?").run(workspace.workspaceId);
+    expect((await assign.call(catalog, project.projectId)).status).toBe('ERROR');
+    expect(db.prepare('SELECT default_agent_id, snapshot_version FROM projects WHERE project_id = ?').get(project.projectId)).toEqual({ default_agent_id: null, snapshot_version: 1 });
+    expect(db.prepare('SELECT COUNT(*) AS count FROM workspaces').get()).toEqual({ count: 1 });
+  } finally { db.close(); rmSync(root, { recursive: true, force: true }); }
+});
 
 test('discovers safe Git metadata, retains non-Git Projects and persists both after restart', async () => {
   const root = mkdtempSync(join(tmpdir(), 'sa-project-metadata-'));
