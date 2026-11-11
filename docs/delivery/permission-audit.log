@@ -6335,4 +6335,70 @@
   "status": "COMMITTED",
   "artifact_metadata": { "sha256": "55d53e327269e7e3945c3b416cf472d3539494039b5e514c74800174bfbbfec8" }
 }
+,
+{
+  "tx_id": "task-773-plan-pack-001",
+  "timestamp": "2026-11-11T02:32:57.718Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "docs/delivery/tasks/TASK-773.md",
+  "prev_hash": "0e992b7569678ea7d821159b4e757458ee1df2c588ea3eb794f4edeed02454fc",
+  "intent_hash": "1c06ea0983770ec783c511571e5b0778e9bd85c3a0779b8d65a4695ba68ca667",
+  "status": "COMMITTED",
+  "artifact_metadata": { "sha256": "7e06f330a3b9ffc356c15c1022b86e3ff31e3592b3353ca11158f55824a3939e" }
+}
+,
+{
+  "tx_id": "task-773-doc-contract-001",
+  "timestamp": "2026-11-11T02:33:09.666Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "docs/orchestration.md",
+  "prev_hash": "1c06ea0983770ec783c511571e5b0778e9bd85c3a0779b8d65a4695ba68ca667",
+  "intent_hash": "9fb435ed85fd6c8c2c093a59dfe337c5eff2f49df3321e75e8635897f512318f",
+  "status": "COMMITTED",
+  "artifact_metadata": { "sha256": "079960debb358353ee0205fc72b085cd20ce75f26c8ecd9a0311c416ad5da15c" }
+}
+,
+{
+  "tx_id": "task-773-red-direct-001",
+  "timestamp": "2026-11-11T02:33:24.700Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "apps/desktop/tests/main/orchestrator.test.ts",
+  "prev_hash": "9fb435ed85fd6c8c2c093a59dfe337c5eff2f49df3321e75e8635897f512318f",
+  "intent_hash": "4a02c4dbb617a32537764cf6fccf199a5aeccd7939db4ad98e81664877efd822",
+  "status": "COMMITTED",
+  "artifact_metadata": { "sha256": "0f753d2872f0bc6d8f70daf0088e94d2cc24110623d9c5f2be5519bc3cc2e74f" }
+}
+,
+{
+  "tx_id": "task-773-close-bypass-001",
+  "timestamp": "2026-11-11T02:33:51.316Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "apps/desktop/src/main/orchestrator.ts",
+  "prev_hash": "4a02c4dbb617a32537764cf6fccf199a5aeccd7939db4ad98e81664877efd822",
+  "intent_hash": "7a62cd87aa16eeddb13338b020133682ade26f203ee17feaa45eb99fb2cfccff",
+  "status": "COMMITTED",
+  "artifact_metadata": { "sha256": "d2be9597a96994e8be1c3613b788646cd862dcf4b62de726c83882121e95b269" }
+}
+,
+{
+  "tx_id": "task-773-ci-anchor-001",
+  "timestamp": "2026-11-11T02:34:01.879Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": ".github/workflows/docs-gates.yml",
+  "prev_hash": "7a62cd87aa16eeddb13338b020133682ade26f203ee17feaa45eb99fb2cfccff",
+  "intent_hash": "8c947e22e01bd3a0dc595110179ba8b2f7e7fc42201bf3cff5533b2aa184e0fb",
+  "status": "COMMITTED",
+  "artifact_metadata": { "sha256": "0db2e59feecd0ad28b8c1d4a3b4d2845888842ace68ba4a326f3441fed16afaf" }
+}
+,
+{
+  "tx_id": "task-773-report-001",
+  "timestamp": "2026-11-11T02:38:38.870Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "docs/verification/reports/phase-007-task-773.md",
+  "prev_hash": "8c947e22e01bd3a0dc595110179ba8b2f7e7fc42201bf3cff5533b2aa184e0fb",
+  "intent_hash": "791d835249b32bfd9f47cb2c52e5df84d4b450f438b4e9d6671f9370e90e7876",
+  "status": "COMMITTED",
+  "artifact_metadata": { "sha256": "4531ed9f4ab49d9f9f488c354d00aefc48e1939f1688bcdba1ef56bac9ee3fe0" }
+}
 ]

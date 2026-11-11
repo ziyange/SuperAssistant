@@ -16,6 +16,9 @@ the claim uncertain and never calls the Adapter or acknowledges it. This is
 only a fail-closed interface boundary: an injected guard is not proof of live
 Grant, snapshot, lease, ownership or per-write fencing checks. Production
 dispatch remains disabled until those independent controls are implemented.
+The legacy ExecutionOrchestrator direct-dispatch entry point is disabled for
+all states: it must never create execution state or call an Adapter outside
+the durable guarded Outbox path. This does not enable the Outbox in production.
 
 Grant issuance rejects invalid or read-only action scopes; new Attempt
 creation verifies the persisted Proposal digest and exact Grant action scope

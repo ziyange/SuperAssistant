@@ -28,12 +28,11 @@ test.each(['false', 'throw', 'resume', 'non-boolean'])('a rejected %s guard quar
   expect(calls).toEqual(['uncertain:message-1:token-1']);
 });
 
-test('creates durable execution before invoking the adapter and refuses unknown redispatch', async () => {
+test.each(['CREATED', 'RUNNING', 'UNKNOWN', 'RECONCILING'])('legacy direct dispatch is disabled for %s without side effects', async (state) => {
   const calls: string[] = [];
   const orchestrator = new ExecutionOrchestrator({ create: () => { calls.push('durable'); return { state: 'DISPATCH_PENDING' }; } }, { start: async () => { calls.push('adapter'); } });
-  await orchestrator.dispatch({ attemptId: 'attempt-1', state: 'CREATED' });
-  expect(calls).toEqual(['durable', 'adapter']);
-  await expect(orchestrator.dispatch({ attemptId: 'attempt-1', state: 'UNKNOWN' })).rejects.toThrow('RECONCILIATION_REQUIRED');
+  await expect(orchestrator.dispatch({ attemptId: 'attempt-1', state })).rejects.toThrow('DIRECT_DISPATCH_DISABLED');
+  expect(calls).toEqual([]);
 });
 
 test('dispatches only a claimed durable start message and acknowledges it after adapter acceptance', async () => {

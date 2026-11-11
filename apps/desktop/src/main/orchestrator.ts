@@ -1,8 +1,7 @@
-/* eslint-disable no-unused-vars -- constructor parameter properties are runtime dependencies. */
+/* eslint-disable no-unused-vars -- legacy signatures remain temporarily for compatibility. */
 export class ExecutionOrchestrator {
-  constructor(private readonly repository: { create(): { state: string } }, private readonly adapter: { start(): Promise<void> }) {}
-  async dispatch(attempt: { attemptId: string; state: string }): Promise<void> {
-    if (attempt.state === 'UNKNOWN' || attempt.state === 'RECONCILING') throw new Error('RECONCILIATION_REQUIRED');
-    this.repository.create(); await this.adapter.start();
+  constructor(_repository: { create(): { state: string } }, _adapter: { start(): Promise<void> }) {}
+  async dispatch(_attempt: { attemptId: string; state: string }): Promise<void> {
+    throw new Error('DIRECT_DISPATCH_DISABLED');
   }
 }
