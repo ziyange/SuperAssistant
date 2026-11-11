@@ -26,7 +26,7 @@ class RuntimeInputsTests(unittest.TestCase):
                 records.append({'tx_id': tx, 'timestamp': '2026-11-04T00:00:00Z', 'action_type': 'FILE_WRITE', 'normalized_path': path, 'prev_hash': prev, 'intent_hash': digest, 'status': 'COMMITTED'})
                 results.append({'tx_id': tx, 'iteration_index': 1, 'timestamp': '2026-11-04T00:00:00Z', 'action_type': 'FILE_WRITE', 'normalized_path': path, 'intent_hash': digest, 'result_status': 'COMPLETED', 'ignored_candidates': []})
             append('old-task', 'old-only.txt')
-            append('task-721-start', 'docs/delivery/tasks/task-721.md')
+            append('task-721-start', 'docs/delivery/tasks/TASK-721.md')
             append('ordinary-operation', 'allowed.txt')
             def run(anchor='task-721-start'):
                 audit.write_text(json.dumps(records), encoding='utf-8')
@@ -39,7 +39,7 @@ class RuntimeInputsTests(unittest.TestCase):
             anchor_result = results.pop(1)
             self.assertEqual(run().returncode, 3, 'task anchor requires matching result')
             results.insert(1, anchor_result)
-            append('task-721-later-anchor', 'docs/delivery/tasks/task-721.md')
+            append('task-721-later-anchor', 'docs/delivery/tasks/TASK-721.md')
             self.assertEqual(run('task-721-later-anchor').returncode, 3, 'a later pack write cannot hide intervening operations')
             append('unrelated-name', 'forbidden.txt')
             failed = run()

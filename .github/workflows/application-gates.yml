@@ -18,7 +18,7 @@ concurrency:
 jobs:
   windows-application:
     name: Windows build and deterministic tests
-    runs-on: windows-latest
+    runs-on: windows-2022
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v6
@@ -30,6 +30,8 @@ jobs:
         with:
           python-version: '3.11'
       - name: Install locked dependencies
+        env:
+          npm_config_python: ${{ env.pythonLocation }}\python.exe
         run: npm ci
       - name: Build application
         run: npm run build

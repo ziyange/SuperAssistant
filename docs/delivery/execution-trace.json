@@ -6992,4 +6992,76 @@
   "ignored_candidates": [],
   "artifact_metadata": { "sha256": "09cd19ebb42f3d4e5516b942fdb0ffb6cf12c3540a2aa9d455b619d888455d35" }
 }
+,
+{
+  "tx_id": "task-769-plan-pack-001",
+  "iteration_index": 1,
+  "timestamp": "2026-11-10T15:39:15.981Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "docs/delivery/tasks/TASK-769.md",
+  "intent_hash": "218d99e0655a1218322da62b150f8f9afbec4c995b43655e1ede57ffae645a3a",
+  "result_status": "COMPLETED",
+  "ignored_candidates": [],
+  "artifact_metadata": { "sha256": "3194266d6c52176d223b460fc9aa035b509c427f71e4182f1f58b5da8819f7cf" }
+}
+,
+{
+  "tx_id": "task-769-fix-fixture-001",
+  "iteration_index": 1,
+  "timestamp": "2026-11-10T15:39:32.641Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "tests/test_verify_runtime_trace.py",
+  "intent_hash": "f43ec36c96c8268b07a9ccac0adb28f51016108595354bd2e3f458a8b1f1c964",
+  "result_status": "COMPLETED",
+  "ignored_candidates": [],
+  "artifact_metadata": { "sha256": "84b9cd751204eda174bd917aaacb2334aee47ae2dc2da6b71dd5339609da1ad9" }
+}
+,
+{
+  "tx_id": "task-769-ci-anchor-001",
+  "iteration_index": 1,
+  "timestamp": "2026-11-10T15:39:38.763Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": ".github/workflows/docs-gates.yml",
+  "intent_hash": "5ba247aecfa32e68ca2f1c0b6c3f329547213f85b9ddc396c7754e6038a707db",
+  "result_status": "COMPLETED",
+  "ignored_candidates": [],
+  "artifact_metadata": { "sha256": "1730d50f12eff4e136a40113ac49540b4a3577e7848a7cbca7c74e01eeec828b" }
+}
+,
+{
+  "tx_id": "task-769-expand-ci-001",
+  "iteration_index": 1,
+  "timestamp": "2026-11-10T15:41:00.783Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "docs/delivery/tasks/TASK-769.md",
+  "intent_hash": "a914e9357c73891bedffd92ff99add53dc469f68dfbadaf9f09779afe1e6de0f",
+  "result_status": "COMPLETED",
+  "ignored_candidates": [],
+  "artifact_metadata": { "sha256": "b29ff8928dd1c298a8b80280c6bf9a14eb38797677182a1c4933ea2aa7844aa7" }
+}
+,
+{
+  "tx_id": "task-769-fix-win-runner-001",
+  "iteration_index": 1,
+  "timestamp": "2026-11-10T15:41:06.837Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": ".github/workflows/application-gates.yml",
+  "intent_hash": "c136c5ab2dad2c222161e0ac4f01bef5ed547eaa5a70d0c27d71429bc524931a",
+  "result_status": "COMPLETED",
+  "ignored_candidates": [],
+  "artifact_metadata": { "sha256": "b8d4f8c49db2c3c4061cea98e4a0cddc884fd22dc55222d517e24326b518c4b2" }
+}
+,
+{
+  "tx_id": "task-769-report-001",
+  "iteration_index": 1,
+  "timestamp": "2026-11-11T01:25:27.853Z",
+  "action_type": "FILE_WRITE",
+  "normalized_path": "docs/verification/reports/phase-007-task-769.md",
+  "intent_hash": "2a924805d5819df65f50304705c5ced718d8f09546b3ea36ace0ea3acc6dfbb0",
+  "result_status": "COMPLETED",
+  "ignored_candidates": [],
+  "artifact_metadata": { "sha256": "528b5561c3a25f86dc2478cad3827fc1b2a48c9c00f49d95d54bae489473aefa" }
+}
 ]
