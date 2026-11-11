@@ -13,6 +13,7 @@ test('suppresses notifications during quiet hours unless Emergency bypass is exp
 
 test('suppresses uncertain authorization and aggregates matching notifications', () => {
   expect(decideNotificationDelivery({ workspaceId: 'workspace-1', principal: 'user-1', authorized: false, priority: 'NORMAL', hour: 12 })).toEqual({ deliver: false, reason: 'AUTHORIZATION_DENIED' });
+  expect(decideNotificationDelivery({ workspaceId: 'workspace-1', principal: 'user-1', authorized: 'false' as unknown as boolean, priority: 'NORMAL', hour: 12 })).toEqual({ deliver: false, reason: 'AUTHORIZATION_DENIED' });
   expect(decideNotificationDelivery({ workspaceId: 'workspace-1', principal: 'user-1', authorized: true, priority: 'NORMAL', hour: 12, aggregateKey: 'task-1', pendingAggregateCount: 3 })).toEqual({ deliver: true, aggregateCount: 4 });
 });
 
@@ -43,6 +44,9 @@ test('deep links resolve the authorized reference rather than a caller-selected 
   expect(await resolveNotificationDeepLink({ ...input, targetRef: 'target:opaque trailing' }, ports)).toBeUndefined();
   expect(calls).toEqual([]);
   expect(await resolveNotificationDeepLink(input, { ...ports, async authorize() { throw new Error('offline'); } })).toBeUndefined();
+  calls.length = 0;
+  expect(await resolveNotificationDeepLink(input, { ...ports, async authorize() { return 'false' as unknown as boolean; } })).toBeUndefined();
+  expect(calls).toEqual([]);
   expect(await resolveNotificationDeepLink(input, { ...ports, async resolve() { throw new Error('offline'); } })).toBeUndefined();
   expect(await resolveNotificationDeepLink(input, { ...ports, async resolve() { return undefined; } })).toBeUndefined();
 });

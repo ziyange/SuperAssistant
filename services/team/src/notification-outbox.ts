@@ -31,7 +31,7 @@ export class NotificationOutbox {
   async deliverClaim(claim: NotificationOutboxRow, ports: NotificationDeliveryPorts): Promise<'DENIED' | 'NOT_STARTED' | 'UNKNOWN' | 'DELIVERED'> {
     if (!hasValidNotificationScope(claim) || !isValidNotificationTargetRef(claim.targetRef) || !Number.isSafeInteger(claim.attempts) || claim.attempts <= 0) return 'DENIED';
     try {
-      if (!await ports.authorize(claim.workspaceId, claim.principal, claim.targetRef)) return 'DENIED';
+      if (await ports.authorize(claim.workspaceId, claim.principal, claim.targetRef) !== true) return 'DENIED';
       if (!await this.beginDelivery(claim)) return 'NOT_STARTED';
       await ports.deliver(claim.idempotencyKey);
       return await this.acknowledge(claim) ? 'DELIVERED' : 'UNKNOWN';

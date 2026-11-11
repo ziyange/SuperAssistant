@@ -223,6 +223,8 @@ evidence and never mutates prior audit history.
 For Team notification navigation, the server first reauthorizes the exact
 opaque target reference against the current principal and Workspace, and only
 then asks an authoritative resolver for the corresponding Task or Decision.
+Notification policy, delivery and navigation treat only literal boolean true
+as authorization; malformed truthy responses deny before sending or resolving.
 Any optional caller-supplied object identity is only a consistency assertion:
 if it differs from the resolved identity, no target is returned. Missing,
 malformed, unavailable or cross-Workspace references fail closed. The resolver

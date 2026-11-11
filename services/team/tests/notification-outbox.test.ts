@@ -1,4 +1,16 @@
 import { expect, test } from 'vitest'; import { NotificationOutbox } from '../src/notification-outbox.js';
+test('malformed truthy authorization cannot begin or deliver a claimed notification', async () => {
+  const calls: string[] = [];
+  const claim = { idempotencyKey: 'key', workspaceId: 'w', principal: 'p', priority: 'NORMAL' as const, targetRef: 'target:t', attempts: 1 };
+  const outbox = new NotificationOutbox({
+    async insert() { return true; }, async claim() { return [claim]; },
+    async beginDelivery() { calls.push('begin'); return true; },
+    async markDelivered() { calls.push('ack'); return true; }
+  });
+  const result = await outbox.deliverClaim(claim, { async authorize() { return 'false' as unknown as boolean; }, async deliver() { calls.push('send'); } });
+  expect(result).toBe('DENIED');
+  expect(calls).toEqual([]);
+});
 test('uses idempotency key and bounded claim size', async () => { let rows = 0; const outbox = new NotificationOutbox({ async insert() { rows += 1; return rows === 1; }, async claim(limit) { return Array.from({ length: limit }, (_, index) => ({ idempotencyKey: String(index), workspaceId: 'w', principal: 'p', priority: 'NORMAL' as const, targetRef: 'target:t', attempts: 0 })); }, async beginDelivery() { return false; }, async markDelivered() { return false; } }); expect(await outbox.enqueue({ idempotencyKey: 'a', workspaceId: 'w', principal: 'p', priority: 'NORMAL', targetRef: 'target:t', attempts: 9 })).toBe(true); expect((await outbox.claim(99))).toHaveLength(20); });
 
 test('rejects stale delivery acknowledgements and passes the claim generation to durable storage', async () => {

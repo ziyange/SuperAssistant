@@ -7,7 +7,7 @@ function withinQuietHours(hour: number, quietHours: QuietHours): boolean {
   return quietHours.startHour < quietHours.endHour ? hour >= quietHours.startHour && hour < quietHours.endHour : hour >= quietHours.startHour || hour < quietHours.endHour;
 }
 export function decideNotificationDelivery(input: Readonly<{ workspaceId: string; principal: string; authorized: boolean; priority: 'NORMAL' | 'EMERGENCY'; hour: number; quietHours?: QuietHours; emergencyBypassAllowed?: boolean; aggregateKey?: string; pendingAggregateCount?: number }>): Readonly<{ deliver: boolean; reason?: 'AUTHORIZATION_DENIED' | 'QUIET_HOURS'; audit?: 'EMERGENCY_BYPASS'; aggregateCount?: number }> {
-  if (!input.authorized) return { deliver: false, reason: 'AUTHORIZATION_DENIED' };
+  if (input.authorized !== true) return { deliver: false, reason: 'AUTHORIZATION_DENIED' };
   const scopedQuiet = input.quietHours !== undefined && input.quietHours.workspaceId === input.workspaceId && input.quietHours.principal === input.principal && withinQuietHours(input.hour, input.quietHours);
   if (scopedQuiet && input.priority === 'EMERGENCY' && input.emergencyBypassAllowed === true) return { deliver: true, audit: 'EMERGENCY_BYPASS' };
   if (scopedQuiet) return { deliver: false, reason: 'QUIET_HOURS' };
@@ -28,7 +28,7 @@ export async function resolveNotificationDeepLink(input: Readonly<{
 }>): Promise<NotificationDeepLink | undefined> {
   if (!input.workspaceId || !input.principal || !isValidNotificationTargetRef(input.targetRef)) return undefined;
   try {
-    if (!await ports.authorize(input.workspaceId, input.principal, input.targetRef)) return undefined;
+    if (await ports.authorize(input.workspaceId, input.principal, input.targetRef) !== true) return undefined;
     const target = await ports.resolve(input.workspaceId, input.targetRef);
     if (target === undefined || (target.kind !== 'TASK' && target.kind !== 'DECISION') || !target.id) return undefined;
     if (input.requested !== undefined && (input.requested.kind !== target.kind || input.requested.id !== target.id)) return undefined;
