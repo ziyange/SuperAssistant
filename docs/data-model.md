@@ -184,6 +184,15 @@ be nonempty; action values are the existing GoalAction enum and at least one
 allowed action must be side-effecting. Allowed and forbidden sets cannot
 overlap. Unknown fields and whitespace-only strings fail.
 
+TASK-781 additionally requires `createdAt`, `expiresAt` and `deadlineAt`
+as valid canonical UTC timestamps with millisecond precision. Expiry and
+deadline must each be later than creation. A required strict `budget` object
+contains positive safe-integer `maxDurationMs`, nullable nonnegative
+safe-integer `maxTokens`, and nullable `maxCost` with nonnegative safe-integer
+`minorUnits` and a three-uppercase-letter `currency` code. Null means no
+limit was supplied; it does not authorize unlimited consumption. Currency
+syntax alone does not establish a real currency or an enforceable budget.
+
 This shape is not a persisted ProposalVersion, digest, Grant or approval.
 Parsing does not establish entity existence, capability availability, resource
 containment or a measurable outcome. The existing persisted ProposalVersion

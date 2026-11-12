@@ -56,10 +56,11 @@ the data model and returns a detached copy. It neither loads authoritative
 Workspace, Project, Agent, Function, capability or resource facts nor creates
 an approvable Proposal. A successful parse must not activate any confirmation
 or execution path. Entity verification, canonical persistence, policy scope
-and human review remain separate required integration work. Explicit budgets,
-deadlines and validity windows are not yet represented by this parser; their
-absence must block presentation and confirmation until a later contract adds
-and validates them.
+and human review remain separate required integration work. TASK-781 adds
+structural fields for budget, deadline and validity window. Parsing does not
+compare against a trusted current clock, verify currency or enforce limits;
+those checks must block presentation, confirmation and execution until
+implemented through trusted policy and runtime boundaries.
 
 Before presentation, deterministic code verifies:
 

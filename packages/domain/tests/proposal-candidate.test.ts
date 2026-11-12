@@ -6,6 +6,8 @@ function candidate() {
     objective: 'Update the report',
     workspaceId: 'workspace-1', projectId: 'project-1', agentId: 'agent-1', functionId: 'function-1',
     projectSnapshotVersion: '1', agentVersion: '1', functionVersion: '1', capabilityVersion: '1', baselineCommit: 'abc123',
+    createdAt: '2026-08-13T00:00:00.000Z', expiresAt: '2026-08-13T01:00:00.000Z', deadlineAt: '2026-08-13T02:00:00.000Z',
+    budget: { maxDurationMs: 60000, maxTokens: 1000, maxCost: { minorUnits: 100, currency: 'USD' } },
     capabilities: [{ id: 'editing', version: '1' }],
     workItems: [{ id: 'work-1', projectId: 'project-1', agentId: 'agent-1', functionId: 'function-1', objective: 'Write the report', required: true, dependencies: [] }],
     resources: [{ key: 'project:project-1/report.md', intent: 'WRITE' }],
@@ -21,15 +23,41 @@ describe('H1 Proposal candidate structural boundary', () => {
     const parsed = parseH1ProposalCandidate(input);
     input.resources[0]!.key = 'changed';
     input.acceptanceCriteria[0]!.criterion = 'changed';
+    input.budget.maxCost.minorUnits = 900;
     expect(parsed.resources[0]!.key).toBe('project:project-1/report.md');
     expect(parsed.acceptanceCriteria[0]!.criterion).toBe('Report contains all sections');
+    expect(parsed.budget.maxCost!.minorUnits).toBe(100);
     expect(parsed.workItems[0]!.required).toBe(true);
   });
 
-  test.each(['objective', 'workspaceId', 'projectId', 'agentId', 'functionId', 'projectSnapshotVersion', 'agentVersion', 'functionVersion', 'capabilityVersion', 'baselineCommit', 'capabilities', 'workItems', 'resources', 'allowedActions', 'forbiddenActions', 'reconfirmationTriggers', 'risk', 'acceptanceCriteria'])('rejects absent required field %s', (field) => {
+  test.each(['objective', 'workspaceId', 'projectId', 'agentId', 'functionId', 'projectSnapshotVersion', 'agentVersion', 'functionVersion', 'capabilityVersion', 'baselineCommit', 'createdAt', 'expiresAt', 'deadlineAt', 'budget', 'capabilities', 'workItems', 'resources', 'allowedActions', 'forbiddenActions', 'reconfirmationTriggers', 'risk', 'acceptanceCriteria'])('rejects absent required field %s', (field) => {
     const input = candidate() as Record<string, unknown>;
     delete input[field];
     expect(() => parseH1ProposalCandidate(input)).toThrow();
+  });
+
+  test('rejects invalid timestamps and non-increasing temporal bounds', () => {
+    const input = candidate();
+    for (const value of ['not-a-time', '2026-02-30T00:00:00.000Z', '2026-08-13T00:00:00Z', '2026-08-13T00:00:00.000+00:00']) {
+      expect(() => parseH1ProposalCandidate({ ...input, createdAt: value })).toThrow();
+    }
+    expect(() => parseH1ProposalCandidate({ ...input, expiresAt: input.createdAt })).toThrow();
+    expect(() => parseH1ProposalCandidate({ ...input, deadlineAt: input.createdAt })).toThrow();
+  });
+
+  test('rejects missing, negative, fractional, unsafe and malformed budget limits', () => {
+    const input = candidate();
+    for (const maxDurationMs of [0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1]) {
+      expect(() => parseH1ProposalCandidate({ ...input, budget: { ...input.budget, maxDurationMs } })).toThrow();
+    }
+    for (const maxTokens of [-1, 1.5, Number.MAX_SAFE_INTEGER + 1]) {
+      expect(() => parseH1ProposalCandidate({ ...input, budget: { ...input.budget, maxTokens } })).toThrow();
+    }
+    expect(() => parseH1ProposalCandidate({ ...input, budget: { maxDurationMs: 1, maxCost: null } })).toThrow();
+    expect(() => parseH1ProposalCandidate({ ...input, budget: { ...input.budget, extra: true } })).toThrow();
+    expect(() => parseH1ProposalCandidate({ ...input, budget: { ...input.budget, maxCost: { minorUnits: -1, currency: 'USD' } } })).toThrow();
+    expect(() => parseH1ProposalCandidate({ ...input, budget: { ...input.budget, maxCost: { minorUnits: 1, currency: 'usd' } } })).toThrow();
+    expect(parseH1ProposalCandidate({ ...input, budget: { maxDurationMs: 1, maxTokens: null, maxCost: null } }).budget.maxCost).toBeNull();
   });
 
   test('rejects extra fields, whitespace identity and malformed nested values', () => {
