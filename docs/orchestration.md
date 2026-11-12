@@ -51,6 +51,16 @@ SQLite transactions update one aggregate and its local delivery records. Cross-P
 
 ### Candidate validation
 
+TASK-780's H1 candidate parser checks only the structural boundary defined in
+the data model and returns a detached copy. It neither loads authoritative
+Workspace, Project, Agent, Function, capability or resource facts nor creates
+an approvable Proposal. A successful parse must not activate any confirmation
+or execution path. Entity verification, canonical persistence, policy scope
+and human review remain separate required integration work. Explicit budgets,
+deadlines and validity windows are not yet represented by this parser; their
+absence must block presentation and confirmation until a later contract adds
+and validates them.
+
 Before presentation, deterministic code verifies:
 
 - referenced Workspace, Project, Agent, Function, Capability, and versions exist;

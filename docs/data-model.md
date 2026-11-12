@@ -167,6 +167,29 @@ Fields: `proposal_id`, monotonically increasing `proposal_version`, goal, refere
 
 Status is `DRAFT | AWAITING_CONFIRMATION | APPROVED | PREFLIGHTING | READY | INVALIDATED | REJECTED | EXPIRED`. Each version is immutable after presentation. Approval applies to one digest only.
 
+### H1 candidate structural boundary
+
+TASK-780 adds a separate, unpersisted H1 candidate shape. Its fields are
+`objective`, `workspaceId`, `projectId`, `agentId`, `functionId`,
+`projectSnapshotVersion`, `agentVersion`, `functionVersion`,
+`capabilityVersion`, `baselineCommit`, `capabilities`, `workItems`,
+`resources`, `allowedActions`, `forbiddenActions`,
+`reconfirmationTriggers`, `risk` and `acceptanceCriteria`. Capabilities
+carry nonempty `id` and `version`. Exactly one required WorkItem carries
+`id`, the same Project/Agent/Function IDs, `objective`, `required: true`,
+and empty `dependencies`. Resources carry `key` and `intent: READ | WRITE`;
+acceptance entries carry `criterion` and `evidence`. Risk is
+`LOW | MEDIUM | HIGH | CRITICAL`. Arrays other than forbidden actions must
+be nonempty; action values are the existing GoalAction enum and at least one
+allowed action must be side-effecting. Allowed and forbidden sets cannot
+overlap. Unknown fields and whitespace-only strings fail.
+
+This shape is not a persisted ProposalVersion, digest, Grant or approval.
+Parsing does not establish entity existence, capability availability, resource
+containment or a measurable outcome. The existing persisted ProposalVersion
+and historical digests remain unchanged. Later integration must perform those
+checks using trusted facts before any review, authorization or dispatch.
+
 ### PHASE-002 migration 003 Proposal and authorization slice
 
 `TASK-201` adds forward-only migration `003-proposal-authorization`.

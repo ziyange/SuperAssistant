@@ -26,6 +26,7 @@ export * from './ports/project-repository.js';
 export * from './ports/worktree-service.js';
 export * from './project.js';
 export * from './proposal.js';
+export * from './proposal-candidate.js';
 export * from './preflight.js';
 export * from './routing.js';
 export * from './question-router.js';
