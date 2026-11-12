@@ -3,6 +3,7 @@ import { copyFileSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import Database from 'better-sqlite3';
+import { Worker } from 'node:worker_threads';
 import { applyMigrations, foundationMigrations } from '../src/sqlite/migration-runner.js';
 import { createFoundationDatabase } from '../src/sqlite/database.js';
 
@@ -12,11 +13,77 @@ function pathFor(name: string): string { const folder = mkdtempSync(join(tmpdir(
 
 describe('migration runner', () => {
 
+  test('migration preserves existing confirmation keys in the alias table', () => {
+    const db = new Database(':memory:');
+    try {
+      applyMigrations(db, foundationMigrations.filter(migration => migration.version <= 21));
+      db.pragma('foreign_keys = OFF');
+      db.prepare("INSERT INTO authorization_grants VALUES ('g', 'proposal', 'sha256:abc', 'actor', 'key', '[]', 'CONSUMED', '2026', '2027')").run();
+      applyMigrations(db);
+      expect(db.prepare('SELECT actor_id, idempotency_key, grant_id FROM authorization_confirmation_keys').all()).toEqual([{ actor_id: 'actor', idempotency_key: 'key', grant_id: 'g' }]);
+    } finally { db.close(); }
+  });
+
+  test('concurrent connections cannot insert two issued grants for one actor and proposal', async () => {
+    const file = pathFor('concurrent-grants.sqlite');
+    const db = createFoundationDatabase(file);
+    db.close();
+    const gate = new SharedArrayBuffer(4);
+    const code = `
+      const { parentPort, workerData } = require('node:worker_threads');
+      const Database = require('better-sqlite3');
+      const db = new Database(workerData.file);
+      db.pragma('busy_timeout = 5000');
+      db.pragma('foreign_keys = OFF');
+      const gate = new Int32Array(workerData.gate);
+      if (Atomics.add(gate, 0, 1) === 0) Atomics.wait(gate, 0, 1, 5000);
+      else Atomics.notify(gate, 0, 1);
+      let result;
+      try {
+        db.prepare("INSERT INTO authorization_grants VALUES (?, 'proposal', 'sha256:abc', 'actor', ?, '[]', 'ISSUED', '2026', '2027')").run(workerData.id, workerData.id);
+        result = 'inserted';
+      } catch (error) { result = error.code; }
+      finally { db.close(); }
+      parentPort.postMessage(result);
+    `;
+    const run = (id: string) => new Promise<string>((resolve, reject) => {
+      const worker = new Worker(code, { eval: true, workerData: { file, id, gate } });
+      worker.once('message', resolve);
+      worker.once('error', reject);
+    });
+    const results = await Promise.all([run('g1'), run('g2')]);
+    expect(results.sort()).toEqual(['SQLITE_CONSTRAINT_UNIQUE', 'inserted']);
+    const check = new Database(file, { readonly: true });
+    try { expect(check.prepare('SELECT count(*) AS count FROM authorization_grants').get()).toEqual({ count: 1 }); }
+    finally { check.close(); }
+  });
+
+  test('duplicate legacy issued grants block migration and preserve both rows and backup', () => {
+    const file = pathFor('duplicate-grants.sqlite');
+    const legacy = new Database(file);
+    applyMigrations(legacy, foundationMigrations.filter(migration => migration.version <= 21));
+    legacy.pragma('foreign_keys = OFF');
+    const insert = legacy.prepare("INSERT INTO authorization_grants VALUES (?, 'proposal', 'sha256:abc', 'actor', ?, '[]', 'ISSUED', '2026', '2027')");
+    insert.run('g1', 'key1');
+    insert.run('g2', 'key2');
+    legacy.close();
+    expect(() => createFoundationDatabase(file)).toThrow();
+    const backups = readdirSync(dirname(file)).filter(name => name.startsWith('duplicate-grants.sqlite.pre-migration-') && name.endsWith('.sqlite'));
+    expect(backups).toHaveLength(1);
+    for (const target of [file, join(dirname(file), backups[0]!)]) {
+      const check = new Database(target, { readonly: true, fileMustExist: true });
+      try {
+        expect(check.prepare('SELECT count(*) AS count FROM authorization_grants').get()).toEqual({ count: 2 });
+        expect(check.prepare('SELECT max(version) AS version FROM schema_migrations').get()).toEqual({ version: 21 });
+      } finally { check.close(); }
+    }
+  });
+
   test('backs up a newly created disk database before its first migration', () => {
     const file = pathFor('fresh.sqlite');
     const opened = createFoundationDatabase(file);
     try {
-      expect(opened.prepare('SELECT max(version) AS version FROM schema_migrations').get()).toEqual({ version: 21 });
+      expect(opened.prepare('SELECT max(version) AS version FROM schema_migrations').get()).toEqual({ version: 22 });
       const backups = readdirSync(dirname(file)).filter(name => name.startsWith('fresh.sqlite.pre-migration-') && name.endsWith('.sqlite'));
       expect(backups).toHaveLength(1);
       const backup = new Database(join(dirname(file), backups[0]!), { readonly: true, fileMustExist: true });
@@ -36,7 +103,7 @@ describe('migration runner', () => {
     original.close();
     const upgraded = createFoundationDatabase(file);
     try {
-      expect(upgraded.prepare('SELECT max(version) AS version FROM schema_migrations').get()).toEqual({ version: 21 });
+      expect(upgraded.prepare('SELECT max(version) AS version FROM schema_migrations').get()).toEqual({ version: 22 });
       expect(upgraded.prepare("SELECT name FROM workspaces WHERE workspace_id = 'w'").get()).toEqual({ name: 'WAL' });
       const backups = readdirSync(dirname(file)).filter(name => name.startsWith('wal.sqlite.pre-migration-') && name.endsWith('.sqlite'));
       expect(backups).toHaveLength(1);
@@ -90,14 +157,14 @@ describe('migration runner', () => {
         expect(backup.prepare("SELECT name FROM workspaces WHERE workspace_id = 'w'").get()).toEqual({ name: 'Before' });
         expect(backup.prepare('SELECT max(version) AS version FROM schema_migrations').get()).toEqual({ version: 18 });
       } finally { backup.close(); }
-      expect(upgraded.prepare('SELECT max(version) AS version FROM schema_migrations').get()).toEqual({ version: 21 });
+      expect(upgraded.prepare('SELECT max(version) AS version FROM schema_migrations').get()).toEqual({ version: 22 });
       expect(upgraded.prepare("SELECT name FROM workspaces WHERE workspace_id = 'w'").get()).toEqual({ name: 'Before' });
     } finally { upgraded.close(); }
     const reopened = createFoundationDatabase(file);
     try {
       const backups = readdirSync(dirname(file)).filter(name => name.startsWith('existing.sqlite.pre-migration-') && name.endsWith('.sqlite'));
       expect(backups).toHaveLength(1);
-      expect(reopened.prepare('SELECT max(version) AS version FROM schema_migrations').get()).toEqual({ version: 21 });
+      expect(reopened.prepare('SELECT max(version) AS version FROM schema_migrations').get()).toEqual({ version: 22 });
     } finally { reopened.close(); }
   });
 
@@ -139,13 +206,13 @@ describe('migration runner', () => {
   });
   test('creates and repeats foundation migration without changing its version', () => {
     const db = new Database(pathFor('foundation.sqlite')); applyMigrations(db); applyMigrations(db);
-    expect(db.prepare('select version from schema_migrations').all()).toEqual(Array.from({ length: 21 }, (_, index) => ({ version: index + 1 })));
+    expect(db.prepare('select version from schema_migrations').all()).toEqual(Array.from({ length: 22 }, (_, index) => ({ version: index + 1 })));
     expect(db.prepare("select name from sqlite_master where type = 'table' and name = 'workspaces'").get()).toBeTruthy(); db.close();
   });
   test('rolls back a failed migration and leaves the prior schema usable', () => {
     const db = new Database(':memory:'); applyMigrations(db);
-    expect(() => applyMigrations(db, [{ version: 22, name: 'bad', sql: 'create table impossible (;' }])).toThrow();
-    expect(db.prepare('select version from schema_migrations').all()).toEqual(Array.from({ length: 21 }, (_, index) => ({ version: index + 1 })));
+    expect(() => applyMigrations(db, [{ version: 23, name: 'bad', sql: 'create table impossible (;' }])).toThrow();
+    expect(db.prepare('select version from schema_migrations').all()).toEqual(Array.from({ length: 22 }, (_, index) => ({ version: index + 1 })));
     expect(db.prepare('select count(*) as count from workspaces').get()).toEqual({ count: 0 }); db.close();
   });
 });

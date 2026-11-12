@@ -231,6 +231,17 @@ Stores `grant_id`, actor, ProposalVersion digest/identity, allowed actions and r
 
 Effective state is `ACTIVE | EXPIRED | REVOKED | CONSUMED`. Expiry and revocation prevent new dispatch but do not erase authority evidence for an already recorded side effect. A single-use Grant becomes `CONSUMED` when its first covered ExecutionAttempt is atomically created.
 
+TASK-779 enforces at most one `ISSUED` Grant for each actor and immutable
+ProposalVersion with a SQLite partial unique index. Distinct confirmation
+keys for that same authority resolve to the existing issued Grant; conflicting
+reuse of a key remains rejected. The transaction persists every accepted key
+in `authorization_confirmation_keys`, including alternate keys, and the
+migration backfills original keys. Consumed, revoked and explicitly expired
+records remain immutable history and permit a separately authorized new Grant.
+An expired but still ISSUED record blocks replacement until a lifecycle
+operation changes its state. Migration fails without modifying duplicate
+historic grants and the existing pre-migration backup remains available.
+
 ### ExecutionAttempt
 
 Stores `attempt_id`, WorkItem, ordinal, `request_id`, `idempotency_key`, adapter correlation reference, pinned snapshots, state, last contiguous event sequence, result/error, start/end times, and reconciliation evidence.

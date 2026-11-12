@@ -30,6 +30,11 @@ unproven and block real dispatcher integration.
 
 ### Grant action-scope binding
 
+An issued Grant is unique per actor and ProposalVersion even when a caller
+changes the idempotency key. Database enforcement is mandatory; existing
+duplicate issued grants block migration without deleting evidence. Terminal
+Grant history does not prevent a separately authorized retry.
+
 Read-only or malformed action lists cannot issue an execution Grant. Before
 creating a new Attempt, the transaction recomputes the persisted Proposal
 digest and validates that its nonempty side-effecting actions exactly match
