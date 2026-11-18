@@ -70,6 +70,12 @@ persisted versions and Project snapshot. Even a match returns only
 current Git baseline, capabilities, resource containment, clock, policy or
 authorization; it is not atomic with later Grant or Attempt creation.
 
+TASK-783 persists only non-authoritative H1 candidate drafts after catalog
+comparison within the draft write transaction. Draft checksum verification
+protects stored bytes but neither proves live state nor authorizes actions.
+Secret-bearing inputs must not be stored. No confirmation or execution entry
+point is enabled by draft persistence.
+
 Before presentation, deterministic code verifies:
 
 - referenced Workspace, Project, Agent, Function, Capability, and versions exist;

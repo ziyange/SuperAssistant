@@ -201,6 +201,14 @@ checks using trusted facts before any review, authorization or dispatch.
 
 ### PHASE-002 migration 003 Proposal and authorization slice
 
+TASK-783 adds a separate immutable local candidate-draft table. A generated
+draft ID, local Workspace/Project references, JSON payload, and SHA-256 checksum
+of its exact stored bytes are persisted after the local catalog check in one
+transaction. This checksum is not an RFC 8785 authorization digest. Retrieval
+requires the active unique local Workspace and validates checksum and schema.
+No draft is an approved ProposalVersion, Grant, Task or Attempt. The draft
+store is not exposed through IPC or UI; callers must not put secrets in it.
+
 `TASK-201` adds forward-only migration `003-proposal-authorization`.
 `proposal_versions` persists the Workspace, Project, Agent, Function, snapshot,
 capability, baseline, action scope, UTC lifetime and canonical
