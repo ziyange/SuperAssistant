@@ -62,6 +62,14 @@ compare against a trusted current clock, verify currency or enforce limits;
 those checks must block presentation, confirmation and execution until
 implemented through trusted policy and runtime boundaries.
 
+TASK-782 adds a read-only local catalog comparison for a parsed H1 candidate:
+it checks the unique active local-owner Workspace, active assigned Project,
+registered non-disabled Codex Agent and active Function, including their
+persisted versions and Project snapshot. Even a match returns only
+`REQUIRES_LIVE_VERIFICATION`, never READY. It does not establish live health,
+current Git baseline, capabilities, resource containment, clock, policy or
+authorization; it is not atomic with later Grant or Attempt creation.
+
 Before presentation, deterministic code verifies:
 
 - referenced Workspace, Project, Agent, Function, Capability, and versions exist;
