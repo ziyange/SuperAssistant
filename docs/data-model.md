@@ -209,6 +209,13 @@ requires the active unique local Workspace and validates checksum and schema.
 No draft is an approved ProposalVersion, Grant, Task or Attempt. The draft
 store is not exposed through IPC or UI; callers must not put secrets in it.
 
+TASK-785 requires the candidate's exact full commit ID to match Git HEAD
+at the canonically registered local Project root before creating a new draft.
+The scoped path is read with catalog facts, Git runs outside the SQLite
+writer transaction, and those facts and the path are checked again before
+insert. Existing drafts are read as immutable history, not as evidence of
+current HEAD. Approval and dispatch must obtain their own current evidence.
+
 `TASK-201` adds forward-only migration `003-proposal-authorization`.
 `proposal_versions` persists the Workspace, Project, Agent, Function, snapshot,
 capability, baseline, action scope, UTC lifetime and canonical

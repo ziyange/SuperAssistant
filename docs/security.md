@@ -308,6 +308,15 @@ this Task does not create Attempts or external effects.
 
 ## Worktree and process security
 
+The internal H1 draft-store baseline check resolves only a canonically
+registered local Project root and uses a fixed Git read of the full HEAD
+commit. It strips ambient Git overrides, disables optional locks, replace
+objects, system/global config, credential prompts and lazy object fetching.
+A missing commit, parent-folder discovery, path alias, or commit mismatch
+blocks new drafts. Git and storage error details are not projected to
+the renderer. This check does not modify worktrees or grant authority
+and does not replace identity and HEAD revalidation at dispatch.
+
 [ADR-004](decisions/ADR-004-task-worktrees.md) requires one writable worktree per mutating Task. The adapter resolves and normalizes every path, rejects traversal and symlink escapes, verifies repository identity and baseline commit, and uses explicit argument arrays rather than shell-composed strings. It never targets the user's home, workspace root, repository root, or unresolved variables for recursive deletion.
 
 Each mutating ExecutionAttempt presents a current ResourceLease fencing token. Cancellation is complete only after the App Server and descendant processes terminate, terminal evidence is recorded, leases are released, and worktree disposition is known. Dirty or ambiguous worktrees are quarantined; automated destructive cleanup is prohibited.
