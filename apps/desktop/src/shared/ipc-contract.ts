@@ -1,5 +1,5 @@
 /* eslint-disable no-unused-vars -- projection is a type-only interface parameter. */
-export const IPC_CHANNELS = ['onboarding:get', 'onboarding:set', 'project:list', 'project:choose', 'project:assign-codex', 'codex:check', 'codex:registration', 'proposal:context', 'proposal:classify', 'proposal:preflight', 'task:get', 'task:list', 'artifact:get', 'decision:get', 'decision:list', 'history:list', 'project-change:list', 'acceptance:list', 'audit-export:create', 'monitoring:status', 'team:workspace'] as const;
+export const IPC_CHANNELS = ['onboarding:get', 'onboarding:set', 'project:list', 'project:choose', 'project:assign-codex', 'codex:check', 'codex:registration', 'proposal:context', 'proposal:classify', 'proposal:preflight', 'task:get', 'task:list', 'task:cancel-queued', 'artifact:get', 'decision:get', 'decision:list', 'history:list', 'project-change:list', 'acceptance:list', 'audit-export:create', 'monitoring:status', 'team:workspace'] as const;
 
 export type IpcChannel = (typeof IPC_CHANNELS)[number];
 
@@ -10,6 +10,7 @@ export type CodexCheckProjection = Readonly<{ state: 'CANCELLED' | 'UNAVAILABLE'
 export type CodexRegistrationProjection = Readonly<{ state: 'NOT_REGISTERED' | 'UNAVAILABLE' }> | Readonly<{ state: 'RECHECK_REQUIRED'; version: string }>;
 export type ProjectRendererProjection = Readonly<{ id: string; name: string; status: 'INITIALIZING' | 'ACTIVE' | 'PAUSED' | 'ARCHIVED' | 'ERROR'; repository: string | null; branch: string | null; provenance: 'DISCOVERED' | 'USER'; codexAssigned?: boolean; hasDefaultAgent?: boolean }>;
 export type TaskRendererProjection = Readonly<{ taskId: string; goal: string; projectName: string; agentName: string; updatedAt: string; state: string; activity: readonly string[] }>;
+export type QueuedCancellationStatus = 'CANCELLED' | 'DISMISSED' | 'NOT_CANCELLABLE';
 export type ArtifactRendererProjection = Readonly<{ logicalName: string; mimeType: string; checksum: string; state: 'AVAILABLE' | 'QUARANTINED' | 'DOWNLOAD_ONLY' }>;
 export type DecisionRendererProjection = Readonly<{ decisionId: string; taskId: string; question: string; level: 'L3' | 'L4'; status: 'OPEN' | 'RESOLVED' }>;
 export type HistoryRendererProjection = Readonly<{ activity: readonly Readonly<{ activityId: string; attemptId: string; sequence: number; eventType: string; occurredAt: string }>[]; human: readonly Readonly<{ historyId: string; decisionId?: string; actorId: string; action: string; occurredAt: string }>[] }>;
@@ -32,6 +33,7 @@ export type IpcRequest =
   | Readonly<{ channel: 'proposal:preflight'; payload: Readonly<{ approved: Record<string, unknown>; current: Record<string, unknown> }> }>
   | Readonly<{ channel: 'task:get'; payload: Readonly<{ taskId: string }> }>
   | Readonly<{ channel: 'task:list'; payload: Record<string, never> }>
+  | Readonly<{ channel: 'task:cancel-queued'; payload: Readonly<{ taskId: string }> }>
   | Readonly<{ channel: 'artifact:get'; payload: Readonly<{ artifactVersionId: string; authorizationGrantId: string; checksum: string }> }>
   | Readonly<{ channel: 'decision:get'; payload: Readonly<{ decisionId: string }> }>
   | Readonly<{ channel: 'decision:list'; payload: Readonly<{ taskId: string }> }>
@@ -50,6 +52,7 @@ export type IpcResponse =
   | Readonly<{ proposalContext: ProposalContextProjection }>
   | Readonly<{ task: TaskRendererProjection }>
   | Readonly<{ tasks: readonly TaskRendererProjection[] }>
+  | Readonly<{ queuedCancellation: QueuedCancellationStatus }>
   | Readonly<{ artifact: ArtifactRendererProjection }>
   | Readonly<{ decision: DecisionRendererProjection }>
   | Readonly<{ decisions: readonly DecisionRendererProjection[] }>
@@ -71,6 +74,7 @@ export interface SuperAssistantDesktopApi {
   getProposalContext?: ReadProposalContext;
   getTask(taskId: string): Promise<IpcResponse>;
   listTasks(): Promise<IpcResponse>;
+  cancelQueuedTask?(taskId: string): Promise<IpcResponse>;
   getArtifact(input: Readonly<{ artifactVersionId: string; authorizationGrantId: string; checksum: string }>): Promise<IpcResponse>;
   getDecision(decisionId: string): Promise<IpcResponse>;
   listDecisions(taskId: string): Promise<IpcResponse>;

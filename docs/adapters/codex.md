@@ -1,5 +1,14 @@
 # Codex Adapter
 
+For recovery, original Turn evidence is read-only. The exact-Turn read is
+supported by the desktop observer for the authenticated `0.121.0` session;
+other builds remain indeterminate for this operation. Use `thread/read` with
+`includeTurns: true` and the privately stored Thread identifier. A terminal
+result applies only when the response has the exact Thread ID and exactly
+one matching Turn ID. An active, absent, duplicate or mismatched Turn is
+indeterminate; this read cannot release the resource lease or prove that
+the App Server process tree terminated.
+
 ## Current integration correction
 
 The [official App Server documentation](https://learn.chatgpt.com/docs/app-server)

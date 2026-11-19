@@ -218,6 +218,12 @@ The H1 implementation slice is deliberately narrower: before worktree creation a
 
 ## Pause, cancellation, and rollback
 
+An H1 Task with affirmative evidence that its only start was never claimed
+can be cancelled without a process interrupt: the same SQLite writer
+transaction withdraws the Outbox entry and releases the exact local Lease.
+This does not authorize cancelling a running or unknown Attempt. The
+application must obtain process-tree proof for those cases.
+
 - Pause prevents new dispatch and requests cooperative interruption where the Function supports it; active irreversible operations are reported, not assumed stopped.
 - Cancel prevents new dispatch, sends idempotent cancel commands, waits for processes to end, captures evidence, and releases leases.
 - Rollback is a separately authorized compensating WorkItem. It creates a new ProjectChange that references the original; it is not a database rollback of Task history.

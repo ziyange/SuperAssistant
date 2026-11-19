@@ -9,6 +9,9 @@ const MAX_PENDING = 32;
 const CLIENT_INFO = Object.freeze({ name: 'super_assistant', version: '0.1.0' });
 type Pending = { resolve: (value: Record<string, unknown>) => void; reject: (reason: Error) => void; timer: ReturnType<typeof setTimeout> };
 function record(value: unknown): value is Record<string, unknown> { return typeof value === 'object' && value !== null && !Array.isArray(value); }
+function opaqueId(value: unknown): value is string {
+  return typeof value === 'string' && value.length >= 1 && value.length <= 128 && !/[^a-z0-9_-]/i.test(value);
+}
 function failure(): Error { return new Error('Codex discovery failed.'); }
 
 /** Observation-only transport; it must not be used for an active execution stream. */
@@ -20,6 +23,7 @@ export class ReadOnlyAppServerClient {
   private buffer = '';
   private nextId = 1;
   private state: 'NEW' | 'INITIALIZING' | 'READY' | 'CLOSED' = 'NEW';
+  private canObserveTurns = false;
 
   constructor(private readonly child: ChildProcess, private readonly timeoutMs = 5000) {
     if (!child.stdin || !child.stdout || !Number.isSafeInteger(timeoutMs) || timeoutMs <= 0) throw new Error('Codex discovery input is invalid.');
@@ -60,7 +64,9 @@ export class ReadOnlyAppServerClient {
     if (!validMethod || !record(params) || this.state === 'CLOSED' || this.pending.size >= MAX_PENDING || !Number.isFinite(timeoutMs) || timeoutMs <= 0 || timeoutMs > this.timeoutMs) return Promise.reject(failure());
     if (method === 'initialize' && (this.state !== 'INITIALIZING' || Object.keys(params).length !== 1 || params.clientInfo !== CLIENT_INFO)) return Promise.reject(failure());
     if (method === 'account/read' && (this.state !== 'INITIALIZING' || Object.keys(params).length !== 1 || params.refreshToken !== false)) return Promise.reject(failure());
-    if (method === 'thread/read' && (this.state !== 'READY' || Object.keys(params).length !== 1 || typeof params.threadId !== 'string' || !/^[a-z0-9_-]{1,128}$/i.test(params.threadId))) return Promise.reject(failure());
+    if (method === 'thread/read' && (this.state !== 'READY' || !opaqueId(params.threadId) || (
+      Object.keys(params).length !== 1 && !(this.canObserveTurns && Object.keys(params).length === 2 && params.includeTurns === true)
+    ))) return Promise.reject(failure());
     const id = this.nextId++;
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => this.dispose(), timeoutMs);
@@ -81,6 +87,7 @@ export class ReadOnlyAppServerClient {
       if (!this.isState('INITIALIZING') || typeof result.requiresOpenaiAuth !== 'boolean') throw failure();
       const account = result.account;
       if (account !== undefined && account !== null && (!record(account) || typeof account.type !== 'string')) throw failure();
+      this.canObserveTurns = version === '0.121.0' && account !== undefined && account !== null;
       this.state = 'READY';
       return { version, authenticated: account !== undefined && account !== null, capabilities: [] };
     } catch { this.dispose(); throw failure(); }
@@ -96,6 +103,19 @@ export class ReadOnlyAppServerClient {
       if (thread.status.type === 'idle') return 'IDLE';
       return 'INDETERMINATE';
     } catch { this.dispose(); throw failure(); }
+  }
+
+  async observeTurn(threadId: string, turnId: string): Promise<'COMPLETED' | 'FAILED' | 'INDETERMINATE'> {
+    if (!this.isReady() || !this.canObserveTurns || !opaqueId(threadId) || !opaqueId(turnId)) return 'INDETERMINATE';
+    try {
+      const result = await this.request('thread/read', { threadId, includeTurns: true }, this.timeoutMs);
+      const thread = result.thread;
+      if (!this.isReady() || !record(thread) || thread.id !== threadId || !Array.isArray(thread.turns)) return 'INDETERMINATE';
+      const matches = thread.turns.filter((turn: unknown) => record(turn) && turn.id === turnId);
+      if (matches.length !== 1) return 'INDETERMINATE';
+      const status: unknown = matches[0]?.status;
+      return status === 'completed' ? 'COMPLETED' : status === 'failed' ? 'FAILED' : 'INDETERMINATE';
+    } catch { return 'INDETERMINATE'; }
   }
 
   dispose(): void {

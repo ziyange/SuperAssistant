@@ -15,6 +15,7 @@ import { createCodexDiscoveryCheck, createCodexProbe, createVersionProbe, type C
 import { LocalCodexRegistration } from './local-codex-registration.js';
 import { readLocalProposalContext } from './proposal-catalog-check.js';
 import { recoverLocalStartup } from './recovery-service.js';
+import { QueuedTaskCancellation } from './queued-task-cancellation.js';
 
 const moduleDirectory = dirname(fileURLToPath(import.meta.url));
 let database: Database.Database | undefined;
@@ -90,9 +91,22 @@ if (isPrimaryInstance) void app.whenReady().then(async () => {
     const result = await dialog.showOpenDialog(applicationWindow, { properties: ['openDirectory'] });
     return result.canceled ? null : result.filePaths[0] ?? null;
   });
+  const queuedCancellation = new QueuedTaskCancellation(localDatabase, async taskId => {
+    if (!applicationWindow || applicationWindow.isDestroyed()) return false;
+    const task = taskPort.get(taskId);
+    if (!task) return false;
+    const project = (task.projectName.replace(/[\u202a-\u202e\u2066-\u2069]/g, '').trim() || 'Unnamed Project').slice(0, 80);
+    const goal = (task.goal.replace(/[\u202a-\u202e\u2066-\u2069]/g, '').trim() || 'Unnamed goal').slice(0, 200);
+    const answer = await dialog.showMessageBox(applicationWindow, {
+      type: 'question', message: 'Cancel this queued task?',
+      detail: [`Project: ${project}`, `Goal: ${goal}`, `Task: ${taskId}`, 'Cancellation succeeds only while its start has not been claimed.'].join('\n'),
+      buttons: ['Cancel queued task', 'Keep task'], defaultId: 1, cancelId: 1, noLink: true
+    });
+    return answer.response === 0;
+  });
   const routeTrustedIpc = (event: IpcMainInvokeEvent, channel: string, payload: unknown) => {
     if (!isTrustedIpcSender(event.senderFrame?.url ?? '', rendererUrl, event.sender === applicationWindow?.webContents, event.senderFrame === event.sender.mainFrame)) throw new Error('Untrusted IPC sender.');
-    return routeIpc({ channel, payload }, onboardingPort, undefined, taskPort, artifactPort, decisionPort, historyPort, changePort, acceptancePort, auditExportPort, monitoringStatusPort, teamPort, projectPort, runCodexCheck, () => codexRegistration.get(), projectId => readLocalProposalContext(localDatabase, projectId));
+    return routeIpc({ channel, payload }, onboardingPort, undefined, taskPort, artifactPort, decisionPort, historyPort, changePort, acceptancePort, auditExportPort, monitoringStatusPort, teamPort, projectPort, runCodexCheck, () => codexRegistration.get(), projectId => readLocalProposalContext(localDatabase, projectId), queuedCancellation);
   };
   ipcMain.handle('onboarding:get', (event, payload) => {
     return routeTrustedIpc(event, 'onboarding:get', payload);
@@ -108,6 +122,7 @@ if (isPrimaryInstance) void app.whenReady().then(async () => {
   ipcMain.handle('proposal:context', (event, payload) => routeTrustedIpc(event, 'proposal:context', payload));
   ipcMain.handle('task:get', (event, payload) => routeTrustedIpc(event, 'task:get', payload));
   ipcMain.handle('task:list', (event, payload) => routeTrustedIpc(event, 'task:list', payload));
+  ipcMain.handle('task:cancel-queued', (event, payload) => routeTrustedIpc(event, 'task:cancel-queued', payload));
   ipcMain.handle('artifact:get', (event, payload) => routeTrustedIpc(event, 'artifact:get', payload));
   ipcMain.handle('decision:get', (event, payload) => routeTrustedIpc(event, 'decision:get', payload));
   ipcMain.handle('decision:list', (event, payload) => routeTrustedIpc(event, 'decision:list', payload));

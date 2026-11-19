@@ -53,6 +53,10 @@ export function validateRequest(value: unknown): IpcRequest {
   if (value.channel === 'task:list' && Object.keys(value.payload).length === 0) {
     return { channel: 'task:list', payload: {} };
   }
+  if (value.channel === 'task:cancel-queued' && hasOnlyKeys(value.payload, ['taskId']) && typeof value.payload.taskId === 'string'
+    && value.payload.taskId.length >= 1 && value.payload.taskId.length <= 128 && !/[^a-z0-9_-]/i.test(value.payload.taskId)) {
+    return { channel: 'task:cancel-queued', payload: { taskId: value.payload.taskId } };
+  }
   if (value.channel === 'artifact:get' && hasOnlyKeys(value.payload, ['artifactVersionId', 'authorizationGrantId', 'checksum'])
     && typeof value.payload.artifactVersionId === 'string' && value.payload.artifactVersionId.length > 0 && value.payload.artifactVersionId.length <= 128
     && typeof value.payload.authorizationGrantId === 'string' && value.payload.authorizationGrantId.length > 0 && value.payload.authorizationGrantId.length <= 128

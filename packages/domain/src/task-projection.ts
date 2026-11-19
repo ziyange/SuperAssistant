@@ -32,7 +32,7 @@ function deriveDisplayState(input: TaskProjectionInput): TaskDisplayState {
   if (input.attemptState === 'SUCCEEDED') return 'COMPLETED';
   if (input.attemptState === 'FAILED') return 'FAILED';
   if (input.attemptState === 'CANCELLED') return 'CANCELLED';
-  if (input.attemptState === 'CREATED' || input.attemptState === 'NOT_STARTED') return 'QUEUED';
+  if (input.attemptState === 'CREATED' || input.attemptState === 'NOT_STARTED' || input.attemptState === 'DISPATCH_PENDING') return 'QUEUED';
   return 'RUNNING';
 }
 

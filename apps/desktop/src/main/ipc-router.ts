@@ -12,13 +12,14 @@ import { projectMonitoringStatusForRenderer, type MonitoringStatusReadPort } fro
 import { projectTeamWorkspace, type TeamWorkspacePort } from './team-ipc.js';
 import type { LocalProjectCatalog } from './project-ipc.js';
 import type { CodexCheck } from './codex-discovery-ipc.js';
+import type { QueuedTaskCancellation } from './queued-task-cancellation.js';
 
 export interface OnboardingPort {
   get(): Promise<OnboardingProjection>;
   set(projection: OnboardingProjection): Promise<OnboardingProjection>;
 }
 
-export async function routeIpc(request: unknown, onboarding: OnboardingPort, proposal?: ProposalIpcPort, task?: TaskReadPort, artifact?: ArtifactReadPort, decision?: DecisionReadPort, history?: HistoryReadPort, changes?: ProjectChangeReadPort, acceptance?: AcceptanceReadPort, auditExport?: AuditExportPort, monitoring?: MonitoringStatusReadPort, team?: TeamWorkspacePort, projects?: Pick<LocalProjectCatalog, 'list' | 'choose'> & Partial<Pick<LocalProjectCatalog, 'assignCodex'>>, codex?: () => Promise<CodexCheck>, codexRegistration?: () => CodexRegistrationProjection, proposalContext?: (projectId: string) => ProposalContextProjection): Promise<IpcResponse> {
+export async function routeIpc(request: unknown, onboarding: OnboardingPort, proposal?: ProposalIpcPort, task?: TaskReadPort, artifact?: ArtifactReadPort, decision?: DecisionReadPort, history?: HistoryReadPort, changes?: ProjectChangeReadPort, acceptance?: AcceptanceReadPort, auditExport?: AuditExportPort, monitoring?: MonitoringStatusReadPort, team?: TeamWorkspacePort, projects?: Pick<LocalProjectCatalog, 'list' | 'choose'> & Partial<Pick<LocalProjectCatalog, 'assignCodex'>>, codex?: () => Promise<CodexCheck>, codexRegistration?: () => CodexRegistrationProjection, proposalContext?: (projectId: string) => ProposalContextProjection, queuedCancellation?: Pick<QueuedTaskCancellation, 'cancel'>): Promise<IpcResponse> {
   const valid: IpcRequest = validateRequest(request);
   if (valid.channel === 'onboarding:get') return { onboarding: await onboarding.get() };
   if (valid.channel === 'onboarding:set') return { onboarding: await onboarding.set(valid.payload) };
@@ -47,6 +48,9 @@ export async function routeIpc(request: unknown, onboarding: OnboardingPort, pro
   if (valid.channel === 'task:list') {
     if (!task) throw new Error('Task IPC port is unavailable.');
     return { tasks: listTasksForRenderer(task) };
+  }
+  if (valid.channel === 'task:cancel-queued') {
+    return { queuedCancellation: await queuedCancellation?.cancel(valid.payload.taskId) ?? 'NOT_CANCELLABLE' };
   }
   if (valid.channel === 'artifact:get') {
     if (!artifact) throw new Error('Artifact IPC port is unavailable.');

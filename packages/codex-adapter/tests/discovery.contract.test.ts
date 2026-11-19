@@ -1,10 +1,11 @@
 /* global URL, process, Buffer, setTimeout */
 import { describe, expect, test, vi } from 'vitest';
-import { spawn } from 'node:child_process';
+import { ChildProcess, spawn } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import { PassThrough } from 'node:stream';
 import { fileURLToPath } from 'node:url';
 import { CodexDiscoveryAdapter } from '../src/discovery.js';
+import { ReadOnlyAppServerClient } from '../src/app-server-client.js';
 import { normalizeDiscoveryEvent } from '../src/protocol.js';
 import { CodexWorker, createReadOnlyCodexLaunch, createStdioCodexWorker, terminateProcessTree } from '../src/worker.js';
 import { readStdioDiscovery } from '../src/stdio-transport.js';
@@ -34,6 +35,40 @@ async function waitForExit(pid: number): Promise<void> {
 }
 
 describe('read-only Codex discovery', () => {
+  test('reads only the stored Thread with Turns and rejects mismatched, duplicate or active evidence', async () => {
+    const stdin = new PassThrough();
+    const stdout = new PassThrough();
+    const child = Object.assign(new ChildProcess(), { stdin, stdout });
+    const threadId = 'original-thread-41';
+    const turnId = 'original-turn-57';
+    const requests: { method: string; params: unknown }[] = [];
+    let thread: unknown = { id: threadId, turns: [{ id: turnId, status: 'completed' }] };
+    stdin.on('data', (bytes: Buffer) => {
+      const request = JSON.parse(bytes.toString()) as { id?: number; method: string; params: unknown };
+      if (request.id === undefined) return;
+      requests.push({ method: request.method, params: request.params });
+      const result = request.method === 'initialize' ? { userAgent: 'fixture' } : request.method === 'account/read'
+        ? { account: { type: 'chatgpt' }, requiresOpenaiAuth: true } : { thread };
+      stdout.write(JSON.stringify({ id: request.id, result }) + '\n');
+    });
+    const client = new ReadOnlyAppServerClient(child);
+    try {
+      await client.discover('0.121.0');
+      expect(await client.observeTurn(threadId, turnId)).toBe('COMPLETED');
+      for (const invalid of [
+        { id: 'another-thread', turns: [{ id: turnId, status: 'completed' }] },
+        { id: threadId, turns: [{ id: 'another-turn', status: 'completed' }] },
+        { id: threadId, turns: [{ id: turnId, status: 'completed' }, { id: turnId, status: 'failed' }] },
+        { id: threadId, turns: [{ id: turnId, status: 'inProgress' }] },
+        { id: threadId, turns: [{ id: turnId, status: 'interrupted' }] }
+      ]) {
+        thread = invalid;
+        expect(await client.observeTurn(threadId, turnId)).toBe('INDETERMINATE');
+      }
+      expect(await client.observeTurn(threadId + '\n', turnId)).toBe('INDETERMINATE');
+      expect(requests.slice(2)).toEqual(Array.from({ length: 6 }, () => ({ method: 'thread/read', params: { threadId, includeTurns: true } })));
+    } finally { client.dispose(); stdin.destroy(); stdout.destroy(); }
+  });
   test('process existence errors fail closed except explicit no-such-process', () => {
     const check = Reflect.get(worker, 'isProcessGone');
     expect(typeof check).toBe('function');
