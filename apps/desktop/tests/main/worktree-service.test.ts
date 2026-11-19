@@ -1,7 +1,7 @@
-import { expect, test } from 'vitest';
+import { expect, test, vi } from 'vitest';
 import { chmodSync, existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import process from 'node:process';
 import { GitWorktreeService } from '../../src/main/worktree-service.js';
@@ -11,7 +11,19 @@ test('creates distinct isolated task worktrees without changing the original', (
   const root = mkdtempSync(join(tmpdir(), 'sa-worktree-')); const repository = join(root, 'repo'); const worktrees = join(root, 'worktrees');
   try {
     execFileSync('git', ['init', repository]); git(repository, 'config', 'user.email', 'test@example.invalid'); git(repository, 'config', 'user.name', 'Test'); writeFileSync(join(repository, 'source.txt'), 'original'); git(repository, 'add', '.'); git(repository, 'commit', '-m', 'baseline'); const before = git(repository, 'status', '--porcelain') + readFileSync(join(repository, 'source.txt'), 'utf8');
-    const service = new GitWorktreeService(); const one = service.create({ projectId: 'project' as never, taskId: 'task-one' as never, projectPath: repository, worktreeRoot: worktrees }); const two = service.create({ projectId: 'project' as never, taskId: 'task-two' as never, projectPath: repository, worktreeRoot: worktrees });
+    const baselineCommit = git(repository, 'rev-parse', 'HEAD');
+    const input = { projectId: 'project' as never, projectPath: repository, worktreeRoot: worktrees, baselineCommit };
+    const service = new GitWorktreeService();
+    vi.stubEnv('GIT_DIR', join(root, 'unrelated.git'));
+    vi.stubEnv('GIT_WORK_TREE', root);
+    const [one, two] = (() => {
+      try {
+        return [service.create({ ...input, taskId: 'task-one' as never }), service.create({ ...input, taskId: 'task-two' as never })] as const;
+      } finally { vi.unstubAllEnvs(); }
+    })();
+    expect(one.baselineCommit).toBe(baselineCommit);
+    expect(git(one.path, 'rev-parse', 'HEAD')).toBe(baselineCommit);
+    expect(git(two.path, 'rev-parse', 'HEAD')).toBe(baselineCommit);
     expect(one.path).not.toBe(two.path); expect(one.branch).not.toBe(two.branch); expect(git(repository, 'status', '--porcelain') + readFileSync(join(repository, 'source.txt'), 'utf8')).toBe(before);
   } finally { rmSync(root, { recursive: true, force: true }); }
 }, 15_000);
@@ -32,7 +44,8 @@ test('preserves an untracked file created during a failed worktree setup', () =>
     const hook = join(repository, '.git', 'hooks', 'post-checkout');
     writeFileSync(hook, '#!/bin/sh\nprintf preserved > user-evidence.txt\n');
     chmodSync(hook, 0o755);
-    expect(() => new GitWorktreeService().create({ projectId: 'project' as never, taskId: 'task-one' as never, projectPath: repository, worktreeRoot: worktrees })).toThrow();
+    const input = { projectId: 'project' as never, taskId: 'task-one' as never, projectPath: repository, worktreeRoot: worktrees, baselineCommit: git(repository, 'rev-parse', 'HEAD') };
+    expect(() => new GitWorktreeService().create(input)).toThrow();
     expect(existsSync(join(created, 'user-evidence.txt'))).toBe(true);
     expect(readFileSync(join(created, 'user-evidence.txt'), 'utf8')).toBe('preserved');
     const canonical = (path: string) => {
@@ -62,10 +75,65 @@ test('cleans a newly created worktree on branch conflict when it is clean', () =
     git(repository, 'add', '.');
     git(repository, 'commit', '-m', 'baseline');
     git(repository, 'branch', 'codex/phase-001-task-one');
-    expect(() => new GitWorktreeService().create({ projectId: 'project' as never, taskId: 'task-one' as never, projectPath: repository, worktreeRoot: worktrees })).toThrow();
+    const input = { projectId: 'project' as never, taskId: 'task-one' as never, projectPath: repository, worktreeRoot: worktrees, baselineCommit: git(repository, 'rev-parse', 'HEAD') };
+    expect(() => new GitWorktreeService().create(input)).toThrow();
     expect(existsSync(created)).toBe(false);
     expect(readFileSync(join(repository, 'source.txt'), 'utf8')).toBe('original');
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
 }, 30_000);
+
+test('rejects a missing, abbreviated, or stale approved commit before creating any worktree', () => {
+  const root = mkdtempSync(join(tmpdir(), 'sa-worktree-baseline-'));
+  const repository = join(root, 'repo');
+  const worktrees = join(root, 'worktrees');
+  try {
+    execFileSync('git', ['init', repository]);
+    git(repository, 'config', 'user.email', 'fixture@example.invalid');
+    git(repository, 'config', 'user.name', 'Fixture');
+    git(repository, 'commit', '--allow-empty', '-m', 'approved');
+    const approved = git(repository, 'rev-parse', 'HEAD');
+    git(repository, 'commit', '--allow-empty', '-m', 'advanced');
+    const registered = git(repository, 'worktree', 'list', '--porcelain');
+    const branches = git(repository, 'branch', '--list');
+    const service = new GitWorktreeService();
+    for (const baselineCommit of [undefined as unknown as string, approved.slice(0, 12), approved]) {
+      const input = { projectId: 'project' as never, taskId: 'task-one' as never, projectPath: repository, worktreeRoot: worktrees, baselineCommit };
+      expect(() => service.create(input)).toThrow('WORKTREE_BASELINE_UNVERIFIED');
+      expect(existsSync(worktrees)).toBe(false);
+      expect(git(repository, 'worktree', 'list', '--porcelain')).toBe(registered);
+      expect(git(repository, 'branch', '--list')).toBe(branches);
+    }
+  } finally { removeBaselineFixture(root); }
+}, 30_000);
+
+test('does not return an active worktree when the source HEAD advances during checkout', () => {
+  const root = mkdtempSync(join(tmpdir(), 'sa-worktree-baseline-'));
+  const repository = join(root, 'repo');
+  const worktrees = join(root, 'worktrees');
+  try {
+    execFileSync('git', ['init', repository]);
+    git(repository, 'config', 'user.email', 'fixture@example.invalid');
+    git(repository, 'config', 'user.name', 'Fixture');
+    git(repository, 'commit', '--allow-empty', '-m', 'approved');
+    const baselineCommit = git(repository, 'rev-parse', 'HEAD');
+    const advanced = git(repository, 'commit-tree', git(repository, 'rev-parse', 'HEAD^{tree}'), '-p', baselineCommit, '-m', 'advanced');
+    const hook = join(repository, '.git', 'hooks', 'post-checkout');
+    const source = repository.replaceAll('\\', '/').replaceAll("'", "'\\''");
+    writeFileSync(hook, "#!/bin/sh\nunset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR GIT_INDEX_FILE\n" +
+      "git -C '" + source + "' update-ref HEAD " + advanced + "\n");
+    chmodSync(hook, 0o755);
+    const input = { projectId: 'project' as never, taskId: 'task-one' as never, projectPath: repository, worktreeRoot: worktrees, baselineCommit };
+    expect(() => new GitWorktreeService().create(input)).toThrow('WORKTREE_BASELINE_UNVERIFIED');
+    expect(git(repository, 'rev-parse', 'HEAD')).toBe(advanced);
+    expect(existsSync(join(worktrees, 'project-task-one'))).toBe(false);
+    expect(git(repository, 'branch', '--list', 'codex/phase-001-task-one')).toBe('');
+  } finally { removeBaselineFixture(root); }
+}, 30_000);
+
+function removeBaselineFixture(root: string): void {
+  const parent = realpathSync.native(tmpdir());
+  const canonical = realpathSync.native(root);
+  if (dirname(canonical) === parent && basename(canonical).startsWith('sa-worktree-baseline-')) rmSync(canonical, { recursive: true, force: true });
+}

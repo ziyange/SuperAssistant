@@ -323,6 +323,12 @@ and does not replace identity and HEAD revalidation at dispatch.
 
 Each mutating ExecutionAttempt presents a current ResourceLease fencing token. Cancellation is complete only after the App Server and descendant processes terminate, terminal evidence is recorded, leases are released, and worktree disposition is known. Dirty or ambiguous worktrees are quarantined; automated destructive cleanup is prohibited.
 
+The local Git worktree port accepts the full approved commit from its
+trusted caller and refuses to create against a different source HEAD.
+It checks both roots again before returning and never silently retries
+with a replacement baseline. Partially created, unowned or dirty areas
+are not force-removed. This port is not a substitute for a Grant or Lease.
+
 H2 parallel WorkItems use distinct worktrees and explicit merge dependencies. H3 remote workspaces preserve sandbox ownership, immutable baseline, fencing, egress policy, and quarantine semantics.
 
 ## Data, ArtifactVersion, and log protection

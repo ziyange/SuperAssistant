@@ -204,6 +204,12 @@ For known legacy worktree-prefixed keys of the same Project, acquisition checks
 both key histories: an unreleased legacy lease blocks and its last fence remains
 the lower bound for any successor Project lease.
 
+Trusted provisioning supplies the approved full commit to the worktree port.
+The port rejects a missing or stale Project HEAD before creation and pins Git
+checkout to that object. It verifies the source and resulting checkout before
+returning ACTIVE. A mismatch does not update the Proposal; a later launch
+still requires fresh preflight and Lease evidence.
+
 Resource keys are normalized hierarchical identifiers such as repository, worktree, branch, module, database schema, generated asset, credential scope, and external service object. A ProposalVersion declares read/write intent. Conflicting writes are serialized or assigned isolated workspaces.
 
 Each lease has a monotonically increasing fencing token. Adapters verify the token immediately before a write. Lease expiry triggers reconciliation; a surviving stale process cannot write using the old token. Multi-resource acquisition uses canonical sorted order to prevent deadlock and releases all provisional leases on failure.
