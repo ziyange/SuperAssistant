@@ -232,6 +232,14 @@ evidence; terminal and undispatched records, other Workspaces, and leases
 are left unchanged. This startup transaction does not attest live outcomes
 or grant permission to redispatch.
 
+The [offline H1 integration fixture](verification/reports/phase-007-task-788.md) negotiates only a scoped fixture
+Function, confirms the exact full Proposal digest, then consumes the Grant
+and creates one Attempt and Outbox row. It starts only that claimed Attempt
+against a worktree at the approved commit. On restart a read of the exact
+bound Thread and Turn can establish Attempt terminal state only. It does not
+establish Task acceptance, process termination or a safe Lease release.
+Desktop production startup does not install the fixture transport.
+
 Startup performs, in order:
 
 1. SQLite integrity and migration-state validation.

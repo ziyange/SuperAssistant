@@ -216,6 +216,13 @@ writer transaction, and those facts and the path are checked again before
 insert. Existing drafts are read as immutable history, not as evidence of
 current HEAD. Approval and dispatch must obtain their own current evidence.
 
+Migration 024 adds optional immutable full H1 review payloads to versioned
+Proposals without rewriting legacy digests. The full parsed candidate is a
+field in the canonical digest input, not a separate unbound checksum. The
+fixture authorizes only such full versions. The migration also records one
+private immutable Thread/Turn binding per fixture Attempt; missing binding
+does not imply a turn was never started.
+
 `TASK-201` adds forward-only migration `003-proposal-authorization`.
 `proposal_versions` persists the Workspace, Project, Agent, Function, snapshot,
 capability, baseline, action scope, UTC lifetime and canonical
