@@ -28,7 +28,8 @@ export function readProjectHead(path: string): string | null {
       '-C', canonical, 'rev-parse', '--path-format=absolute', '--show-toplevel', '--verify', 'HEAD^{commit}'
     ], { encoding: 'utf8', env, timeout: 4000, maxBuffer: 16_384, windowsHide: true, shell: false, stdio: ['ignore', 'pipe', 'ignore'] });
     const [root, commit, ...extra] = output.replace(/\r?\n$/, '').split(/\r?\n/);
-    if (!root || !commit || extra.length || !isAbsoluteProjectPath(root) || realpathSync(root) !== canonical || !isFullGitCommit(commit)) return null;
+    if (!root || !commit || extra.length || !isAbsoluteProjectPath(root) || !isFullGitCommit(commit)) return null;
+    if (realpathSync.native(root) !== realpathSync.native(canonical)) return null;
     return commit;
   } catch {
     return null;

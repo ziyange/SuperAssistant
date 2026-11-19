@@ -8848,4 +8848,12 @@
 {"tx_id":"task-785-store-008","iteration_index":1,"timestamp":"2026-11-19T02:54:19.304Z","action_type":"FILE_WRITE","normalized_path":"apps/desktop/src/main/proposal-draft-store.ts","intent_hash":"e94e26000ae274bfc0951a8038995e0634fab9f87653caa86885f3f47ec05ceb","result_status":"COMPLETED","ignored_candidates":[],"artifact_metadata":{"sha256":"21baea83661c98964ca9f9ac5d941ddf8f5bba79fb6bce42791f21e91230ac11"}}
 ,
 {"tx_id":"task-785-report-009","iteration_index":1,"timestamp":"2026-11-19T02:57:23.159Z","action_type":"FILE_WRITE","normalized_path":"docs/verification/reports/phase-007-task-785.md","intent_hash":"1f9da6837bf18bceb679904270874b7dbceb31aee69a40bf094ee128f80d6fed","result_status":"COMPLETED","ignored_candidates":[],"artifact_metadata":{"sha256":"fce0dfeaa727be1e6631c99af6a12f7226447776ffa7a21e6d15ca90abdfe786"}}
+,
+{"tx_id":"task-785-ci-case-design-010","iteration_index":1,"timestamp":"2026-11-19T03:08:48.477Z","action_type":"FILE_WRITE","normalized_path":"docs/security.md","intent_hash":"e48d582e754941e68489937a46d49670165a8887e09cd42029f87b9b98c9e1d1","result_status":"COMPLETED","ignored_candidates":[],"artifact_metadata":{"sha256":"9a11b0a0557b811515bff749a92503cb6b0fc0530fcaa9d589b46a0d97eb2641"}}
+,
+{"tx_id":"task-785-ci-case-red-011","iteration_index":1,"timestamp":"2026-11-19T03:08:48.481Z","action_type":"FILE_WRITE","normalized_path":"apps/desktop/tests/main/proposal-draft-store.test.ts","intent_hash":"5df1ebca8b313583428d7b557c92120c814b750b9145d8caf828ded20333f762","result_status":"COMPLETED","ignored_candidates":[],"artifact_metadata":{"sha256":"24818ef5116c3518a5165dedf0970d0eadd004c8008e8ee78494306f3c127943"}}
+,
+{"tx_id":"task-785-ci-case-green-012","iteration_index":1,"timestamp":"2026-11-19T03:09:19.284Z","action_type":"FILE_WRITE","normalized_path":"apps/desktop/src/main/project-git-baseline.ts","intent_hash":"26a2e8c971b7394e4c47efff61c4da4cef579ff5c9feb6659471989b50d84000","result_status":"COMPLETED","ignored_candidates":[],"artifact_metadata":{"sha256":"a39f97ee7d47727a984d3fb75a07e55d899eaaa5d79232c902aebcaa00351e9a"}}
+,
+{"tx_id":"task-785-ci-case-report-013","iteration_index":1,"timestamp":"2026-11-19T03:13:03.610Z","action_type":"FILE_WRITE","normalized_path":"docs/verification/reports/phase-007-task-785.md","intent_hash":"b8c2b16ea0c1452902c6008a92758e14716e49da731d17189f0b4ab8f4a3d3c3","result_status":"COMPLETED","ignored_candidates":[],"artifact_metadata":{"sha256":"49a1b95ccc96c8f8123ea6625f51fb43e168e87004a590bed137ef59a2ee406f"}}
 ]

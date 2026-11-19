@@ -30,3 +30,17 @@ versioned executable Function. Trusted Function discovery, immutable
 review, current-policy revalidation and execution/recovery remain open.
 No real Codex, Electron sandbox or local PostgreSQL integration was run.
 No user Project, remote main or preserved worktree was modified.
+
+Candidate `6a43fcb` failed the
+[Windows CI draft regression](https://github.com/ziyange/SuperAssistant/actions/runs/44448175778):
+the valid repository was rejected with `DRAFT_BASELINE_UNVERIFIED`.
+On local Windows, a disposable fixture forced the stored directory and Git's
+reported root to differ only in spelling case and reproduced the same
+failure before the fix. Comparing the two OS-resolved native canonical
+paths fixes that case without comparing case-folded arbitrary paths or
+relaxing the exact HEAD, scope, or containment checks. The focused
+regression then passed all 3 cases.
+
+Post-fix verification on the same toolchain: production build, lint and typecheck passed;
+540 unit tests passed, six PostgreSQL-dependent skips; 49 contract tests passed.
+Final governance and CI are checked against the follow-up candidate.

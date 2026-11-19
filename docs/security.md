@@ -313,7 +313,9 @@ registered local Project root and uses a fixed Git read of the full HEAD
 commit. It strips ambient Git overrides, disables optional locks, replace
 objects, system/global config, credential prompts and lazy object fetching.
 A missing commit, parent-folder discovery, path alias, or commit mismatch
-blocks new drafts. Git and storage error details are not projected to
+blocks new drafts. Returned and registered roots are compared by their
+native canonical filesystem paths so a Windows casing difference alone
+does not invalidate the same directory. Git and storage error details are not projected to
 the renderer. This check does not modify worktrees or grant authority
 and does not replace identity and HEAD revalidation at dispatch.
 

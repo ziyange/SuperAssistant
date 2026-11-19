@@ -58,7 +58,8 @@ test('persists only locally scoped immutable drafts and verifies stored content'
     setPath.run(join(root, 'missing'), p.projectId);
     expect(() => store.create(candidate)).toThrow('DRAFT_BASELINE_UNVERIFIED');
     expect(db.prepare('SELECT count(*) AS count FROM proposal_candidate_drafts').get()).toEqual({ count: 0 });
-    setPath.run(realpathSync(projectDir).replaceAll('\\', '/'), p.projectId);
+    const canonical = realpathSync(projectDir).replaceAll('\\', '/');
+    setPath.run(process.platform === 'win32' ? canonical.replace(/project$/, 'PROJECT') : canonical, p.projectId);
     vi.stubEnv('GIT_DIR', join(unborn, '.git'));
     vi.stubEnv('GIT_WORK_TREE', unborn);
     const id = store.create(candidate);
