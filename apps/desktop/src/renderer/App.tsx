@@ -26,6 +26,8 @@ export function App() {
   const [current, setCurrent] = useState<Destination>('super-assistant');
   const [completed, setCompleted] = useState(false);
   const [tasks, setTasks] = useState<readonly TaskCard[]>([]);
+  const [taskRevision, setTaskRevision] = useState(0);
+  const [taskRead, setTaskRead] = useState<'LOADING' | 'READY' | 'TASK_ERROR' | 'DECISION_ERROR'>('LOADING');
   const [withdrawnTaskIds, setWithdrawnTaskIds] = useState<readonly string[]>([]);
   const [projects, setProjects] = useState<readonly ProjectCard[]>([]);
   const [projectLoading, setProjectLoading] = useState(false);
@@ -88,7 +90,10 @@ export function App() {
     if (!check) { setCodex({ state: 'UNAVAILABLE' }); return; }
     setCodexChecking(true);
     void check().then(response => setCodex('codex' in response ? response.codex : { state: 'UNAVAILABLE' }))
-      .catch(() => setCodex({ state: 'UNAVAILABLE' })).finally(() => setCodexChecking(false));
+      .catch(() => setCodex({ state: 'UNAVAILABLE' })).finally(() => {
+        setCodexChecking(false);
+        setTaskRevision(previous => previous + 1);
+      });
   };
 
   useEffect(() => {
@@ -106,23 +111,31 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    void window.superAssistant?.listTasks?.().then((response) => {
-      if ('tasks' in response) setTasks(response.tasks.map((task) => ({ ...task, artifacts: [], decisions: [] })));
-    });
-  }, []);
+    let currentRead = true;
+    const api = window.superAssistant;
+    setTaskRead('LOADING');
+    setDecisions([]);
+    void (async () => {
+      if (!api?.listTasks) throw new Error('TASK_READ_UNAVAILABLE');
+      const list = await api.listTasks();
+      if (!currentRead) return;
+      if (!('tasks' in list)) throw new Error('TASK_READ_UNAVAILABLE');
+      const cards = list.tasks.map(task => ({ ...task, artifacts: [], decisions: [] }));
+      setTasks(cards);
+      setTaskRead('READY');
+      try {
+        const groups = await Promise.all(cards.map(async task => {
+          const result = await api.listDecisions(task.taskId);
+          if (!('decisions' in result)) throw new Error('DECISION_READ_UNAVAILABLE');
+          return result.decisions;
+        }));
+        if (!currentRead) return;
+        setDecisions(groups.flat());
+        setTasks(cards.map((card, index) => ({ ...card, decisions: groups[index] ?? [] })));
+      } catch { if (currentRead) setTaskRead('DECISION_ERROR'); }
+    })().catch(() => { if (currentRead) { setTasks([]); setTaskRead('TASK_ERROR'); } });
+    return () => { currentRead = false; };
+  }, [taskRevision]);
 
-  useEffect(() => {
-    void window.superAssistant?.listTasks?.().then(async (response) => {
-      if (!('tasks' in response) || !window.superAssistant) return;
-      const responses = await Promise.all(response.tasks.map((task) => window.superAssistant!.listDecisions(task.taskId)));
-      const byTask = new Map(response.tasks.map((task, index) => {
-        const result = responses[index];
-        return [task.taskId, result && 'decisions' in result ? result.decisions : []];
-      }));
-      setDecisions(responses.flatMap((item) => ('decisions' in item ? item.decisions : [])));
-      setTasks(response.tasks.map((task) => ({ ...task, artifacts: [], decisions: byTask.get(task.taskId) ?? [] })));
-    });
-  }, []);
-
-  return <main><Navigation current={current} onNavigate={setCurrent} /><h1>{current === 'super-assistant' ? 'Super Assistant' : current}</h1>{current === 'agent-center' ? <AgentCenter connection={codex?.state === 'CHECKED' ? codex.connection : 'UNAVAILABLE'} availability={codex?.state === 'CHECKED' ? codex.availability : 'PAUSED'} version={codex?.state === 'CHECKED' ? codex.version : codexRegistration?.state === 'RECHECK_REQUIRED' ? codexRegistration.version : 'unknown'} functions={[]} onCheck={checkCodex} checking={codexChecking} observedAt={codex?.state === 'CHECKED' ? codex.observedAt : undefined} notice={codex?.state === 'CANCELLED' ? 'Codex selection cancelled.' : codex?.state === 'UNAVAILABLE' ? 'Codex check unavailable.' : codex === undefined && codexRegistration?.state === 'RECHECK_REQUIRED' ? 'Codex registration requires a new check.' : undefined} /> : current === 'project-center' ? <><ProjectCenter projects={projects} onAdd={chooseProject} onAssignCodex={assignCodex} codexRegistered={codex?.state === 'CHECKED' || codexRegistration?.state === 'RECHECK_REQUIRED'} loading={projectLoading} error={projectError} notice={projectNotice} /><MonitoringStatus status={monitoring} /><ProjectChanges changes={changes} /><AuditExport /><TeamWorkspace team={team} /><TeamMembers members={team.members} /><TeamApprovals approvals={team.approvals} /><TeamGovernance team={team} /></> : current === 'task-center' ? <><TaskCenter tasks={tasks.map(task => withdrawnTaskIds.includes(task.taskId) ? { ...task, state: 'CANCELLED' } : task)} cancelQueuedTask={window.superAssistant?.cancelQueuedTask} onQueuedCancelled={taskId => setWithdrawnTaskIds(previous => previous.includes(taskId) ? previous : [...previous, taskId])} /><TaskHistory history={history} /></> : current === 'super-assistant' ? <><DegradedState reason="Adapter status is unavailable until reconciliation completes." /><ProposalPreparation projects={projects} loading={projectLoading} error={projectError} readContext={window.superAssistant?.getProposalContext} />{decisions.map((decision) => <DecisionCenter key={decision.decisionId} decision={decision} />)}</> : <Onboarding completed={completed} onAddProject={() => setCurrent('project-center')} onConnectCodex={() => setCurrent('agent-center')} />}</main>;
+  return <main><Navigation current={current} onNavigate={setCurrent} /><h1>{current === 'super-assistant' ? 'Super Assistant' : current}</h1>{current === 'agent-center' ? <AgentCenter connection={codex?.state === 'CHECKED' ? codex.connection : 'UNAVAILABLE'} availability={codex?.state === 'CHECKED' ? codex.availability : 'PAUSED'} version={codex?.state === 'CHECKED' ? codex.version : codexRegistration?.state === 'RECHECK_REQUIRED' ? codexRegistration.version : 'unknown'} functions={[]} onCheck={checkCodex} checking={codexChecking} observedAt={codex?.state === 'CHECKED' ? codex.observedAt : undefined} notice={codex?.state === 'CANCELLED' ? 'Codex selection cancelled.' : codex?.state === 'UNAVAILABLE' ? 'Codex check unavailable.' : codex === undefined && codexRegistration?.state === 'RECHECK_REQUIRED' ? 'Codex registration requires a new check.' : undefined} /> : current === 'project-center' ? <><ProjectCenter projects={projects} onAdd={chooseProject} onAssignCodex={assignCodex} codexRegistered={codex?.state === 'CHECKED' || codexRegistration?.state === 'RECHECK_REQUIRED'} loading={projectLoading} error={projectError} notice={projectNotice} /><MonitoringStatus status={monitoring} /><ProjectChanges changes={changes} /><AuditExport /><TeamWorkspace team={team} /><TeamMembers members={team.members} /><TeamApprovals approvals={team.approvals} /><TeamGovernance team={team} /></> : current === 'task-center' ? <>{taskRead === 'TASK_ERROR' ? <p role="alert">Task status could not be loaded.</p> : taskRead === 'LOADING' ? <p role="status">Loading task status…</p> : <TaskCenter tasks={tasks.map(task => withdrawnTaskIds.includes(task.taskId) ? { ...task, state: 'CANCELLED' } : task)} cancelQueuedTask={window.superAssistant?.cancelQueuedTask} onQueuedCancelled={taskId => setWithdrawnTaskIds(previous => previous.includes(taskId) ? previous : [...previous, taskId])} />}{taskRead === 'DECISION_ERROR' && <p role="alert">Decision status could not be loaded.</p>}<TaskHistory history={history} /></> : current === 'super-assistant' ? <>{(taskRead === 'DECISION_ERROR' || taskRead === 'TASK_ERROR') && <p role="alert">Decision status could not be loaded.</p>}<DegradedState reason="Adapter status is unavailable until reconciliation completes." /><ProposalPreparation projects={projects} loading={projectLoading} error={projectError} readContext={window.superAssistant?.getProposalContext} />{decisions.map((decision) => <DecisionCenter key={decision.decisionId} decision={decision} />)}</> : <Onboarding completed={completed} onAddProject={() => setCurrent('project-center')} onConnectCodex={() => setCurrent('agent-center')} />}</main>;
 }

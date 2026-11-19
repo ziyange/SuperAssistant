@@ -229,6 +229,10 @@ accepted Work Items have current Attempt-linked Artifact evidence. A
 terminal observation from recovery is not acceptance. Where optional
 membership is not persisted, do not guess that an unverified item is optional.
 
+After an explicit runtime check settles, the desktop rereads the Task list
+and its Decisions from main. An older pending read cannot overwrite the
+reloaded state. A connection check never fabricates an Attempt result.
+
 Quality views identify the Testing or Inspector role, evaluator, outcome, and
 the original Work Item needing repair. Rejection never presents a new top-level
 Task or a completion state.
