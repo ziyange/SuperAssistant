@@ -223,6 +223,12 @@ active or historical Work Item.
 
 ## Quality evidence
 
+For the desktop list and detail, a successful Attempt displays
+`ACCEPTANCE_PENDING` until the Task is finalized, no Decision is open, and
+accepted Work Items have current Attempt-linked Artifact evidence. A
+terminal observation from recovery is not acceptance. Where optional
+membership is not persisted, do not guess that an unverified item is optional.
+
 Quality views identify the Testing or Inspector role, evaluator, outcome, and
 the original Work Item needing repair. Rejection never presents a new top-level
 Task or a completion state.

@@ -1,4 +1,4 @@
-export type TaskDisplayState = 'QUEUED' | 'RUNNING' | 'RUNNING / RECONCILING' | 'CANCELLING' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
+export type TaskDisplayState = 'QUEUED' | 'RUNNING' | 'RUNNING / RECONCILING' | 'CANCELLING' | 'ACCEPTANCE_PENDING' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
 
 export interface TaskProjectionInput {
   taskId: string;
@@ -7,6 +7,7 @@ export interface TaskProjectionInput {
   agentName: string;
   updatedAt: string;
   attemptState: string;
+  completedWithEvidence?: boolean;
   cancellation: 'NONE' | 'REQUESTED' | 'TERMINATING' | 'LEASE_RELEASING';
   activity: readonly string[];
 }
@@ -29,7 +30,7 @@ function safeText(value: string): string {
 function deriveDisplayState(input: TaskProjectionInput): TaskDisplayState {
   if (input.cancellation !== 'NONE' || input.attemptState === 'CANCELLING') return 'CANCELLING';
   if (input.attemptState === 'UNKNOWN' || input.attemptState === 'RECONCILING') return 'RUNNING / RECONCILING';
-  if (input.attemptState === 'SUCCEEDED') return 'COMPLETED';
+  if (input.attemptState === 'SUCCEEDED') return input.completedWithEvidence === true ? 'COMPLETED' : 'ACCEPTANCE_PENDING';
   if (input.attemptState === 'FAILED') return 'FAILED';
   if (input.attemptState === 'CANCELLED') return 'CANCELLED';
   if (input.attemptState === 'CREATED' || input.attemptState === 'NOT_STARTED' || input.attemptState === 'DISPATCH_PENDING') return 'QUEUED';

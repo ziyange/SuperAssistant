@@ -19,3 +19,25 @@ test('rebuilds reconciliation display state from persisted Task facts', () => {
   expect(new SqliteTaskProjectionQuery(db).get('task-1')).toEqual(expect.objectContaining({ goal: 'bFix parser/b', state: 'RUNNING / RECONCILING' }));
   db.close();
 });
+
+test('success of the original Attempt does not accept the Task in list or detail', () => {
+  const db = createFoundationDatabase(':memory:');
+  try {
+    seedTask(db, 'SUCCEEDED');
+    const query = new SqliteTaskProjectionQuery(db);
+    const states = () => [query.get('task-1')?.state, query.list()[0]?.state];
+    expect(states()).toEqual(['ACCEPTANCE_PENDING', 'ACCEPTANCE_PENDING']);
+    expect(db.prepare('SELECT state FROM tasks').pluck().get()).toBe('QUEUED');
+    db.exec("UPDATE tasks SET state='COMPLETED'");
+    expect(states()).toEqual(['ACCEPTANCE_PENDING', 'ACCEPTANCE_PENDING']);
+    db.exec("UPDATE work_items SET state='ACCEPTED'");
+    db.exec("INSERT INTO acceptance_evidence VALUES('proof','task-1','work-1','attempt-1','artifact','reviewer','ACCEPTED','2026-08-13')");
+    expect(states()).toEqual(['ACCEPTANCE_PENDING', 'ACCEPTANCE_PENDING']);
+    db.prepare("INSERT INTO artifact_versions VALUES ('artifact','report','task-1','work-1','attempt-1','project-1','base','grant-1','report','text/plain',8,?,'private-ref','2026-08-13')").run('sha256:'+'a'.repeat(64));
+    expect(states()).toEqual(['COMPLETED', 'COMPLETED']);
+    db.exec("INSERT INTO decisions (decision_id,workspace_id,project_id,task_id,work_item_id,question,level,fingerprint,status,created_at) VALUES ('d','workspace-1','project-1','task-1','work-1','Approve?','L3','key','OPEN','2026-08-13')");
+    expect(states()).toEqual(['ACCEPTANCE_PENDING', 'ACCEPTANCE_PENDING']);
+    db.exec("UPDATE execution_attempts SET state='UNKNOWN'");
+    expect(states()).toEqual(['RUNNING / RECONCILING', 'RUNNING / RECONCILING']);
+  } finally { db.close(); }
+});

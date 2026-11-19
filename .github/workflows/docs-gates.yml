@@ -108,10 +108,10 @@ jobs:
         run: >-
           python scripts/verify_runtime_trace.py
           --mode plan
-          --task-pack docs/delivery/tasks/TASK-790.md
+          --task-pack docs/delivery/tasks/TASK-791.md
           --schemas references/schemas.md
           --next-iteration 1
-          --task-start-tx task-790-pack-001
+          --task-start-tx task-791-pack-001
           --json
 
       - name: Run governance unit tests
