@@ -103,6 +103,7 @@ export function createVersionProbe(
   });
 }
 type DiscoverySupervisor = {
+  observeTurn?(threadId: string, turnId: string, cwd: string): Promise<'COMPLETED' | 'FAILED' | 'INDETERMINATE'>;
   initialize(): Promise<{
     health(): Promise<{ connection: string; availability: string; observedAt: string }>;
     describe(): Promise<{ adapterVersion: string }>;
@@ -112,7 +113,8 @@ type DiscoverySupervisor = {
 
 export function createCodexProbe(
   inspectVersion: (path: string) => Promise<string>,
-  supervise: (path: string, version: string) => DiscoverySupervisor
+  supervise: (path: string, version: string) => DiscoverySupervisor,
+  onConnected?: (path: string, version: string, observe: NonNullable<DiscoverySupervisor['observeTurn']>) => Promise<void>
 ): (path: string) => Promise<Observation> {
   return async (path) => {
     const version = await inspectVersion(path);
@@ -125,6 +127,9 @@ export function createCodexProbe(
       if (description.adapterVersion !== version) throw new Error('Codex version changed.');
       if (!['CONNECTED', 'AUTH_REQUIRED', 'VERSION_UNSUPPORTED', 'UNAVAILABLE'].includes(health.connection)
         || !['AVAILABLE', 'PAUSED', 'UNAVAILABLE'].includes(health.availability)) throw new Error('Invalid health state.');
+      if (health.connection === 'CONNECTED' && version === '0.121.0' && supervisor.observeTurn && onConnected) {
+        await onConnected(path, version, supervisor.observeTurn.bind(supervisor));
+      }
       return { state: 'CHECKED', connection: health.connection as Observation['connection'], availability: health.availability as Observation['availability'], version, observedAt: health.observedAt };
     } finally {
       await supervisor.shutdown();

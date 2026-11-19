@@ -182,6 +182,15 @@ Tool approval prompts are mapped to L1-L4 policy. A prompt that is not already a
 
 ## Verification
 
+Desktop restart first quarantines in-flight work. On the next explicit Codex
+check, recovery may read an original Turn on the same registered executable
+path, binary SHA-256 and pinned authenticated runtime. Migration 025 has no
+backfill: a private start receipt and Outbox acknowledgement must commit
+together for the original Attempt. Only an exact Thread, Turn and worktree
+match can establish its upstream terminal outcome. This does not accept the
+Task, release the Lease, or interrupt or restart execution. Missing receipts
+(including fixture-only history) remain unresolved. See [TASK-790](../delivery/tasks/TASK-790.md).
+
 H1 requires a fake App Server contract suite for initialization, compatible/incompatible versions, start, resume, input, interrupt, cancellation, duplicate commands, duplicate/out-of-order events, malformed frames, process exit, result collection, and reconciliation. Test-only fixture watchdogs bound one fake process operation to five seconds and aggregate lifecycle tests to twenty seconds under concurrent Windows process scheduling; these watchdogs do not alter the frozen production discovery timeout. Worktree tests cover dirty source trees, symlink/path escapes, stale fencing tokens, crash quarantine, and cleanup. A real-Codex smoke test is opt-in and reports the exact installed version; it is not a substitute for the fake contract suite.
 
 ## H1-H3 compatibility

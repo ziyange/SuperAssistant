@@ -3,6 +3,8 @@ import { app, BrowserWindow, dialog, ipcMain, type IpcMainInvokeEvent } from 'el
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, extname, isAbsolute, join } from 'node:path';
 import { realpath, stat } from 'node:fs/promises';
+import { createReadStream } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import type Database from 'better-sqlite3';
 import { createFoundationDatabase, SqliteAcceptanceRepository, SqliteArtifactRepository, SqliteAuditExportRepository, SqliteDecisionRepository, SqliteHistoryRepository, SqliteMonitoringStatusRepository, SqliteOnboardingRepository, SqliteProjectChangeRepository, SqliteTaskProjectionQuery } from '@super-assistant/persistence';
@@ -16,6 +18,7 @@ import { LocalCodexRegistration } from './local-codex-registration.js';
 import { readLocalProposalContext } from './proposal-catalog-check.js';
 import { recoverLocalStartup } from './recovery-service.js';
 import { QueuedTaskCancellation } from './queued-task-cancellation.js';
+import { CodexAttemptRecovery } from './codex-attempt-recovery.js';
 
 const moduleDirectory = dirname(fileURLToPath(import.meta.url));
 let database: Database.Database | undefined;
@@ -65,8 +68,24 @@ if (isPrimaryInstance) void app.whenReady().then(async () => {
     if (extname(executable).toLowerCase() !== '.exe' || !(await stat(executable)).isFile()) throw new Error('Invalid executable.');
     return readVersion(executable);
   };
-  const probe = createCodexProbe(inspectVersion, (executable, version) =>
-    createAppServerDiscoverySupervisor(createReadOnlyCodexLaunch(executable, app.getPath('userData')), version));
+  const recovery = new CodexAttemptRecovery(localDatabase);
+  const executableHash = async (path: string) => {
+    const hash = createHash('sha256');
+    for await (const chunk of createReadStream(path)) hash.update(chunk);
+    return hash.digest('hex');
+  };
+  const probe = async (selected: string) => {
+    const pending = localDatabase.prepare(`SELECT 1 FROM codex_start_receipts r JOIN execution_attempts a USING(attempt_id)
+      WHERE r.executable_path=? AND a.state IN ('UNKNOWN','RECONCILING') LIMIT 1`).get(selected);
+    const before = pending ? await executableHash(selected) : undefined;
+    return createCodexProbe(inspectVersion, (executable, version) =>
+      createAppServerDiscoverySupervisor(createReadOnlyCodexLaunch(executable, app.getPath('userData')), version),
+    async (executable, version, observe) => {
+      if (before && await executableHash(executable) === before) {
+        await recovery.reconcile({ executable, version, binaryHash: before }, observe);
+      }
+    })(selected);
+  };
   const checkCodex = createCodexDiscoveryCheck(async () => {
     if (process.platform !== 'win32') throw new Error('Codex discovery is available on Windows only.');
     if (!applicationWindow) throw new Error('Application window unavailable.');

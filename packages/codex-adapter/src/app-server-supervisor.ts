@@ -76,6 +76,11 @@ export function createAppServerDiscoverySupervisor(
         throw new Error('Codex discovery process is unavailable.');
       }
     },
+    async observeTurn(threadId: string, turnId: string, cwd: string): Promise<'COMPLETED' | 'FAILED' | 'INDETERMINATE'> {
+      if (!client || stopped || !cwd) return 'INDETERMINATE';
+      const outcome = await client.observeTurn(threadId, turnId, cwd);
+      return stopped ? 'INDETERMINATE' : outcome;
+    },
     shutdown
   };
 }

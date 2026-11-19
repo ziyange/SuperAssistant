@@ -78,6 +78,7 @@ export class QueuedTaskCancellation {
           WHERE history.resource_key IN (l.resource_key, 'worktree:' || t.project_id) AND history.lease_id <> l.lease_id
             AND (history.state <> 'RELEASED' OR history.fencing_token >= l.fencing_token)
         ))
+        AND NOT EXISTS (SELECT 1 FROM codex_start_receipts AS receipt WHERE receipt.attempt_id = a.attempt_id)
         AND NOT EXISTS (SELECT 1 FROM fixture_attempt_correlations AS evidence WHERE evidence.attempt_id = a.attempt_id)
     `).get(taskId, workspace) as Snapshot | undefined;
     if (!row || !Number.isSafeInteger(row.fencing_token) || row.fencing_token <= 0) return undefined;

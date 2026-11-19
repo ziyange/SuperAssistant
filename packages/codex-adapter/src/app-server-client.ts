@@ -87,7 +87,7 @@ export class ReadOnlyAppServerClient {
       if (!this.isState('INITIALIZING') || typeof result.requiresOpenaiAuth !== 'boolean') throw failure();
       const account = result.account;
       if (account !== undefined && account !== null && (!record(account) || typeof account.type !== 'string')) throw failure();
-      this.canObserveTurns = version === '0.121.0' && account !== undefined && account !== null;
+      this.canObserveTurns = version === '0.121.0' && record(account) && (account.type === 'chatgpt' || account.type === 'apiKey');
       this.state = 'READY';
       return { version, authenticated: account !== undefined && account !== null, capabilities: [] };
     } catch { this.dispose(); throw failure(); }
@@ -105,12 +105,12 @@ export class ReadOnlyAppServerClient {
     } catch { this.dispose(); throw failure(); }
   }
 
-  async observeTurn(threadId: string, turnId: string): Promise<'COMPLETED' | 'FAILED' | 'INDETERMINATE'> {
+  async observeTurn(threadId: string, turnId: string, expectedCwd?: string): Promise<'COMPLETED' | 'FAILED' | 'INDETERMINATE'> {
     if (!this.isReady() || !this.canObserveTurns || !opaqueId(threadId) || !opaqueId(turnId)) return 'INDETERMINATE';
     try {
       const result = await this.request('thread/read', { threadId, includeTurns: true }, this.timeoutMs);
       const thread = result.thread;
-      if (!this.isReady() || !record(thread) || thread.id !== threadId || !Array.isArray(thread.turns)) return 'INDETERMINATE';
+      if (!this.isReady() || !record(thread) || thread.id !== threadId || (expectedCwd !== undefined && (!expectedCwd || thread.cwd !== expectedCwd)) || !Array.isArray(thread.turns)) return 'INDETERMINATE';
       const matches = thread.turns.filter((turn: unknown) => record(turn) && turn.id === turnId);
       if (matches.length !== 1) return 'INDETERMINATE';
       const status: unknown = matches[0]?.status;

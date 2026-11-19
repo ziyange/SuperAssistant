@@ -55,6 +55,10 @@ describe('read-only Codex discovery', () => {
     try {
       await client.discover('0.121.0');
       expect(await client.observeTurn(threadId, turnId)).toBe('COMPLETED');
+      thread = { id: threadId, cwd: 'D:/other', turns: [{ id: turnId, status: 'completed' }] };
+      expect(await client.observeTurn(threadId, turnId, 'D:/original')).toBe('INDETERMINATE');
+      thread = { id: threadId, cwd: 'D:/original', turns: [{ id: turnId, status: 'failed' }] };
+      expect(await client.observeTurn(threadId, turnId, 'D:/original')).toBe('FAILED');
       for (const invalid of [
         { id: 'another-thread', turns: [{ id: turnId, status: 'completed' }] },
         { id: threadId, turns: [{ id: 'another-turn', status: 'completed' }] },
@@ -66,7 +70,7 @@ describe('read-only Codex discovery', () => {
         expect(await client.observeTurn(threadId, turnId)).toBe('INDETERMINATE');
       }
       expect(await client.observeTurn(threadId + '\n', turnId)).toBe('INDETERMINATE');
-      expect(requests.slice(2)).toEqual(Array.from({ length: 6 }, () => ({ method: 'thread/read', params: { threadId, includeTurns: true } })));
+      expect(requests.slice(2)).toEqual(Array.from({ length: 8 }, () => ({ method: 'thread/read', params: { threadId, includeTurns: true } })));
     } finally { client.dispose(); stdin.destroy(); stdout.destroy(); }
   });
   test('process existence errors fail closed except explicit no-such-process', () => {
