@@ -225,6 +225,13 @@ The H1 implementation slice is deliberately narrower: before worktree creation a
 
 ## Recovery scans
 
+Desktop startup conservatively quarantines abandoned local Outbox claims
+and changes persisted in-flight local Attempts to UNKNOWN before the
+existing Task read projection is served. Acknowledged messages are kept as
+evidence; terminal and undispatched records, other Workspaces, and leases
+are left unchanged. This startup transaction does not attest live outcomes
+or grant permission to redispatch.
+
 Startup performs, in order:
 
 1. SQLite integrity and migration-state validation.

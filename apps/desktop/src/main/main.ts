@@ -14,6 +14,7 @@ import { LocalProjectCatalog } from './project-ipc.js';
 import { createCodexDiscoveryCheck, createCodexProbe, createVersionProbe, type CodexCheck } from './codex-discovery-ipc.js';
 import { LocalCodexRegistration } from './local-codex-registration.js';
 import { readLocalProposalContext } from './proposal-catalog-check.js';
+import { recoverLocalStartup } from './recovery-service.js';
 
 const moduleDirectory = dirname(fileURLToPath(import.meta.url));
 let database: Database.Database | undefined;
@@ -32,9 +33,13 @@ async function createWindow(): Promise<void> {
   await window.loadFile(rendererPath);
 }
 
-app.whenReady().then(async () => {
+const isPrimaryInstance = app.requestSingleInstanceLock();
+if (!isPrimaryInstance) app.quit();
+
+if (isPrimaryInstance) void app.whenReady().then(async () => {
   database = createFoundationDatabase(join(app.getPath('userData'), 'super-assistant.sqlite'));
   const localDatabase = database;
+  recoverLocalStartup(localDatabase);
   const onboardingPort = new SqliteOnboardingRepository(database);
   const taskPort = new SqliteTaskProjectionQuery(database);
   const artifactPort = new SqliteArtifactRepository(database);
@@ -113,7 +118,7 @@ app.whenReady().then(async () => {
   ipcMain.handle('monitoring:status', (event, payload) => routeTrustedIpc(event, 'monitoring:status', payload));
   ipcMain.handle('team:workspace', (event, payload) => routeTrustedIpc(event, 'team:workspace', payload));
   await createWindow();
-});
+}).catch(() => app.quit());
 
 app.on('before-quit', (event) => {
   if (pendingCodexCheck) {

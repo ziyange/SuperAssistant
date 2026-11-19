@@ -149,6 +149,13 @@ redacted scope manifest; it is diagnostic evidence, not a credential export.
 
 Failure before step 11 permits read-only diagnostics and backup/repair actions but no new side effect.
 
+The initial desktop wiring runs the local SQLite quarantine step once after
+acquiring the Electron application instance lock and before registering IPC.
+It removes stale claim tokens and preserves uncertain attempts, retained
+leases, and the original message IDs. It does not start Adapter Workers,
+reapply commands, or certify their termination. If ownership is absent,
+locked or ambiguous, it does not mutate execution state.
+
 ## Shutdown sequence
 
 A normal application exit stops accepting dispatch and requests `cancel` for every active local ExecutionAttempt. Before closing SQLite, the main process confirms that each Attempt's upstream activity and descendant processes terminated, or records the Attempt as `UNKNOWN` with ambiguous evidence; it then releases or invalidates the corresponding ResourceLeases and stops the Adapter Worker. An abnormal exit cannot make those confirmations, so startup moves every affected Attempt to `RECONCILING` before any dispatch. H1 has no orphan, background, or independent headless worker after the Electron main process exits.
