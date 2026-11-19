@@ -1,9 +1,11 @@
 /* eslint-disable no-unused-vars -- projection is a type-only interface parameter. */
-export const IPC_CHANNELS = ['onboarding:get', 'onboarding:set', 'project:list', 'project:choose', 'project:assign-codex', 'codex:check', 'codex:registration', 'proposal:classify', 'proposal:preflight', 'task:get', 'task:list', 'artifact:get', 'decision:get', 'decision:list', 'history:list', 'project-change:list', 'acceptance:list', 'audit-export:create', 'monitoring:status', 'team:workspace'] as const;
+export const IPC_CHANNELS = ['onboarding:get', 'onboarding:set', 'project:list', 'project:choose', 'project:assign-codex', 'codex:check', 'codex:registration', 'proposal:context', 'proposal:classify', 'proposal:preflight', 'task:get', 'task:list', 'artifact:get', 'decision:get', 'decision:list', 'history:list', 'project-change:list', 'acceptance:list', 'audit-export:create', 'monitoring:status', 'team:workspace'] as const;
 
 export type IpcChannel = (typeof IPC_CHANNELS)[number];
 
 export type OnboardingProjection = Readonly<{ completed: boolean }>;
+export type ProposalContextProjection = Readonly<{ status: 'PROJECT_UNAVAILABLE' | 'CODEX_REQUIRED' | 'FUNCTION_REQUIRED' | 'LIVE_VERIFICATION_REQUIRED' }>;
+export type ReadProposalContext = (projectId: string) => Promise<IpcResponse>;
 export type CodexCheckProjection = Readonly<{ state: 'CANCELLED' | 'UNAVAILABLE' }> | Readonly<{ state: 'CHECKED'; connection: 'CONNECTED' | 'AUTH_REQUIRED' | 'VERSION_UNSUPPORTED' | 'UNAVAILABLE'; availability: 'AVAILABLE' | 'PAUSED' | 'UNAVAILABLE'; version: string; observedAt: string }>;
 export type CodexRegistrationProjection = Readonly<{ state: 'NOT_REGISTERED' | 'UNAVAILABLE' }> | Readonly<{ state: 'RECHECK_REQUIRED'; version: string }>;
 export type ProjectRendererProjection = Readonly<{ id: string; name: string; status: 'INITIALIZING' | 'ACTIVE' | 'PAUSED' | 'ARCHIVED' | 'ERROR'; repository: string | null; branch: string | null; provenance: 'DISCOVERED' | 'USER'; codexAssigned?: boolean; hasDefaultAgent?: boolean }>;
@@ -25,6 +27,7 @@ export type IpcRequest =
   | Readonly<{ channel: 'project:assign-codex'; payload: Readonly<{ projectId: string }> }>
   | Readonly<{ channel: 'codex:check'; payload: Record<string, never> }>
   | Readonly<{ channel: 'codex:registration'; payload: Record<string, never> }>
+  | Readonly<{ channel: 'proposal:context'; payload: Readonly<{ projectId: string }> }>
   | Readonly<{ channel: 'proposal:classify'; payload: Readonly<{ actions: readonly string[] }> }>
   | Readonly<{ channel: 'proposal:preflight'; payload: Readonly<{ approved: Record<string, unknown>; current: Record<string, unknown> }> }>
   | Readonly<{ channel: 'task:get'; payload: Readonly<{ taskId: string }> }>
@@ -44,6 +47,7 @@ export type IpcResponse =
   | Readonly<{ projects: readonly ProjectRendererProjection[]; status?: 'REGISTERED' | 'CANCELLED' | 'ASSIGNED' | 'ERROR' }>
   | Readonly<{ codex: CodexCheckProjection }>
   | Readonly<{ codexRegistration: CodexRegistrationProjection }>
+  | Readonly<{ proposalContext: ProposalContextProjection }>
   | Readonly<{ task: TaskRendererProjection }>
   | Readonly<{ tasks: readonly TaskRendererProjection[] }>
   | Readonly<{ artifact: ArtifactRendererProjection }>
@@ -64,6 +68,7 @@ export interface SuperAssistantDesktopApi {
   assignProjectCodex?(projectId: string): Promise<IpcResponse>;
   checkCodex?(): Promise<IpcResponse>;
   getCodexRegistration?(): Promise<IpcResponse>;
+  getProposalContext?: ReadProposalContext;
   getTask(taskId: string): Promise<IpcResponse>;
   listTasks(): Promise<IpcResponse>;
   getArtifact(input: Readonly<{ artifactVersionId: string; authorizationGrantId: string; checksum: string }>): Promise<IpcResponse>;

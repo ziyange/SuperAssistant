@@ -170,6 +170,12 @@ authority or becomes writable when Team Service is unavailable.
 ## Ports and trust boundaries
 
 - Renderer IPC: typed request/response and subscription methods; main process revalidates identity, schema, state version, and authorization.
+- H1 preparation uses the bounded read-only `proposal:context` channel. The
+  main process derives the unique active local Workspace; it accepts only a
+  Project ID and reads Project, registered default Codex and active Function
+  facts in one SQLite transaction. The response is a prerequisite enum only,
+  not a ready signal, an executable path, a candidate or a Grant. No runtime
+  is launched. Live checks and authorization are separate gates.
 - `AgentCatalogPort`: describe, synchronize Functions, read health, and negotiate versions.
 - `ExecutionPort`: exactly eight mandatory operations—`describe`, `health`, `start`, `resume`, `cancel`, `status`, `events`, and `result`—defined in [SAI](api/sai.md).
 - `ProjectResourcePort`: resolve immutable Project snapshots and normalized resource keys.

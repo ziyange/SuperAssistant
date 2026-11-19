@@ -37,6 +37,10 @@ export function validateRequest(value: unknown): IpcRequest {
   if (value.channel === 'onboarding:set' && hasOnlyKeys(value.payload, ['completed']) && typeof value.payload.completed === 'boolean') {
     return { channel: 'onboarding:set', payload: { completed: value.payload.completed } };
   }
+  if (value.channel === 'proposal:context' && hasOnlyKeys(value.payload, ['projectId']) && typeof value.payload.projectId === 'string'
+    && value.payload.projectId.length >= 1 && value.payload.projectId.length <= 128 && !/[^a-z0-9_-]/i.test(value.payload.projectId)) {
+    return { channel: 'proposal:context', payload: { projectId: value.payload.projectId } };
+  }
   if (value.channel === 'proposal:classify' && hasOnlyKeys(value.payload, ['actions']) && Array.isArray(value.payload.actions) && value.payload.actions.length > 0 && Array.from(value.payload.actions).every(isGoalAction)) {
     return { channel: 'proposal:classify', payload: { actions: value.payload.actions } };
   }

@@ -2,6 +2,62 @@ import { expect, test } from 'vitest';
 import { createFoundationDatabase } from '../../../../packages/persistence/src/sqlite/database.js';
 import { SqliteFoundationRepository } from '../../../../packages/persistence/src/repositories/foundation-repository.js';
 import { checkLocalProposalCatalog } from '../../src/main/proposal-catalog-check.js';
+import * as catalog from '../../src/main/proposal-catalog-check.js';
+import { routeIpc } from '../../src/main/ipc-router.js';
+
+test('Proposal context IPC derives local scope and returns only read-only prerequisites', async () => {
+  const db = createFoundationDatabase(':memory:');
+  try {
+    const repo = new SqliteFoundationRepository(db);
+    const local = repo.createWorkspace({ ownerId: 'local-owner', name: 'Local' });
+    const foreign = repo.createWorkspace({ ownerId: 'other-owner', name: 'Foreign' });
+    const project = repo.createProject({ workspaceId: local.workspaceId, name: 'Local Project', canonicalPath: 'E:/local' });
+    const other = repo.createProject({ workspaceId: foreign.workspaceId, name: 'Foreign Project', canonicalPath: 'E:/foreign' });
+    const codex = repo.createAgent({ workspaceId: local.workspaceId, name: 'Codex', connection: 'UNAVAILABLE', availability: 'PAUSED', agentVersion: '0.121.0' });
+    const onboarding = {
+      get: async () => { throw new Error('Unrelated onboarding read'); },
+      set: async () => { throw new Error('Unexpected onboarding write'); }
+    };
+    const request = (payload: unknown) => routeIpc({ channel: 'proposal:context', payload }, onboarding, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, (projectId: string) => catalog.readLocalProposalContext(db, projectId));
+    const check = async (status: string, projectId = project.projectId as string) => {
+      const changes = db.prepare('SELECT total_changes() AS count');
+      const before = changes.get();
+      await expect(request({ projectId })).resolves.toEqual({ proposalContext: { status } });
+      expect(changes.get()).toEqual(before);
+    };
+    await check('PROJECT_UNAVAILABLE');
+    db.prepare("UPDATE projects SET status = 'ACTIVE'").run();
+    await check('PROJECT_UNAVAILABLE', other.projectId);
+    await check('PROJECT_UNAVAILABLE', 'unknown');
+    await check('CODEX_REQUIRED');
+    db.prepare('UPDATE projects SET default_agent_id = ? WHERE project_id = ?').run(codex.agentId, project.projectId);
+    await check('CODEX_REQUIRED');
+    db.prepare("INSERT INTO local_codex_registrations VALUES (?, ?, 'E:/fake.exe', '0.121.0', '2026')").run(local.workspaceId, codex.agentId);
+    await check('FUNCTION_REQUIRED');
+    const fn = repo.createFunction({ agentId: codex.agentId, name: 'Code', functionVersion: '1' });
+    await check('LIVE_VERIFICATION_REQUIRED');
+    db.prepare("UPDATE functions SET lifecycle = 'DISABLED' WHERE function_id = ?").run(fn.functionId);
+    await check('FUNCTION_REQUIRED');
+    db.prepare("UPDATE local_codex_registrations SET observed_version = '0.122.0'").run();
+    await check('CODEX_REQUIRED');
+    db.prepare("UPDATE local_codex_registrations SET observed_version = '0.121.0'").run();
+    db.prepare("UPDATE agents SET connection = 'DISABLED' WHERE agent_id = ?").run(codex.agentId);
+    await check('CODEX_REQUIRED');
+    db.prepare("UPDATE projects SET status = 'PAUSED' WHERE project_id = ?").run(project.projectId);
+    await check('PROJECT_UNAVAILABLE');
+    db.prepare("UPDATE projects SET status = 'ACTIVE' WHERE project_id = ?").run(project.projectId);
+    db.prepare("UPDATE workspaces SET status = 'LOCKED' WHERE workspace_id = ?").run(local.workspaceId);
+    await check('PROJECT_UNAVAILABLE');
+    db.prepare("UPDATE workspaces SET status = 'ACTIVE' WHERE workspace_id = ?").run(local.workspaceId);
+    repo.createWorkspace({ ownerId: 'local-owner', name: 'Ambiguous' });
+    await check('PROJECT_UNAVAILABLE');
+    for (const payload of [{}, { projectId: '../outside' }, { projectId: 'project-1\n' }, { projectId: 'x'.repeat(129) }, { projectId: project.projectId, workspaceId: foreign.workspaceId }]) {
+      await expect(request(payload)).rejects.toThrow('IPC channel or payload is not allowed.');
+    }
+    await expect(routeIpc({ channel: 'proposal:context', payload: { projectId: project.projectId } }, onboarding)).resolves.toEqual({ proposalContext: { status: 'PROJECT_UNAVAILABLE' } });
+  } finally { db.close(); }
+  expect(catalog.readLocalProposalContext(db, 'project-1')).toEqual({ status: 'PROJECT_UNAVAILABLE' });
+});
 
 test('local Proposal catalog rejects untrusted, stale and foreign facts without mutating state', () => {
   const db = createFoundationDatabase(':memory:');

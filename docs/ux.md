@@ -49,6 +49,22 @@ The default page contains:
 
 Conversation responses may embed Agent cards, Project cards, Task boards, Decision cards, tables, metrics, or charts. Each embedded object links to its canonical detail view and displays the same authoritative status.
 
+### H1 Proposal preparation during integration
+
+The home screen keeps the existing proposal region, replacing its placeholder
+with a labeled selector for registered active Projects and a prerequisite
+message below it. The selection is local to the screen and never auto-selects
+another Project. Empty lists point to Project Center. A stale in-flight
+response cannot update a newly selected Project.
+
+| Component | Binding | Input | Response | Feedback |
+|---|---|---|---|---|
+| Proposal preparation | `getProposalContext` → `proposal:context` | Selected Project ID | Prerequisite state only | Loading; Project unavailable; assign registered Codex; active Function missing; live verification required |
+
+The check accepts no goal text and cannot create a draft or start execution.
+Confirm remains disabled without an action until the separate immutable
+review and current-authority flow is connected.
+
 ## ProposalVersion and authorization
 
 Any side-effecting route presents an immutable ProposalVersion, labeled “Execution Proposal” in the UI, before execution. The review surface shows:

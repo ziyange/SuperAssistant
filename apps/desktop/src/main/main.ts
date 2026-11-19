@@ -13,6 +13,7 @@ import { unavailableTeamPort } from './team-ipc.js';
 import { LocalProjectCatalog } from './project-ipc.js';
 import { createCodexDiscoveryCheck, createCodexProbe, createVersionProbe, type CodexCheck } from './codex-discovery-ipc.js';
 import { LocalCodexRegistration } from './local-codex-registration.js';
+import { readLocalProposalContext } from './proposal-catalog-check.js';
 
 const moduleDirectory = dirname(fileURLToPath(import.meta.url));
 let database: Database.Database | undefined;
@@ -33,6 +34,7 @@ async function createWindow(): Promise<void> {
 
 app.whenReady().then(async () => {
   database = createFoundationDatabase(join(app.getPath('userData'), 'super-assistant.sqlite'));
+  const localDatabase = database;
   const onboardingPort = new SqliteOnboardingRepository(database);
   const taskPort = new SqliteTaskProjectionQuery(database);
   const artifactPort = new SqliteArtifactRepository(database);
@@ -85,7 +87,7 @@ app.whenReady().then(async () => {
   });
   const routeTrustedIpc = (event: IpcMainInvokeEvent, channel: string, payload: unknown) => {
     if (!isTrustedIpcSender(event.senderFrame?.url ?? '', rendererUrl, event.sender === applicationWindow?.webContents, event.senderFrame === event.sender.mainFrame)) throw new Error('Untrusted IPC sender.');
-    return routeIpc({ channel, payload }, onboardingPort, undefined, taskPort, artifactPort, decisionPort, historyPort, changePort, acceptancePort, auditExportPort, monitoringStatusPort, teamPort, projectPort, runCodexCheck, () => codexRegistration.get());
+    return routeIpc({ channel, payload }, onboardingPort, undefined, taskPort, artifactPort, decisionPort, historyPort, changePort, acceptancePort, auditExportPort, monitoringStatusPort, teamPort, projectPort, runCodexCheck, () => codexRegistration.get(), projectId => readLocalProposalContext(localDatabase, projectId));
   };
   ipcMain.handle('onboarding:get', (event, payload) => {
     return routeTrustedIpc(event, 'onboarding:get', payload);
@@ -98,6 +100,7 @@ app.whenReady().then(async () => {
   ipcMain.handle('project:assign-codex', (event, payload) => routeTrustedIpc(event, 'project:assign-codex', payload));
   ipcMain.handle('codex:check', (event, payload) => routeTrustedIpc(event, 'codex:check', payload));
   ipcMain.handle('codex:registration', (event, payload) => routeTrustedIpc(event, 'codex:registration', payload));
+  ipcMain.handle('proposal:context', (event, payload) => routeTrustedIpc(event, 'proposal:context', payload));
   ipcMain.handle('task:get', (event, payload) => routeTrustedIpc(event, 'task:get', payload));
   ipcMain.handle('task:list', (event, payload) => routeTrustedIpc(event, 'task:list', payload));
   ipcMain.handle('artifact:get', (event, payload) => routeTrustedIpc(event, 'artifact:get', payload));
