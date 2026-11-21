@@ -41,6 +41,10 @@ export function validateRequest(value: unknown): IpcRequest {
     && value.payload.projectId.length >= 1 && value.payload.projectId.length <= 128 && !/[^a-z0-9_-]/i.test(value.payload.projectId)) {
     return { channel: 'proposal:context', payload: { projectId: value.payload.projectId } };
   }
+  if (value.channel === 'proposal:review' && hasOnlyKeys(value.payload, ['draftId']) && typeof value.payload.draftId === 'string'
+    && /^[a-z0-9_-]{1,128}$/i.test(value.payload.draftId)) {
+    return { channel: 'proposal:review', payload: { draftId: value.payload.draftId } };
+  }
   if (value.channel === 'proposal:classify' && hasOnlyKeys(value.payload, ['actions']) && Array.isArray(value.payload.actions) && value.payload.actions.length > 0 && Array.from(value.payload.actions).every(isGoalAction)) {
     return { channel: 'proposal:classify', payload: { actions: value.payload.actions } };
   }

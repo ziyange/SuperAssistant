@@ -11,6 +11,7 @@ const api: SuperAssistantDesktopApi = {
   checkCodex: () => ipcRenderer.invoke('codex:check', {}),
   getCodexRegistration: () => ipcRenderer.invoke('codex:registration', {}),
   getProposalContext: projectId => ipcRenderer.invoke('proposal:context', { projectId }),
+  reviewProposal: draftId => ipcRenderer.invoke('proposal:review', { draftId }),
   getTask: (taskId) => ipcRenderer.invoke('task:get', { taskId }),
   listTasks: () => ipcRenderer.invoke('task:list', {}),
   cancelQueuedTask: (taskId) => ipcRenderer.invoke('task:cancel-queued', { taskId }),

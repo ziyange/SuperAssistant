@@ -65,6 +65,14 @@ The check accepts no goal text and cannot create a draft or start execution.
 Confirm remains disabled without an action until the separate immutable
 review and current-authority flow is connected.
 
+TASK-794 adds a main-process review-only path for an already persisted local
+draft. It opens a sandboxed, script-disabled, scrollable desktop window and
+rechecks the full immutable review after it closes. Its result is only
+`REVIEWED_ONLY`, never an AuthorizationGrant or execution approval. The home
+screen does not yet create drafts or expose this path; trusted Function
+discovery, authorization and execution integration remain incomplete. Native
+window behavior still requires the deferred Electron sandbox verification.
+
 ## ProposalVersion and authorization
 
 Any side-effecting route presents an immutable ProposalVersion, labeled “Execution Proposal” in the UI, before execution. The review surface shows:

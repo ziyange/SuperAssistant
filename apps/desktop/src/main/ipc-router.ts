@@ -19,7 +19,7 @@ export interface OnboardingPort {
   set(projection: OnboardingProjection): Promise<OnboardingProjection>;
 }
 
-export async function routeIpc(request: unknown, onboarding: OnboardingPort, proposal?: ProposalIpcPort, task?: TaskReadPort, artifact?: ArtifactReadPort, decision?: DecisionReadPort, history?: HistoryReadPort, changes?: ProjectChangeReadPort, acceptance?: AcceptanceReadPort, auditExport?: AuditExportPort, monitoring?: MonitoringStatusReadPort, team?: TeamWorkspacePort, projects?: Pick<LocalProjectCatalog, 'list' | 'choose'> & Partial<Pick<LocalProjectCatalog, 'assignCodex'>>, codex?: () => Promise<CodexCheck>, codexRegistration?: () => CodexRegistrationProjection, proposalContext?: (projectId: string) => ProposalContextProjection, queuedCancellation?: Pick<QueuedTaskCancellation, 'cancel'>): Promise<IpcResponse> {
+export async function routeIpc(request: unknown, onboarding: OnboardingPort, proposal?: ProposalIpcPort, task?: TaskReadPort, artifact?: ArtifactReadPort, decision?: DecisionReadPort, history?: HistoryReadPort, changes?: ProjectChangeReadPort, acceptance?: AcceptanceReadPort, auditExport?: AuditExportPort, monitoring?: MonitoringStatusReadPort, team?: TeamWorkspacePort, projects?: Pick<LocalProjectCatalog, 'list' | 'choose'> & Partial<Pick<LocalProjectCatalog, 'assignCodex'>>, codex?: () => Promise<CodexCheck>, codexRegistration?: () => CodexRegistrationProjection, proposalContext?: (projectId: string) => ProposalContextProjection, queuedCancellation?: Pick<QueuedTaskCancellation, 'cancel'>, reviewProposal?: (draftId: string) => Promise<boolean>): Promise<IpcResponse> {
   const valid: IpcRequest = validateRequest(request);
   if (valid.channel === 'onboarding:get') return { onboarding: await onboarding.get() };
   if (valid.channel === 'onboarding:set') return { onboarding: await onboarding.set(valid.payload) };
@@ -89,6 +89,10 @@ export async function routeIpc(request: unknown, onboarding: OnboardingPort, pro
     const status = proposalContext?.(valid.payload.projectId).status;
     if (status === 'CODEX_REQUIRED' || status === 'FUNCTION_REQUIRED' || status === 'LIVE_VERIFICATION_REQUIRED') return { proposalContext: { status } };
     return { proposalContext: { status: 'PROJECT_UNAVAILABLE' } };
+  }
+  if (valid.channel === 'proposal:review') {
+    try { return { proposalReview: await reviewProposal?.(valid.payload.draftId) === true ? 'REVIEWED_ONLY' : 'UNAVAILABLE' }; }
+    catch { return { proposalReview: 'UNAVAILABLE' }; }
   }
   if (!proposal) throw new Error('Proposal IPC port is unavailable.');
   const onboardingProjection = await onboarding.get();

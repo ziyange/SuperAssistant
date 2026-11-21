@@ -3,6 +3,16 @@ import { validateRequest } from '../../src/main/ipc-schemas.js';
 import { routeIpc } from '../../src/main/ipc-router.js';
 
 describe('IPC request validation', () => {
+  test('review acknowledgement accepts only a bounded draft ID and calls the main-process port', async () => {
+    const request = { channel: 'proposal:review', payload: { draftId: 'draft-1' } };
+    expect(validateRequest(request)).toEqual(request);
+    expect(() => validateRequest({ channel: 'proposal:review', payload: { draftId: 'draft-1', digest: 'attacker' } })).toThrow();
+    expect(() => validateRequest({ channel: 'proposal:review', payload: { draftId: '../escape' } })).toThrow();
+    const onboarding = { async get() { return { completed: false }; }, async set(value: { completed: boolean }) { return value; } };
+    const review = async (id: string) => id === 'draft-1';
+    const result = await routeIpc(request, onboarding, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, review);
+    expect(result).toEqual({ proposalReview: 'REVIEWED_ONLY' });
+  });
   test('Project-Codex assignment accepts only an explicit Project ID', async () => {
     expect(validateRequest({ channel: 'project:assign-codex', payload: { projectId: 'project-1' } })).toEqual({ channel: 'project:assign-codex', payload: { projectId: 'project-1' } });
     expect(() => validateRequest({ channel: 'project:assign-codex', payload: { projectId: 'project-1', agentId: 'foreign-agent' } })).toThrow();

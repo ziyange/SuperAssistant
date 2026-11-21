@@ -4,7 +4,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, extname, isAbsolute, join } from 'node:path';
 import { realpath, stat } from 'node:fs/promises';
 import { createReadStream } from 'node:fs';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import type Database from 'better-sqlite3';
 import { createFoundationDatabase, SqliteAcceptanceRepository, SqliteArtifactRepository, SqliteAuditExportRepository, SqliteDecisionRepository, SqliteHistoryRepository, SqliteMonitoringStatusRepository, SqliteOnboardingRepository, SqliteProjectChangeRepository, SqliteTaskProjectionQuery } from '@super-assistant/persistence';
@@ -19,6 +19,9 @@ import { readLocalProposalContext } from './proposal-catalog-check.js';
 import { recoverLocalStartup } from './recovery-service.js';
 import { QueuedTaskCancellation } from './queued-task-cancellation.js';
 import { CodexAttemptRecovery } from './codex-attempt-recovery.js';
+import { LocalProposalReview } from './local-proposal-review.js';
+import { ImmutableProposalConfirmation } from './immutable-proposal-confirmation.js';
+import { presentReview } from './review-window.js';
 
 const moduleDirectory = dirname(fileURLToPath(import.meta.url));
 let database: Database.Database | undefined;
@@ -123,9 +126,25 @@ if (isPrimaryInstance) void app.whenReady().then(async () => {
     });
     return answer.response === 0;
   });
+  const localReview = new LocalProposalReview(localDatabase);
+  const confirmation = new ImmutableProposalConfirmation(id => localReview.read(id), async review => {
+    const parent = applicationWindow;
+    if (!parent || parent.isDestroyed()) return false;
+    const token = randomUUID();
+    return presentReview(review, token, () => new BrowserWindow({
+      parent, modal: true, show: false, width: 850, height: 700, autoHideMenuBar: true,
+      webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false, javascript: false, webviewTag: false }
+    }));
+  });
+  const reviewDraft = async (draftId: string): Promise<boolean> => {
+    try {
+      const review = localReview.prepare(draftId);
+      return await confirmation.confirm(review.proposalVersionId, review.digest);
+    } catch { return false; }
+  };
   const routeTrustedIpc = (event: IpcMainInvokeEvent, channel: string, payload: unknown) => {
     if (!isTrustedIpcSender(event.senderFrame?.url ?? '', rendererUrl, event.sender === applicationWindow?.webContents, event.senderFrame === event.sender.mainFrame)) throw new Error('Untrusted IPC sender.');
-    return routeIpc({ channel, payload }, onboardingPort, undefined, taskPort, artifactPort, decisionPort, historyPort, changePort, acceptancePort, auditExportPort, monitoringStatusPort, teamPort, projectPort, runCodexCheck, () => codexRegistration.get(), projectId => readLocalProposalContext(localDatabase, projectId), queuedCancellation);
+    return routeIpc({ channel, payload }, onboardingPort, undefined, taskPort, artifactPort, decisionPort, historyPort, changePort, acceptancePort, auditExportPort, monitoringStatusPort, teamPort, projectPort, runCodexCheck, () => codexRegistration.get(), projectId => readLocalProposalContext(localDatabase, projectId), queuedCancellation, reviewDraft);
   };
   ipcMain.handle('onboarding:get', (event, payload) => {
     return routeTrustedIpc(event, 'onboarding:get', payload);
@@ -139,6 +158,7 @@ if (isPrimaryInstance) void app.whenReady().then(async () => {
   ipcMain.handle('codex:check', (event, payload) => routeTrustedIpc(event, 'codex:check', payload));
   ipcMain.handle('codex:registration', (event, payload) => routeTrustedIpc(event, 'codex:registration', payload));
   ipcMain.handle('proposal:context', (event, payload) => routeTrustedIpc(event, 'proposal:context', payload));
+  ipcMain.handle('proposal:review', (event, payload) => routeTrustedIpc(event, 'proposal:review', payload));
   ipcMain.handle('task:get', (event, payload) => routeTrustedIpc(event, 'task:get', payload));
   ipcMain.handle('task:list', (event, payload) => routeTrustedIpc(event, 'task:list', payload));
   ipcMain.handle('task:cancel-queued', (event, payload) => routeTrustedIpc(event, 'task:cancel-queued', payload));

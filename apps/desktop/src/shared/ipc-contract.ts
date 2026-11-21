@@ -1,5 +1,5 @@
 /* eslint-disable no-unused-vars -- projection is a type-only interface parameter. */
-export const IPC_CHANNELS = ['onboarding:get', 'onboarding:set', 'project:list', 'project:choose', 'project:assign-codex', 'codex:check', 'codex:registration', 'proposal:context', 'proposal:classify', 'proposal:preflight', 'task:get', 'task:list', 'task:cancel-queued', 'artifact:get', 'decision:get', 'decision:list', 'history:list', 'project-change:list', 'acceptance:list', 'audit-export:create', 'monitoring:status', 'team:workspace'] as const;
+export const IPC_CHANNELS = ['onboarding:get', 'onboarding:set', 'project:list', 'project:choose', 'project:assign-codex', 'codex:check', 'codex:registration', 'proposal:context', 'proposal:review', 'proposal:classify', 'proposal:preflight', 'task:get', 'task:list', 'task:cancel-queued', 'artifact:get', 'decision:get', 'decision:list', 'history:list', 'project-change:list', 'acceptance:list', 'audit-export:create', 'monitoring:status', 'team:workspace'] as const;
 
 export type IpcChannel = (typeof IPC_CHANNELS)[number];
 
@@ -29,6 +29,7 @@ export type IpcRequest =
   | Readonly<{ channel: 'codex:check'; payload: Record<string, never> }>
   | Readonly<{ channel: 'codex:registration'; payload: Record<string, never> }>
   | Readonly<{ channel: 'proposal:context'; payload: Readonly<{ projectId: string }> }>
+  | Readonly<{ channel: 'proposal:review'; payload: Readonly<{ draftId: string }> }>
   | Readonly<{ channel: 'proposal:classify'; payload: Readonly<{ actions: readonly string[] }> }>
   | Readonly<{ channel: 'proposal:preflight'; payload: Readonly<{ approved: Record<string, unknown>; current: Record<string, unknown> }> }>
   | Readonly<{ channel: 'task:get'; payload: Readonly<{ taskId: string }> }>
@@ -50,6 +51,7 @@ export type IpcResponse =
   | Readonly<{ codex: CodexCheckProjection }>
   | Readonly<{ codexRegistration: CodexRegistrationProjection }>
   | Readonly<{ proposalContext: ProposalContextProjection }>
+  | Readonly<{ proposalReview: 'REVIEWED_ONLY' | 'UNAVAILABLE' }>
   | Readonly<{ task: TaskRendererProjection }>
   | Readonly<{ tasks: readonly TaskRendererProjection[] }>
   | Readonly<{ queuedCancellation: QueuedCancellationStatus }>
@@ -72,6 +74,7 @@ export interface SuperAssistantDesktopApi {
   checkCodex?(): Promise<IpcResponse>;
   getCodexRegistration?(): Promise<IpcResponse>;
   getProposalContext?: ReadProposalContext;
+  reviewProposal?(draftId: string): Promise<IpcResponse>;
   getTask(taskId: string): Promise<IpcResponse>;
   listTasks(): Promise<IpcResponse>;
   cancelQueuedTask?(taskId: string): Promise<IpcResponse>;
