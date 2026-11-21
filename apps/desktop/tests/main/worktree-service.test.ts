@@ -10,8 +10,14 @@ function git(path: string, ...args: string[]) { return execFileSync('git', ['-C'
 test('creates distinct isolated task worktrees without changing the original', () => {
   const root = mkdtempSync(join(tmpdir(), 'sa-worktree-')); const repository = join(root, 'repo'); const worktrees = join(root, 'worktrees');
   try {
-    execFileSync('git', ['init', repository]); git(repository, 'config', 'user.email', 'test@example.invalid'); git(repository, 'config', 'user.name', 'Test'); writeFileSync(join(repository, 'source.txt'), 'original'); git(repository, 'add', '.'); git(repository, 'commit', '-m', 'baseline'); const before = git(repository, 'status', '--porcelain') + readFileSync(join(repository, 'source.txt'), 'utf8');
-    const baselineCommit = git(repository, 'rev-parse', 'HEAD');
+    execFileSync('git', ['init', '-q', '-b', 'main', repository]);
+    // One real Git transaction seeds a tracked file and returns its commit.
+    const baselineCommit = execFileSync('git', ['-C', repository, 'fast-import', '--quiet', '--done'], {
+      encoding: 'utf8', input: ['commit refs/heads/main', 'mark :1', 'committer Test <test@example.invalid> 1000000000 +0000',
+        'data 8', 'baseline', 'M 100644 inline source.txt', 'data 8', 'original', '', 'get-mark :1', 'done', ''].join('\n')
+    }).trim();
+    git(repository, 'read-tree', '-u', '--reset', 'HEAD');
+    const before = git(repository, 'status', '--porcelain') + readFileSync(join(repository, 'source.txt'), 'utf8');
     const input = { projectId: 'project' as never, projectPath: repository, worktreeRoot: worktrees, baselineCommit };
     const service = new GitWorktreeService();
     vi.stubEnv('GIT_DIR', join(root, 'unrelated.git'));
@@ -22,8 +28,16 @@ test('creates distinct isolated task worktrees without changing the original', (
       } finally { vi.unstubAllEnvs(); }
     })();
     expect(one.baselineCommit).toBe(baselineCommit);
-    expect(git(one.path, 'rev-parse', 'HEAD')).toBe(baselineCommit);
-    expect(git(two.path, 'rev-parse', 'HEAD')).toBe(baselineCommit);
+    expect(two.baselineCommit).toBe(baselineCommit);
+    const records = git(repository, 'worktree', 'list', '--porcelain', '-z').split('\0\0').map(record => record.split('\0'));
+    const original = records.find(([line]) => line?.startsWith('worktree ') && realpathSync.native(line.slice(9)) === realpathSync.native(repository));
+    expect(original).toEqual(expect.arrayContaining(['HEAD ' + baselineCommit, 'branch refs/heads/main']));
+    for (const checkout of [one, two]) {
+      const entry = records.find(([line]) => line?.startsWith('worktree ') && realpathSync.native(line.slice(9)) === realpathSync.native(checkout.path));
+      expect(entry).toContain('HEAD ' + baselineCommit);
+      expect(entry).toContain('branch refs/heads/' + checkout.branch);
+      expect(readFileSync(join(checkout.path, 'source.txt'), 'utf8')).toBe('original');
+    }
     expect(one.path).not.toBe(two.path); expect(one.branch).not.toBe(two.branch); expect(git(repository, 'status', '--porcelain') + readFileSync(join(repository, 'source.txt'), 'utf8')).toBe(before);
   } finally { rmSync(root, { recursive: true, force: true }); }
 }, 15_000);

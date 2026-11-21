@@ -20,6 +20,18 @@ test('rebuilds reconciliation display state from persisted Task facts', () => {
   db.close();
 });
 
+test.each(['other-item','same-time-retry'])('one truthful Task for uncertain sibling or ambiguous latest Attempt (%s)',variant=>{
+  const db=createFoundationDatabase(':memory:');
+  try {
+    seedTask(db,'SUCCEEDED');
+    if (variant==='other-item') db.exec("INSERT INTO work_items VALUES('w2','task-1','agent-1','function-1','RUNNING')");
+    db.prepare("INSERT INTO execution_attempts VALUES('another',?,'req2','k2',?,0,?)").run(variant==='other-item'?'w2':'work-1',variant==='other-item'?'UNKNOWN':'SUCCEEDED',variant==='other-item'?'2026-08-11T00:00:00.000Z':'2026-08-12T00:00:00.000Z');
+    const query=new SqliteTaskProjectionQuery(db);
+    expect(query.list().map(row=>[row.taskId,row.state])).toEqual([['task-1','RUNNING / RECONCILING']]);
+    expect(query.get('task-1')).toEqual(query.list()[0]);
+  } finally {db.close();}
+});
+
 test('success of the original Attempt does not accept the Task in list or detail', () => {
   const db = createFoundationDatabase(':memory:');
   try {
@@ -40,4 +52,20 @@ test('success of the original Attempt does not accept the Task in list or detail
     db.exec("UPDATE execution_attempts SET state='UNKNOWN'");
     expect(states()).toEqual(['RUNNING / RECONCILING', 'RUNNING / RECONCILING']);
   } finally { db.close(); }
+});
+
+test('never-started sibling does not mask failure; activity is read from the matching Task, Project and Attempt',()=>{
+  const db=createFoundationDatabase(':memory:');
+  try {
+    seedTask(db,'FAILED');
+    db.exec("INSERT INTO work_items VALUES('waiting','task-1','agent-1','function-1','WAITING')");
+    const save=db.prepare("INSERT INTO activity_history VALUES(?,?,?,?,?,?,?,?)");
+    save.run('valid','workspace-1','project-1','task-1','attempt-1',1,'EXECUTION_STARTED','2026-08-12');
+    save.run('opaque','workspace-1','project-1','task-1','attempt-1',2,'private data','2026-08-13');
+    save.run('foreign','workspace-1','different','task-1','attempt-1',3,'EXECUTION_STARTED','2026-08-14');
+    save.run('unknown','workspace-1','project-1','task-1','not-owned',4,'EXECUTION_STARTED','2026-08-15');
+    const read=new SqliteTaskProjectionQuery(db);
+    expect(read.get('task-1')).toMatchObject({state:'FAILED',activity:['Execution started','Activity recorded']});
+    expect(read.list()).toEqual([read.get('task-1')]);
+  } finally {db.close();}
 });

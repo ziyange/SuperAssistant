@@ -31,6 +31,8 @@ test('read failures are not presented as an empty Task list or as verified absen
     fireEvent.click(screen.getByRole('button', {name: 'Task Center'}));
     expect(await screen.findByText('Task status could not be loaded.')).toBeTruthy();
     expect(screen.queryByText('No Tasks yet.')).toBeNull();
+    expect(screen.queryByText('No Agent activity.')).toBeNull();
+    expect(screen.queryByText('No human actions.')).toBeNull();
     expect(screen.queryByText('Existing local Task')).toBeNull();
   } finally {
     cleanup();

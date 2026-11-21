@@ -5,14 +5,14 @@ import { createH1ReviewedProposal, createProposalVersion } from '@super-assistan
 import { SqliteOutboxRepository, SqliteProposalRepository } from '@super-assistant/persistence';
 import { findLocalWorkspace } from './local-workspace.js';
 
-interface Runtime { executable: string; binaryHash: string; version: string }
+interface Runtime { executable: string; binaryHash: string; version: string; principalHash: string }
 interface Start { attemptId: string; claim: string; threadId: string; turnId: string; cwd: string }
 type Observer = (thread: string, turn: string, cwd: string) => Promise<'COMPLETED' | 'FAILED' | 'INDETERMINATE'>;
 interface Receipt { attempt_id: string; thread_id: string; turn_id: string; worktree_path: string; proposal_digest: string }
 type Authority = { proposal_version_id: string; digest: string; last_sequence: number; claim_token: string | null; attempt_state: string; outbox_state: string };
 
 const validRuntime = (runtime: Runtime) => runtime.version === '0.121.0' && isAbsolute(runtime.executable)
-  && runtime.binaryHash.length === 64 && !/[^0-9a-f]/.test(runtime.binaryHash);
+  && [runtime.binaryHash,runtime.principalHash].every(hash=>typeof hash==='string' && hash.length===64 && !/[^0-9a-f]/.test(hash));
 
 export class CodexAttemptRecovery {
   constructor(private readonly db: Database.Database) {}
@@ -48,7 +48,8 @@ export class CodexAttemptRecovery {
     this.db.transaction(()=>{
       const row=this.authority(runtime,receipt.attemptId);
       if (!row || row.attempt_state !== 'DISPATCH_PENDING' || row.last_sequence !== 0 || row.outbox_state !== 'DISPATCHING' || row.claim_token !== receipt.claim) throw new Error('START_CLAIM_LOST');
-      this.db.prepare('INSERT INTO codex_start_receipts VALUES (?,?,?,?,?,?,?)').run(receipt.attemptId,row.digest,runtime.executable,runtime.binaryHash,receipt.threadId,receipt.turnId,receipt.cwd);
+      this.db.prepare('INSERT INTO codex_start_receipts(attempt_id,proposal_digest,executable_path,binary_hash,thread_id,turn_id,worktree_path,principal_hash) VALUES (?,?,?,?,?,?,?,?)')
+        .run(receipt.attemptId,row.digest,runtime.executable,runtime.binaryHash,receipt.threadId,receipt.turnId,receipt.cwd,runtime.principalHash);
       if (!new SqliteOutboxRepository(this.db).acknowledge('outbox:'+receipt.attemptId,receipt.claim)
         || this.db.prepare("UPDATE execution_attempts SET state='RUNNING' WHERE attempt_id=? AND state='DISPATCH_PENDING'").run(receipt.attemptId).changes!==1) throw new Error('START_CLAIM_LOST');
     }).immediate();
@@ -59,7 +60,7 @@ export class CodexAttemptRecovery {
     if (!workspace || !validRuntime(runtime)) return;
     const receipts=this.db.prepare(`SELECT r.attempt_id,r.thread_id,r.turn_id,r.worktree_path,r.proposal_digest FROM codex_start_receipts r
       JOIN execution_attempts a USING(attempt_id) JOIN work_items w USING(work_item_id) JOIN tasks t USING(task_id)
-      WHERE r.executable_path=? AND r.binary_hash=? AND t.workspace_id=? AND a.state IN ('UNKNOWN','RECONCILING') ORDER BY r.attempt_id`).all(runtime.executable,runtime.binaryHash,workspace) as Receipt[];
+      WHERE r.executable_path=? AND r.binary_hash=? AND r.principal_hash=? AND t.workspace_id=? AND a.state IN ('UNKNOWN','RECONCILING') ORDER BY r.attempt_id`).all(runtime.executable,runtime.binaryHash,runtime.principalHash,workspace) as Receipt[];
     for (const r of receipts) {
       try {
         const eligible=() => {

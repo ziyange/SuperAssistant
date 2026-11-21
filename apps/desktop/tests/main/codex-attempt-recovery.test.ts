@@ -15,7 +15,7 @@ const opened = new Set<ReturnType<typeof createFoundationDatabase>>();
 const directories: string[] = [];
 afterEach(() => { for (const db of opened) if (db.open) db.close(); opened.clear(); for (const dir of directories.splice(0)) rmSync(dir, { recursive: true }); });
 const now = '2026-11-19T00:00:00.000Z', expires = '2026-11-20T00:00:00.000Z';
-const identity = { executable: join(tmpdir(), 'codex.exe'), binaryHash: 'a'.repeat(64), version: '0.121.0' };
+const identity = { principalHash: '5436e781e3c2db4e810e7e5bc12feb86b6a01a2521a0a49f9f598adb6f4fb483', executable: join(tmpdir(), 'codex.exe'), binaryHash: 'a'.repeat(64), version: '0.121.0' };
 const receipt = { attemptId: 'original', claim: 'owned-claim', threadId: 'thread', turnId: 'turn', cwd: join(tmpdir(), 'sa-worktree') };
 
 function setup() {
@@ -60,6 +60,14 @@ test('only the original acknowledged receipt is observed after reopening SQLite;
 });
 
 test('a lock during the observation or fixture-only evidence cannot change UNKNOWN',async()=>{
+  const legacy=setup();
+  const digest=legacy.db.prepare('SELECT digest FROM proposal_versions').pluck().get();
+  legacy.db.prepare('INSERT INTO codex_start_receipts(attempt_id,proposal_digest,executable_path,binary_hash,thread_id,turn_id,worktree_path) VALUES (?,?,?,?,?,?,?)').run('original',digest,identity.executable,identity.binaryHash,'thread','turn',receipt.cwd);
+  legacy.db.exec("UPDATE outbox SET state='ACKNOWLEDGED',claim_token=NULL; UPDATE execution_attempts SET state='UNKNOWN'");
+  let legacyReads=0;
+  await legacy.recovery.reconcile(identity,async()=>{legacyReads++;return 'COMPLETED';});
+  expect(legacyReads).toBe(0);
+  expect(legacy.db.prepare('SELECT state FROM execution_attempts').pluck().get()).toBe('UNKNOWN');
   const {db,recovery}=setup();
   db.exec("INSERT INTO fixture_attempt_correlations VALUES ('original','fixture-thread','fixture-turn')");
   expect(()=>recovery.recordStart(identity,receipt)).toThrow();
@@ -84,7 +92,7 @@ test('an initial Turn cannot close an Attempt which has additional resume delive
   expect(calls).toBe(0);
 });
 
-test.each(['chatgpt','unrecognized','absent'])('desktop reconnect uses the authenticated read-only transport (%s)',async authentication=>{
+test.each(['chatgpt','other-user','switch-during-read','enterprise','apiKey','unrecognized','absent'])('desktop reconnect uses the authenticated read-only transport (%s)',async authentication=>{
   const {db,recovery}=setup();
   recovery.recordStart(identity,receipt); recoverLocalStartup(db);
   const stdin=new PassThrough(), stdout=new PassThrough(), methods:string[]=[];
@@ -94,16 +102,17 @@ test.each(['chatgpt','unrecognized','absent'])('desktop reconnect uses the authe
     methods.push(frame.method);
     if (frame.id === undefined) return;
     const result=frame.method==='initialize'?{userAgent:'controlled-upstream'}:frame.method==='account/read'
-      ?{requiresOpenaiAuth:true,account:authentication==='absent'?null:{type:authentication}}
+      ?{requiresOpenaiAuth:true,account:authentication==='absent'?null:
+        ['chatgpt','other-user','enterprise','switch-during-read'].includes(authentication)?{type:'chatgpt',email:authentication==='other-user'||(authentication==='switch-during-read'&&methods.includes('thread/read'))?'other@example.test':'user@example.test',planType:authentication==='enterprise'?'enterprise':'plus'}:{type:authentication}}
       :{thread:{id:receipt.threadId,cwd:receipt.cwd,turns:[{id:receipt.turnId,status:'failed'}]}};
     stdout.write(JSON.stringify({id:frame.id,result})+'\n');
   });
   try {
     const check=createCodexProbe(async()=>identity.version,()=>createAppServerDiscoverySupervisor(()=>child,identity.version,5000,async()=>{}),
-      async(executable,version,observe)=>recovery.reconcile({...identity,executable,version},observe));
+      async(executable,version,observe,principalHash)=>recovery.reconcile({...identity,executable,version,principalHash},observe));
     await check(identity.executable);
     const recognized=authentication==='chatgpt';
     expect(db.prepare('SELECT state FROM execution_attempts').pluck().get()).toBe(recognized?'FAILED':'UNKNOWN');
-    expect(methods).toEqual(['initialize','initialized','account/read',...(recognized?['thread/read']:[])]);
+    expect(methods).toEqual(['initialize','initialized','account/read',...(recognized||authentication==='switch-during-read'?['thread/read','account/read']:[])]);
   } finally {stdin.destroy();stdout.destroy();}
 });

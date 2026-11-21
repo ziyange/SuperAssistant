@@ -80,9 +80,9 @@ if (isPrimaryInstance) void app.whenReady().then(async () => {
     const before = pending ? await executableHash(selected) : undefined;
     return createCodexProbe(inspectVersion, (executable, version) =>
       createAppServerDiscoverySupervisor(createReadOnlyCodexLaunch(executable, app.getPath('userData')), version),
-    async (executable, version, observe) => {
+    async (executable, version, observe, principalHash) => {
       if (before && await executableHash(executable) === before) {
-        await recovery.reconcile({ executable, version, binaryHash: before }, observe);
+        await recovery.reconcile({ executable, version, binaryHash: before, principalHash }, observe);
       }
     })(selected);
   };

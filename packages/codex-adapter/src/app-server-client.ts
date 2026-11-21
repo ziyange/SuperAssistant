@@ -2,6 +2,7 @@
 /* eslint-disable no-unused-vars -- pending callback parameter names document the transport contract. */
 import type { ChildProcess } from 'node:child_process';
 import { StringDecoder } from 'node:string_decoder';
+import { createHash } from 'node:crypto';
 import type { UpstreamDiscovery } from './discovery.js';
 
 const MAX_FRAME_BYTES = 1_048_576;
@@ -14,6 +15,13 @@ function opaqueId(value: unknown): value is string {
 }
 function failure(): Error { return new Error('Codex discovery failed.'); }
 
+function personalAccountHash(account: unknown): string | undefined {
+  if (!record(account) || account.type !== 'chatgpt' || typeof account.email !== 'string' || account.email.length > 254
+    || !/^[^\s@:]+@[^\s@:]+$/u.test(account.email) || /\p{C}/u.test(account.email)
+    || typeof account.planType !== 'string' || !['free','go','plus','pro'].includes(account.planType)) return;
+  return createHash('sha256').update('codex-personal-v1:'+account.email+':'+account.planType).digest('hex');
+}
+
 /** Observation-only transport; it must not be used for an active execution stream. */
 export class ReadOnlyAppServerClient {
   private readonly stdin: NonNullable<ChildProcess['stdin']>;
@@ -24,6 +32,8 @@ export class ReadOnlyAppServerClient {
   private nextId = 1;
   private state: 'NEW' | 'INITIALIZING' | 'READY' | 'CLOSED' = 'NEW';
   private canObserveTurns = false;
+  private principalHash: string | undefined;
+  recoveryPrincipal(): string | undefined { return this.isReady() ? this.principalHash : undefined; }
 
   constructor(private readonly child: ChildProcess, private readonly timeoutMs = 5000) {
     if (!child.stdin || !child.stdout || !Number.isSafeInteger(timeoutMs) || timeoutMs <= 0) throw new Error('Codex discovery input is invalid.');
@@ -63,7 +73,7 @@ export class ReadOnlyAppServerClient {
     const validMethod = method === 'initialize' || method === 'account/read' || method === 'thread/read';
     if (!validMethod || !record(params) || this.state === 'CLOSED' || this.pending.size >= MAX_PENDING || !Number.isFinite(timeoutMs) || timeoutMs <= 0 || timeoutMs > this.timeoutMs) return Promise.reject(failure());
     if (method === 'initialize' && (this.state !== 'INITIALIZING' || Object.keys(params).length !== 1 || params.clientInfo !== CLIENT_INFO)) return Promise.reject(failure());
-    if (method === 'account/read' && (this.state !== 'INITIALIZING' || Object.keys(params).length !== 1 || params.refreshToken !== false)) return Promise.reject(failure());
+    if (method === 'account/read' && (!(this.state === 'INITIALIZING' || (this.state === 'READY' && this.principalHash)) || Object.keys(params).length !== 1 || params.refreshToken !== false)) return Promise.reject(failure());
     if (method === 'thread/read' && (this.state !== 'READY' || !opaqueId(params.threadId) || (
       Object.keys(params).length !== 1 && !(this.canObserveTurns && Object.keys(params).length === 2 && params.includeTurns === true)
     ))) return Promise.reject(failure());
@@ -88,9 +98,23 @@ export class ReadOnlyAppServerClient {
       const account = result.account;
       if (account !== undefined && account !== null && (!record(account) || typeof account.type !== 'string')) throw failure();
       this.canObserveTurns = version === '0.121.0' && record(account) && (account.type === 'chatgpt' || account.type === 'apiKey');
+      // 0.121.0 does not expose an account identifier for API keys, nor an
+      // organizational workspace ID. Never guess one from a login type.
+      this.principalHash = this.canObserveTurns && result.requiresOpenaiAuth === true ? personalAccountHash(account) : undefined;
       this.state = 'READY';
       return { version, authenticated: account !== undefined && account !== null, capabilities: [] };
     } catch { this.dispose(); throw failure(); }
+  }
+
+  async verifyRecoveryPrincipal(): Promise<boolean> {
+    const original = this.recoveryPrincipal();
+    if (!original) return false;
+    try {
+      const current = await this.request('account/read', { refreshToken: false }, this.timeoutMs);
+      if (this.isReady() && current.requiresOpenaiAuth === true && personalAccountHash(current.account) === original) return true;
+    } catch { /* Missing account proof invalidates the observation. */ }
+    this.dispose();
+    return false;
   }
 
   async threadStatus(threadId: string): Promise<'ACTIVE' | 'IDLE' | 'INDETERMINATE'> {

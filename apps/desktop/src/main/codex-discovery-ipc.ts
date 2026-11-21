@@ -103,6 +103,7 @@ export function createVersionProbe(
   });
 }
 type DiscoverySupervisor = {
+  recoveryPrincipal?(): string | undefined;
   observeTurn?(threadId: string, turnId: string, cwd: string): Promise<'COMPLETED' | 'FAILED' | 'INDETERMINATE'>;
   initialize(): Promise<{
     health(): Promise<{ connection: string; availability: string; observedAt: string }>;
@@ -114,7 +115,7 @@ type DiscoverySupervisor = {
 export function createCodexProbe(
   inspectVersion: (path: string) => Promise<string>,
   supervise: (path: string, version: string) => DiscoverySupervisor,
-  onConnected?: (path: string, version: string, observe: NonNullable<DiscoverySupervisor['observeTurn']>) => Promise<void>
+  onConnected?: (path: string, version: string, observe: NonNullable<DiscoverySupervisor['observeTurn']>, principalHash: string) => Promise<void>
 ): (path: string) => Promise<Observation> {
   return async (path) => {
     const version = await inspectVersion(path);
@@ -127,8 +128,9 @@ export function createCodexProbe(
       if (description.adapterVersion !== version) throw new Error('Codex version changed.');
       if (!['CONNECTED', 'AUTH_REQUIRED', 'VERSION_UNSUPPORTED', 'UNAVAILABLE'].includes(health.connection)
         || !['AVAILABLE', 'PAUSED', 'UNAVAILABLE'].includes(health.availability)) throw new Error('Invalid health state.');
-      if (health.connection === 'CONNECTED' && version === '0.121.0' && supervisor.observeTurn && onConnected) {
-        await onConnected(path, version, supervisor.observeTurn.bind(supervisor));
+      const principal = supervisor.recoveryPrincipal?.();
+      if (health.connection === 'CONNECTED' && version === '0.121.0' && supervisor.observeTurn && onConnected && principal) {
+        await onConnected(path, version, supervisor.observeTurn.bind(supervisor), principal);
       }
       return { state: 'CHECKED', connection: health.connection as Observation['connection'], availability: health.availability as Observation['availability'], version, observedAt: health.observedAt };
     } finally {

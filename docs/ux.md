@@ -232,6 +232,12 @@ membership is not persisted, do not guess that an unverified item is optional.
 After an explicit runtime check settles, the desktop rereads the Task list
 and its Decisions from main. An older pending read cannot overwrite the
 reloaded state. A connection check never fabricates an Attempt result.
+List and detail aggregate the latest executions of every Work Item into one
+Task. An unresolved execution or ambiguous latest Attempt takes precedence
+over a newer successful sibling. History not loaded is unavailable, not empty.
+Task progress reads up to 100 matching Activity records within the same
+SQLite snapshot as the Task. Unknown event types display only “Activity
+recorded”; raw provider event content never appears in this projection.
 
 Quality views identify the Testing or Inspector role, evaluator, outcome, and
 the original Work Item needing repair. Rejection never presents a new top-level

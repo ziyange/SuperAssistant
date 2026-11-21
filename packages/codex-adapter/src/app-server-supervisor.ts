@@ -76,10 +76,11 @@ export function createAppServerDiscoverySupervisor(
         throw new Error('Codex discovery process is unavailable.');
       }
     },
+    recoveryPrincipal(): string | undefined { return stopped ? undefined : client?.recoveryPrincipal(); },
     async observeTurn(threadId: string, turnId: string, cwd: string): Promise<'COMPLETED' | 'FAILED' | 'INDETERMINATE'> {
-      if (!client || stopped || !cwd) return 'INDETERMINATE';
+      if (!client?.recoveryPrincipal() || stopped || !cwd) return 'INDETERMINATE';
       const outcome = await client.observeTurn(threadId, turnId, cwd);
-      return stopped ? 'INDETERMINATE' : outcome;
+      return outcome !== 'INDETERMINATE' && await client.verifyRecoveryPrincipal() && !stopped ? outcome : 'INDETERMINATE';
     },
     shutdown
   };

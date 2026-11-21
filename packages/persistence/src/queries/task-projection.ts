@@ -28,31 +28,58 @@ const completedWithEvidence = `CASE WHEN t.state = 'COMPLETED' AND ea.state = 'S
 export class SqliteTaskProjectionQuery {
   constructor(private readonly database: Database.Database) {}
 
-  get(taskId: string): TaskProjection | null {
-    const row = this.database.prepare(`SELECT t.task_id, p.name AS project_name, a.name AS agent_name, pv.objective,
-      ea.state AS attempt_state, t.created_at, ${completedWithEvidence} AS completed_with_evidence
-      FROM tasks t
-      JOIN proposal_versions pv ON pv.proposal_version_id = t.proposal_version_id
-      JOIN projects p ON p.project_id = t.project_id
-      JOIN work_items wi ON wi.task_id = t.task_id
-      JOIN agents a ON a.agent_id = wi.agent_id
-      LEFT JOIN execution_attempts ea ON ea.work_item_id = wi.work_item_id
-      WHERE t.task_id = ? ORDER BY ea.created_at DESC LIMIT 1`).get(taskId) as Record<string, unknown> | undefined;
-    return row ? this.toProjection(row) : null;
+  get(taskId: string): TaskProjection | null { return this.read(taskId)[0] ?? null; }
+  list(): readonly TaskProjection[] { return this.read(); }
+
+  private read(taskId?: string): TaskProjection[] {
+    return this.database.transaction(() => this.snapshot(taskId))();
   }
 
-  list(): readonly TaskProjection[] {
-    const rows = this.database.prepare(`SELECT t.task_id, p.name AS project_name, a.name AS agent_name, pv.objective,
+  private snapshot(taskId?: string): TaskProjection[] {
+    const rows = this.database.prepare(`SELECT t.task_id, wi.work_item_id, p.name AS project_name, a.name AS agent_name, pv.objective,
       ea.state AS attempt_state, t.created_at, ${completedWithEvidence} AS completed_with_evidence
-      FROM tasks t
-      JOIN proposal_versions pv ON pv.proposal_version_id = t.proposal_version_id
-      JOIN projects p ON p.project_id = t.project_id
-      JOIN work_items wi ON wi.task_id = t.task_id
-      JOIN agents a ON a.agent_id = wi.agent_id
-      LEFT JOIN execution_attempts ea ON ea.work_item_id = wi.work_item_id
-      WHERE ea.attempt_id IS NULL OR ea.created_at = (SELECT MAX(latest.created_at) FROM execution_attempts latest WHERE latest.work_item_id = wi.work_item_id)
-      ORDER BY t.created_at DESC`).all() as Record<string, unknown>[];
-    return rows.map((row) => this.toProjection(row));
+      FROM tasks t JOIN proposal_versions pv ON pv.proposal_version_id=t.proposal_version_id
+      JOIN projects p ON p.project_id=t.project_id AND p.workspace_id=t.workspace_id
+      JOIN work_items wi ON wi.task_id=t.task_id JOIN agents a ON a.agent_id=wi.agent_id AND a.workspace_id=t.workspace_id
+      LEFT JOIN execution_attempts ea ON ea.work_item_id=wi.work_item_id
+      WHERE ${taskId===undefined?'':'t.task_id=? AND '}(ea.attempt_id IS NULL OR NOT EXISTS (
+        SELECT 1 FROM execution_attempts newer WHERE newer.work_item_id=wi.work_item_id AND newer.created_at>ea.created_at
+      )) ORDER BY t.created_at DESC,t.task_id,wi.work_item_id,ea.attempt_id`).all(...(taskId===undefined?[]:[taskId])) as Record<string,unknown>[];
+    const groups=new Map<string,Record<string,unknown>[]>();
+    for (const row of rows) {
+      const id=String(row.task_id), group=groups.get(id);
+      if (group) group.push(row); else groups.set(id,[row]);
+    }
+    if (!groups.size) return [];
+    const activity=new Map<string,string[]>();
+    // Only expose product event labels; never project raw provider output.
+    const recent=this.database.prepare(`SELECT task_id,label FROM (
+      SELECT h.task_id,CASE h.event_type WHEN 'EXECUTION_STARTED' THEN 'Execution started'
+        WHEN 'EXECUTION_COMPLETED' THEN 'Execution completed' WHEN 'EXECUTION_FAILED' THEN 'Execution failed'
+        ELSE 'Activity recorded' END AS label,
+        row_number() OVER(PARTITION BY h.task_id ORDER BY h.occurred_at DESC,h.sequence DESC,h.activity_id DESC) AS seq
+      FROM activity_history h JOIN tasks t ON t.task_id=h.task_id AND t.workspace_id=h.workspace_id AND t.project_id=h.project_id
+      JOIN execution_attempts a ON a.attempt_id=h.attempt_id JOIN work_items wi ON wi.work_item_id=a.work_item_id AND wi.task_id=t.task_id
+      ${taskId===undefined?'':'WHERE t.task_id=?'}
+    ) WHERE seq<=100 ORDER BY task_id,seq DESC`).iterate(...(taskId===undefined?[]:[taskId])) as Iterable<{task_id:string;label:string}>;
+    for (const event of recent) {
+      const labels=activity.get(event.task_id); if (labels) labels.push(event.label); else activity.set(event.task_id,[event.label]);
+    }
+    return Array.from(groups.entries(), ([id,group])=>{
+      const views=group.map(row=>({...this.toProjection(row),activity:activity.get(id)??[]}));
+      const first=views[0]!;
+      // Two latest attempts for the same item at the same timestamp do not
+      // identify which one owns the result. No arbitrary ID is a tie-breaker.
+      if (new Set(group.map(row=>row.work_item_id)).size!==group.length) return {...first,state:'RUNNING / RECONCILING'};
+      for (const state of ['RUNNING / RECONCILING','CANCELLING','RUNNING'] as const) {
+        const active=views.find(view=>view.state===state); if (active) return active;
+      }
+      if (group.length>1 && group.some(row=>row.attempt_state==='DISPATCH_PENDING')) return {...first,state:'RUNNING'};
+      for (const state of ['FAILED','QUEUED','ACCEPTANCE_PENDING'] as const) {
+        const active=views.find(view=>view.state===state); if (active) return active;
+      }
+      return first;
+    });
   }
 
   private toProjection(row: Record<string, unknown>): TaskProjection {

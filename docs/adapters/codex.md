@@ -187,7 +187,11 @@ check, recovery may read an original Turn on the same registered executable
 path, binary SHA-256 and pinned authenticated runtime. Migration 025 has no
 backfill: a private start receipt and Outbox acknowledgement must commit
 together for the original Attempt. Only an exact Thread, Turn and worktree
-match can establish its upstream terminal outcome. This does not accept the
+match can establish its upstream terminal outcome. Migration 026 also pins the
+observed personal ChatGPT identity and plan by opaque SHA-256. Raw email
+does not enter SQLite, IPC or logs. Key-only accounts, organizational plans
+without an upstream Workspace identifier and old receipts lacking the pin
+remain unresolved; no credential file is read. Recovery does not complete the
 Task, release the Lease, or interrupt or restart execution. Missing receipts
 (including fixture-only history) remain unresolved. See [TASK-790](../delivery/tasks/TASK-790.md).
 
