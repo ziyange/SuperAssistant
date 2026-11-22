@@ -48,11 +48,21 @@ test('dispatches only a claimed durable start message and acknowledges it after 
 test('dispatches one claimed Decision resume command and acknowledges it only after adapter acceptance', async () => {
   const calls: string[] = [];
   const dispatcher = new OutboxDispatcher(
-    { claimNext: () => ({ messageId: 'resume:decision-1', attemptId: 'attempt-1', claimToken: 'claim-2', kind: 'resume' as const, payload: { attemptId: 'attempt-1', decisionId: 'decision-1', resolutionId: 'resolution-1' } }), acknowledge: (messageId, token) => { calls.push(`ack:${messageId}:${token}`); return true; }, markUncertain: () => false },
-    { start: async () => { calls.push('unexpected-start'); }, resume: async (command) => { calls.push(`resume:${command.attemptId}:${command.decisionId}`); } }, () => true
+    { claimNext: () => ({ messageId: 'resume:decision-1', attemptId: 'attempt-1', claimToken: 'claim-2', kind: 'resume' as const, payload: { attemptId: 'attempt-1', decisionId: 'decision-1', resolutionId: 'resolution-1' } }), authorizeResume: () => ({ option: 'DENY' as const }), acknowledge: (messageId, token) => { calls.push(`ack:${messageId}:${token}`); return true; }, markUncertain: () => false },
+    { start: async () => { calls.push('unexpected-start'); }, resume: async (command) => { calls.push(`resume:${command.attemptId}:${command.decisionId}:${command.option}`); } }, () => true
   );
   expect(await dispatcher.dispatchOne()).toEqual({ messageId: 'resume:decision-1', dispatched: true });
-  expect(calls).toEqual(['resume:attempt-1:decision-1', 'ack:resume:decision-1:claim-2']);
+  expect(calls).toEqual(['resume:attempt-1:decision-1:DENY', 'ack:resume:decision-1:claim-2']);
+});
+
+test('resume fails closed when the outbox cannot revalidate authority', async () => {
+  const calls: string[] = [];
+  const dispatcher = new OutboxDispatcher(
+    { claimNext: () => ({ messageId: 'm', attemptId: 'a', claimToken: 'c', kind: 'resume' as const, payload: { attemptId: 'a', decisionId: 'd', resolutionId: 'r' } }), acknowledge: () => true, markUncertain: () => { calls.push('uncertain'); return true; } },
+    { start: async () => {}, resume: async () => { calls.push('resume'); } }, () => true
+  );
+  await expect(dispatcher.dispatchOne()).rejects.toThrow('DISPATCH_OUTCOME_UNKNOWN');
+  expect(calls).toEqual(['uncertain']);
 });
 
 test('dispatch failure preserves the claim as uncertain and never acknowledges it', async () => {

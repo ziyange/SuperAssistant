@@ -1,4 +1,9 @@
 # Task and WorkItem orchestration
+# TASK-818 Decision resume boundary
+
+The SQLite Outbox must revalidate its exact claim and stored Decision, current grant, snapshot and lease after the asynchronous guard and immediately before invoking the adapter. The adapter receives the database-stored decision option. This is a fake-adapter integration only: it does not establish native confirmation, per-action confinement, or eliminate changes between validation and an external side effect.
+
+An additional open Decision or another non-acknowledged resume blocks resume. The present conservative quarantine puts the Attempt in UNKNOWN; a complete multi-Decision wait-and-resume policy is not implemented and requires reconciliation before further dispatch. This limitation prevents claiming a complete production recovery loop.
 
 An Outbox winner holds a durable unique claim token. Acknowledgement and
 failure require that token. Once prior worker ownership is known to be gone,

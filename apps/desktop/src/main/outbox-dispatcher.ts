@@ -17,13 +17,14 @@ export interface ResumeOutboxMessage {
 
 export interface ExecutionOutboxPort {
   claimNext(): StartOutboxMessage | ResumeOutboxMessage | null;
+  authorizeResume?(message: ResumeOutboxMessage): { option: 'ALLOW' | 'DENY' } | null;
   acknowledge(messageId: string, claimToken: string): boolean;
   markUncertain(messageId: string, claimToken: string): boolean;
 }
 
 export interface ExecutionAdapterPort {
   start(command: { attemptId: string }): Promise<void>;
-  resume?(command: { attemptId: string; decisionId: string; resolutionId: string }): Promise<void>;
+  resume?(command: { attemptId: string; decisionId: string; resolutionId: string; option: 'ALLOW' | 'DENY' }): Promise<void>;
 }
 
 export type DispatchGuard = (message: StartOutboxMessage | ResumeOutboxMessage) => boolean | Promise<boolean>;
@@ -39,7 +40,9 @@ export class OutboxDispatcher {
       if (await this.guard(message) !== true) throw new Error('DISPATCH_GUARD_REJECTED');
       if (message.kind === 'resume') {
         if (!this.adapter.resume) throw new Error('RESUME_NOT_SUPPORTED');
-        await this.adapter.resume(message.payload);
+        const authority = this.outbox.authorizeResume?.(message);
+        if (!authority || (authority.option !== 'ALLOW' && authority.option !== 'DENY')) throw new Error('RESUME_AUTHORITY_DENIED');
+        await this.adapter.resume({ ...message.payload, option: authority.option });
       } else {
         await this.adapter.start(message.payload);
       }

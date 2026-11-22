@@ -1,4 +1,7 @@
 # Super Assistant security model
+# TASK-818 resume safety boundary
+
+Outbox resume validation fails closed when current authority or lease evidence is missing. A decision option is not blanket approval: production execution additionally needs a bound upstream request, authenticated native confirmation, and a live per-action policy boundary. SQLite validation alone cannot enforce an operating-system fence.
 
 > TASK-811 introduces an isolated encrypted full ProposalVersion repository with domain and digest validation. Legacy plaintext Proposal records remain unchanged; user input, Grants and execution are not connected until their independent safety prerequisites are met.
 
