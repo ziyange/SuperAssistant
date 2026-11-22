@@ -6,17 +6,31 @@ type CancellationOutcome = { attemptId: string; complete: boolean; code?: 'CANCE
 
 export class CodexExecutionAdapter {
   private readonly starts = new Map<string, { attemptId: string; accepted: true }>();
+  private readonly startBindings = new Map<string, string>();
   private readonly uncertainStarts = new Set<string>();
   private readonly pendingStarts = new Map<string, Promise<{ attemptId: string; accepted: true }>>();
   private readonly resumeInputs = new Map<string, string>();
+  private readonly pendingResumes = new Map<string, Promise<void>>();
+  private readonly uncertainResumes = new Set<string>();
   constructor(private readonly transport: AppServerTransport) {}
   async start(command: StartCommand): Promise<{ attemptId: string; accepted: true }> {
-    const existing = this.starts.get(command.idempotencyKey); if (existing) return existing;
-    if (this.uncertainStarts.has(command.idempotencyKey)) throw new Error('START_OUTCOME_UNKNOWN');
-    const pending = this.pendingStarts.get(command.idempotencyKey); if (pending) return pending;
-    const start = this.sendStart(command);
-    this.pendingStarts.set(command.idempotencyKey, start);
-    try { return await start; } finally { this.pendingStarts.delete(command.idempotencyKey); }
+    if (!command || [command.attemptId, command.requestId, command.idempotencyKey, command.proposalDigest,
+      command.authorizationGrantId, command.projectSnapshotVersion].some(value => typeof value !== 'string' || !value)
+      || !Array.isArray(command.resourceFences) || command.resourceFences.length === 0
+      || command.resourceFences.some(fence => !fence || typeof fence.key !== 'string' || !fence.key
+        || !Number.isSafeInteger(fence.token) || fence.token <= 0)) throw new Error('INVALID_REQUEST');
+    const snapshot: StartCommand = { ...command, resourceFences: command.resourceFences.map(fence => ({ key: fence.key, token: fence.token })) };
+    const key = snapshot.idempotencyKey;
+    const binding = JSON.stringify([snapshot.attemptId, snapshot.proposalDigest, snapshot.authorizationGrantId, snapshot.projectSnapshotVersion, snapshot.resourceFences]);
+    const previous = this.startBindings.get(key);
+    if (previous !== undefined && previous !== binding) throw new Error('IDEMPOTENCY_CONFLICT');
+    const existing = this.starts.get(key); if (existing) return existing;
+    if (this.uncertainStarts.has(key)) throw new Error('START_OUTCOME_UNKNOWN');
+    const pending = this.pendingStarts.get(key); if (pending) return pending;
+    this.startBindings.set(key, binding);
+    const start = this.sendStart(snapshot);
+    this.pendingStarts.set(key, start);
+    try { return await start; } finally { this.pendingStarts.delete(key); }
   }
   private async sendStart(command: StartCommand): Promise<{ attemptId: string; accepted: true }> {
     try {
@@ -25,7 +39,7 @@ export class CodexExecutionAdapter {
       this.uncertainStarts.add(command.idempotencyKey);
       throw new Error('START_OUTCOME_UNKNOWN');
     }
-    const receipt = { attemptId: command.attemptId, accepted: true } as const;
+    const receipt = Object.freeze({ attemptId: command.attemptId, accepted: true } as const);
     this.starts.set(command.idempotencyKey, receipt);
     return receipt;
   }
@@ -36,7 +50,24 @@ export class CodexExecutionAdapter {
   async cancel(input: CancellationInput): Promise<CancellationOutcome> {
     return { attemptId: input.attemptId, complete: false, code: 'CANCELLATION_INCOMPLETE' };
   }
-  async resume(input: { attemptId: string; inputId: string; payloadDigest: string }): Promise<void> { const key = `${input.attemptId}:${input.inputId}`; const existing = this.resumeInputs.get(key); if (existing && existing !== input.payloadDigest) throw new Error('IDEMPOTENCY_CONFLICT'); if (existing) return; await this.transport.request('turn/resume', { attempt_id: input.attemptId, input_id: input.inputId }); this.resumeInputs.set(key, input.payloadDigest); }
+  async resume(input: { attemptId: string; inputId: string; payloadDigest: string }): Promise<void> {
+    if (!input || [input.attemptId, input.inputId, input.payloadDigest].some(value => typeof value !== 'string' || !value)) throw new Error('INVALID_REQUEST');
+    const { attemptId, inputId, payloadDigest } = input;
+    const key = JSON.stringify([attemptId, inputId]);
+    const existing = this.resumeInputs.get(key);
+    if (existing !== undefined && existing !== payloadDigest) throw new Error('IDEMPOTENCY_CONFLICT');
+    if (this.uncertainResumes.has(key)) throw new Error('RESUME_OUTCOME_UNKNOWN');
+    const pending = this.pendingResumes.get(key);
+    if (pending) return pending;
+    if (existing !== undefined) return;
+    this.resumeInputs.set(key, payloadDigest);
+    const send = (async () => {
+      try { await this.transport.request('turn/resume', { attempt_id: attemptId, input_id: inputId }); }
+      catch { this.uncertainResumes.add(key); throw new Error('RESUME_OUTCOME_UNKNOWN'); }
+    })();
+    this.pendingResumes.set(key, send);
+    try { await send; } finally { this.pendingResumes.delete(key); }
+  }
   async status(attemptId: string): Promise<{ attemptId: string; state: string }> { const response = await this.transport.request('turn/status', { attempt_id: attemptId }); return { attemptId, state: String(response.state) }; }
   async events(attemptId: string, afterSequence: number): Promise<Array<{ sequence: number; type: string }>> {
     const response = await this.transport.request('turn/events', { attempt_id: attemptId, after_sequence: afterSequence });

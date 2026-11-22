@@ -26,6 +26,14 @@ Creates or returns the execution identified by `attempt_id` and `idempotency_key
 
 Repeated calls with the same idempotency key and payload digest return the original receipt. The same key with a different digest returns `IDEMPOTENCY_CONFLICT`. A successful receipt does not prove that work has finished.
 
+The legacy in-process Codex SAI implementation also binds a start key to its
+Attempt, Grant, Project snapshot and ordered resource fences. Request IDs can
+change for an otherwise identical retry. Conflicting retries are rejected even
+while the original request is pending or has an unknown outcome; an unchanged
+unknown request is never sent again. Concurrent resume inputs are coalesced
+and an ambiguous resume outcome is not automatically retried. These
+in-memory safeguards are not a durable journal or evidence of desktop wiring.
+
 ### 4. `resume`
 
 Continues an existing nonterminal ExecutionAttempt after a resolved Decision, requested input, recovered capacity, or adapter restart. It includes the expected ExecutionAttempt state/version, resume cause, and optional structured input with a stable `input_id`. Duplicate input IDs with the same digest are acknowledged without reapplication; a different digest is an idempotency conflict. Secrets use opaque credential references or the credential broker. `resume` never creates a new ExecutionAttempt.
