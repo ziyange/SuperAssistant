@@ -11,6 +11,15 @@ test('review document escapes hostile input and offers no scripting or external 
   expect(html).toContain('overflow');
 });
 
+test('Decision review displays the full bounded question in a scrollable isolated document', () => {
+  const question = 'long question '.repeat(60);
+  const html = renderReviewDocument(JSON.stringify({ question }), 'https://review.invalid/confirm/token', 'Decision');
+  expect(html).toContain('Review Decision');
+  expect(html).toContain(question);
+  expect(html).toContain('overflow:auto');
+  expect(html).toContain("default-src 'none'");
+});
+
 test('only an exact approval navigation accepts; closing or other navigation fails closed', async () => {
   class Contents extends EventEmitter { setWindowOpenHandler() { return undefined; } }
   class Window extends EventEmitter {

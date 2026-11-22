@@ -1,5 +1,5 @@
 /* eslint-disable no-unused-vars -- projection is a type-only interface parameter. */
-export const IPC_CHANNELS = ['onboarding:get', 'onboarding:set', 'project:list', 'project:choose', 'project:assign-codex', 'codex:check', 'codex:registration', 'proposal:context', 'proposal:draft', 'proposal:review', 'proposal:classify', 'proposal:preflight', 'task:get', 'task:list', 'task:cancel-queued', 'artifact:get', 'decision:get', 'decision:list', 'history:list', 'project-change:list', 'acceptance:list', 'audit-export:create', 'monitoring:status', 'team:workspace'] as const;
+export const IPC_CHANNELS = ['onboarding:get', 'onboarding:set', 'project:list', 'project:choose', 'project:assign-codex', 'codex:check', 'codex:registration', 'proposal:context', 'proposal:draft', 'proposal:review', 'proposal:classify', 'proposal:preflight', 'task:get', 'task:list', 'task:cancel-queued', 'artifact:get', 'decision:get', 'decision:list', 'decision:review', 'history:list', 'project-change:list', 'acceptance:list', 'audit-export:create', 'monitoring:status', 'team:workspace'] as const;
 
 export type IpcChannel = (typeof IPC_CHANNELS)[number];
 
@@ -40,6 +40,7 @@ export type IpcRequest =
   | Readonly<{ channel: 'artifact:get'; payload: Readonly<{ artifactVersionId: string; authorizationGrantId: string; checksum: string }> }>
   | Readonly<{ channel: 'decision:get'; payload: Readonly<{ decisionId: string }> }>
   | Readonly<{ channel: 'decision:list'; payload: Readonly<{ taskId: string }> }>
+  | Readonly<{ channel: 'decision:review'; payload: Readonly<{ decisionId: string }> }>
   | Readonly<{ channel: 'history:list'; payload: Readonly<{ workspaceId: string; projectId: string; taskId: string }> }>
   | Readonly<{ channel: 'project-change:list'; payload: Readonly<{ workspaceId: string; projectId: string }> }>
   | Readonly<{ channel: 'acceptance:list'; payload: Readonly<{ taskId: string }> }>
@@ -61,6 +62,7 @@ export type IpcResponse =
   | Readonly<{ artifact: ArtifactRendererProjection }>
   | Readonly<{ decision: DecisionRendererProjection }>
   | Readonly<{ decisions: readonly DecisionRendererProjection[] }>
+  | Readonly<{ decisionReview: 'RECORDED' | 'DISMISSED' | 'UNAVAILABLE' }>
   | Readonly<{ history: HistoryRendererProjection }>
   | Readonly<{ changes: readonly ProjectChangeRendererProjection[] }>
   | Readonly<{ acceptance: readonly AcceptanceRendererProjection[] }>
@@ -85,6 +87,7 @@ export interface SuperAssistantDesktopApi {
   getArtifact(input: Readonly<{ artifactVersionId: string; authorizationGrantId: string; checksum: string }>): Promise<IpcResponse>;
   getDecision(decisionId: string): Promise<IpcResponse>;
   listDecisions(taskId: string): Promise<IpcResponse>;
+  reviewDecision?(decisionId: string): Promise<IpcResponse>;
   listHistory?(input: Readonly<{ workspaceId: string; projectId: string; taskId: string }>): Promise<IpcResponse>;
   listProjectChanges?(input: Readonly<{ workspaceId: string; projectId: string }>): Promise<IpcResponse>;
   listAcceptance?(taskId: string): Promise<IpcResponse>;

@@ -1,4 +1,7 @@
 # Super Assistant UX contract
+# TASK-819 local Decision review
+
+An OPEN local Decision can be reviewed in a native main-process dialog. The renderer requests review by identifier but cannot supply the answer or identity. A recorded answer is queued on the original Attempt and is not shown as resumed; dispatch remains disabled pending structured request binding and a per-action enforcement boundary.
 
 ### TASK-798 review-only goal entry
 

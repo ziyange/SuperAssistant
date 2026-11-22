@@ -3,6 +3,7 @@ import type { CodexRegistrationProjection, GoalDraftInput, IpcRequest, IpcRespon
 import { validateRequest } from './ipc-schemas.js';
 import { projectArtifactForRenderer, type ArtifactReadPort } from './artifact-ipc.js';
 import { listDecisionsForRenderer, projectDecisionForRenderer, type DecisionReadPort } from './decision-ipc.js';
+import type { NativeDecisionResolution } from './native-decision-resolution.js';
 import { projectChangesForRenderer, projectHistoryForRenderer, type HistoryReadPort, type ProjectChangeReadPort } from './history-ipc.js';
 import { projectAcceptanceForRenderer, type AcceptanceReadPort } from './acceptance-ipc.js';
 import { projectAuditExportForRenderer, type AuditExportPort } from './audit-export-ipc.js';
@@ -19,7 +20,7 @@ export interface OnboardingPort {
   set(projection: OnboardingProjection): Promise<OnboardingProjection>;
 }
 
-export async function routeIpc(request: unknown, onboarding: OnboardingPort, proposal?: ProposalIpcPort, task?: TaskReadPort, artifact?: ArtifactReadPort, decision?: DecisionReadPort, history?: HistoryReadPort, changes?: ProjectChangeReadPort, acceptance?: AcceptanceReadPort, auditExport?: AuditExportPort, monitoring?: MonitoringStatusReadPort, team?: TeamWorkspacePort, projects?: Pick<LocalProjectCatalog, 'list' | 'choose'> & Partial<Pick<LocalProjectCatalog, 'assignCodex'>>, codex?: () => Promise<CodexCheck>, codexRegistration?: () => CodexRegistrationProjection, proposalContext?: (projectId: string) => ProposalContextProjection, queuedCancellation?: Pick<QueuedTaskCancellation, 'cancel'>, reviewProposal?: (draftId: string) => Promise<boolean>, createDraft?: (input: GoalDraftInput) => string | Promise<string>): Promise<IpcResponse> {
+export async function routeIpc(request: unknown, onboarding: OnboardingPort, proposal?: ProposalIpcPort, task?: TaskReadPort, artifact?: ArtifactReadPort, decision?: DecisionReadPort, history?: HistoryReadPort, changes?: ProjectChangeReadPort, acceptance?: AcceptanceReadPort, auditExport?: AuditExportPort, monitoring?: MonitoringStatusReadPort, team?: TeamWorkspacePort, projects?: Pick<LocalProjectCatalog, 'list' | 'choose'> & Partial<Pick<LocalProjectCatalog, 'assignCodex'>>, codex?: () => Promise<CodexCheck>, codexRegistration?: () => CodexRegistrationProjection, proposalContext?: (projectId: string) => ProposalContextProjection, queuedCancellation?: Pick<QueuedTaskCancellation, 'cancel'>, reviewProposal?: (draftId: string) => Promise<boolean>, createDraft?: (input: GoalDraftInput) => string | Promise<string>, reviewDecision?: Pick<NativeDecisionResolution, 'review'>): Promise<IpcResponse> {
   const valid: IpcRequest = validateRequest(request);
   if (valid.channel === 'onboarding:get') return { onboarding: await onboarding.get() };
   if (valid.channel === 'onboarding:set') return { onboarding: await onboarding.set(valid.payload) };
@@ -63,6 +64,10 @@ export async function routeIpc(request: unknown, onboarding: OnboardingPort, pro
   if (valid.channel === 'decision:list') {
     if (!decision) throw new Error('Decision IPC port is unavailable.');
     return { decisions: listDecisionsForRenderer(decision, valid.payload) };
+  }
+  if (valid.channel === 'decision:review') {
+    if (!reviewDecision) return { decisionReview: 'UNAVAILABLE' };
+    return { decisionReview: await reviewDecision.review(valid.payload.decisionId) };
   }
   if (valid.channel === 'history:list') {
     if (!history) throw new Error('History IPC port is unavailable.');

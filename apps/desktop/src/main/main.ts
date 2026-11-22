@@ -23,6 +23,8 @@ import { LocalProposalReview } from './local-proposal-review.js';
 import { LocalGoalDraft } from './local-goal-draft.js';
 import { ImmutableProposalConfirmation } from './immutable-proposal-confirmation.js';
 import { presentReview } from './review-window.js';
+import { NativeDecisionResolution } from './native-decision-resolution.js';
+import { ExclusivePromptGate } from './prompt-gate.js';
 
 const moduleDirectory = dirname(fileURLToPath(import.meta.url));
 let database: Database.Database | undefined;
@@ -52,6 +54,21 @@ if (isPrimaryInstance) void app.whenReady().then(async () => {
   const taskPort = new SqliteTaskProjectionQuery(database);
   const artifactPort = new SqliteArtifactRepository(database);
   const decisionPort = new SqliteDecisionRepository(database);
+  const decisionReview = new NativeDecisionResolution(database, new SqliteDecisionRepository(database, () => 'local-owner'), async context => {
+    const parent = applicationWindow;
+    if (!parent || parent.isDestroyed()) return null;
+    const reviewed = await presentReview(JSON.stringify(context, null, 2), randomUUID(), () => new BrowserWindow({
+      parent, modal: true, show: false, width: 850, height: 700, autoHideMenuBar: true,
+      webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false, javascript: false, webviewTag: false }
+    }), 'Decision');
+    if (!reviewed || parent.isDestroyed()) return null;
+    const answer = await dialog.showMessageBox(parent, {
+      type: 'question', message: 'Review this Decision',
+      detail: [`Task: ${context.taskId}`, `Decision: ${context.decisionId}`, 'Choose an answer for the Decision you just reviewed. The answer is recorded only; execution will not resume yet.'].join('\n'),
+      buttons: ['Allow', 'Deny', 'Cancel'], defaultId: 2, cancelId: 2, noLink: true
+    });
+    return answer.response === 0 ? 'ALLOW' : answer.response === 1 ? 'DENY' : null;
+  });
   const historyPort = new SqliteHistoryRepository(database);
   const changePort = new SqliteProjectChangeRepository(database);
   const acceptancePort = new SqliteAcceptanceRepository(database);
@@ -145,9 +162,13 @@ if (isPrimaryInstance) void app.whenReady().then(async () => {
       return await confirmation.confirm(review.proposalVersionId, review.digest);
     } catch { return false; }
   };
+  const promptGate = new ExclusivePromptGate();
+  const guardedCancellation = { cancel: (taskId: string) => promptGate.run(() => queuedCancellation.cancel(taskId), 'NOT_CANCELLABLE' as const) };
+  const guardedDecision = { review: (decisionId: string) => promptGate.run(() => decisionReview.review(decisionId), 'UNAVAILABLE' as const) };
+  const guardedReview = (draftId: string) => promptGate.run(() => reviewDraft(draftId), false);
   const routeTrustedIpc = (event: IpcMainInvokeEvent, channel: string, payload: unknown) => {
     if (!isTrustedIpcSender(event.senderFrame?.url ?? '', rendererUrl, event.sender === applicationWindow?.webContents, event.senderFrame === event.sender.mainFrame)) throw new Error('Untrusted IPC sender.');
-    return routeIpc({ channel, payload }, onboardingPort, undefined, taskPort, artifactPort, decisionPort, historyPort, changePort, acceptancePort, auditExportPort, monitoringStatusPort, teamPort, projectPort, runCodexCheck, () => codexRegistration.get(), projectId => readLocalProposalContext(localDatabase, projectId), queuedCancellation, reviewDraft, input => goalDraft.create(input));
+    return routeIpc({ channel, payload }, onboardingPort, undefined, taskPort, artifactPort, decisionPort, historyPort, changePort, acceptancePort, auditExportPort, monitoringStatusPort, teamPort, projectPort, runCodexCheck, () => codexRegistration.get(), projectId => readLocalProposalContext(localDatabase, projectId), guardedCancellation, guardedReview, input => goalDraft.create(input), guardedDecision);
   };
   ipcMain.handle('onboarding:get', (event, payload) => {
     return routeTrustedIpc(event, 'onboarding:get', payload);
@@ -169,6 +190,7 @@ if (isPrimaryInstance) void app.whenReady().then(async () => {
   ipcMain.handle('artifact:get', (event, payload) => routeTrustedIpc(event, 'artifact:get', payload));
   ipcMain.handle('decision:get', (event, payload) => routeTrustedIpc(event, 'decision:get', payload));
   ipcMain.handle('decision:list', (event, payload) => routeTrustedIpc(event, 'decision:list', payload));
+  ipcMain.handle('decision:review', (event, payload) => routeTrustedIpc(event, 'decision:review', payload));
   ipcMain.handle('history:list', (event, payload) => routeTrustedIpc(event, 'history:list', payload));
   ipcMain.handle('project-change:list', (event, payload) => routeTrustedIpc(event, 'project-change:list', payload));
   ipcMain.handle('acceptance:list', (event, payload) => routeTrustedIpc(event, 'acceptance:list', payload));

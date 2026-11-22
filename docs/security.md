@@ -1,5 +1,8 @@
 # Super Assistant security model
 # TASK-818 resume safety boundary
+# TASK-819 native Decision boundary
+
+Native Decision review derives its actor and ALLOW/DENY selection in the main process, presents complete bounded context, and rechecks the same context after the dialog. The existing transactional authority and lease checks remain mandatory. A recorded Decision is not a structured upstream request binding and cannot by itself enable production dispatch.
 
 Outbox resume validation fails closed when current authority or lease evidence is missing. A decision option is not blanket approval: production execution additionally needs a bound upstream request, authenticated native confirmation, and a live per-action policy boundary. SQLite validation alone cannot enforce an operating-system fence.
 

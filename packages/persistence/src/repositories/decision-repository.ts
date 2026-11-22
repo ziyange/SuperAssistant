@@ -36,7 +36,7 @@ export class SqliteDecisionRepository {
     throw new Error('ATOMIC_DECISION_RESOLUTION_REQUIRED');
   }
 
-  resolveAndEnqueueResume(decisionId: string, resolution: DecisionResolution): { decision: Decision; resumeEnqueued: boolean } {
+  resolveAndEnqueueResume(decisionId: string, resolution: DecisionResolution, reviewedContextStillMatches?: () => boolean): { decision: Decision; resumeEnqueued: boolean } {
     if (this.database.inTransaction) throw new Error('DECISION_NESTED_TRANSACTION_DENIED');
     const valid = (value: unknown): value is string => typeof value === 'string' && value.length > 0 && value.length <= 128
       && value.trim() === value && !Array.from(value).some(char => char.charCodeAt(0) < 32 || char.charCodeAt(0) === 127)
@@ -46,6 +46,7 @@ export class SqliteDecisionRepository {
       || typeof resolution.resolvedAt !== 'string' || !Number.isFinite(Date.parse(resolution.resolvedAt))
       || new Date(resolution.resolvedAt).toISOString() !== resolution.resolvedAt) throw new Error('INVALID_DECISION_RESOLUTION');
     const transaction = this.database.transaction((): { decision: Decision; resumeEnqueued: boolean } | { failure: string } => {
+      if (reviewedContextStillMatches && reviewedContextStillMatches() !== true) throw new Error('DECISION_REVIEW_STALE');
       const existing = this.get(decisionId);
       if (!existing) throw new Error('DECISION_NOT_FOUND');
       const principal = this.principal();

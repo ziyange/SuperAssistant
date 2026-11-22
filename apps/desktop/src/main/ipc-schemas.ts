@@ -79,6 +79,9 @@ export function validateRequest(value: unknown): IpcRequest {
   if (value.channel === 'decision:list' && hasOnlyKeys(value.payload, ['taskId']) && typeof value.payload.taskId === 'string' && value.payload.taskId.length > 0 && value.payload.taskId.length <= 128) {
     return { channel: 'decision:list', payload: { taskId: value.payload.taskId } };
   }
+  if (value.channel === 'decision:review' && hasOnlyKeys(value.payload, ['decisionId']) && typeof value.payload.decisionId === 'string' && /^[a-z0-9_-]{1,128}$/i.test(value.payload.decisionId)) {
+    return { channel: 'decision:review', payload: { decisionId: value.payload.decisionId } };
+  }
   if (value.channel === 'history:list' && hasOnlyKeys(value.payload, ['workspaceId', 'projectId', 'taskId']) && typeof value.payload.workspaceId === 'string' && typeof value.payload.projectId === 'string' && typeof value.payload.taskId === 'string' && value.payload.workspaceId.length > 0 && value.payload.workspaceId.length <= 128 && value.payload.projectId.length > 0 && value.payload.projectId.length <= 128 && value.payload.taskId.length > 0 && value.payload.taskId.length <= 128) {
     return { channel: 'history:list', payload: { workspaceId: String(value.payload.workspaceId), projectId: String(value.payload.projectId), taskId: String(value.payload.taskId) } };
   }

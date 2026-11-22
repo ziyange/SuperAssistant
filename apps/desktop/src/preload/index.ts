@@ -19,6 +19,7 @@ const api: SuperAssistantDesktopApi = {
   getArtifact: (input) => ipcRenderer.invoke('artifact:get', input)
   ,getDecision: (decisionId) => ipcRenderer.invoke('decision:get', { decisionId })
   ,listDecisions: (taskId) => ipcRenderer.invoke('decision:list', { taskId })
+  ,reviewDecision: (decisionId) => ipcRenderer.invoke('decision:review', { decisionId })
   ,listHistory: (input) => ipcRenderer.invoke('history:list', input)
   ,listProjectChanges: (input) => ipcRenderer.invoke('project-change:list', input)
   ,listAcceptance: (taskId) => ipcRenderer.invoke('acceptance:list', { taskId })

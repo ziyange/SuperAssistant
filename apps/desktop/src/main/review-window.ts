@@ -18,19 +18,19 @@ function escapeHtml(value: string): string {
     .replaceAll('"', '&quot;').replaceAll("'", '&#39;');
 }
 
-export function renderReviewDocument(review: string, target: string): string {
+export function renderReviewDocument(review: string, target: string, kind: 'Proposal' | 'Decision' = 'Proposal'): string {
   if (!/^https:\/\/review\.invalid\/confirm\/[a-z0-9-]{1,128}$/i.test(target)) throw new Error('Invalid review target');
   return `<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
-<title>Review Proposal</title><style>body{font:16px sans-serif;margin:24px} pre{white-space:pre-wrap;overflow-wrap:anywhere;overflow:auto;max-height:65vh;border:1px solid #777;padding:12px} a{display:inline-block;padding:12px}</style></head>
-<body><h1>Review Proposal</h1><p>This acknowledgement does not authorize execution. Review all fields below.</p>
+<title>Review ${kind}</title><style>body{font:16px sans-serif;margin:24px} pre{white-space:pre-wrap;overflow-wrap:anywhere;overflow:auto;max-height:65vh;border:1px solid #777;padding:12px} a{display:inline-block;padding:12px}</style></head>
+<body><h1>Review ${kind}</h1><p>This acknowledgement does not authorize execution. Review all fields below.</p>
 <pre>${escapeHtml(review)}</pre><a href="${target}">I reviewed these fields</a><p>Close this window to cancel.</p></body></html>`;
 }
 
-export function presentReview(review: string, token: string, factory: () => WindowPort): Promise<boolean> {
+export function presentReview(review: string, token: string, factory: () => WindowPort, kind: 'Proposal' | 'Decision' = 'Proposal'): Promise<boolean> {
   const target = 'https://review.invalid/confirm/' + token;
   let html: string;
-  try { html = renderReviewDocument(review, target); } catch { return Promise.resolve(false); }
+  try { html = renderReviewDocument(review, target, kind); } catch { return Promise.resolve(false); }
   return new Promise(resolve => {
     let child: WindowPort;
     try { child = factory(); } catch { resolve(false); return; }

@@ -3,6 +3,19 @@ import { validateRequest } from '../../src/main/ipc-schemas.js';
 import { routeIpc } from '../../src/main/ipc-router.js';
 
 describe('IPC request validation', () => {
+  test('Decision review accepts only the Decision ID and requires a main-owned handler', async () => {
+    const request = { channel: 'decision:review', payload: { decisionId: 'decision-1' } };
+    expect(validateRequest(request)).toEqual(request);
+    for (const field of ['option', 'actorId', 'timestamp', 'resolutionId']) {
+      expect(() => validateRequest({ channel: 'decision:review', payload: { ...request.payload, [field]: 'ALLOW' } })).toThrow();
+    }
+    const onboarding = { async get() { return { completed: false }; }, async set(value: { completed: boolean }) { return value; } };
+    expect(await routeIpc(request, onboarding)).toEqual({ decisionReview: 'UNAVAILABLE' });
+    const calls: string[] = [];
+    const port = { async review(id: string) { calls.push(id); return 'RECORDED' as const; } };
+    expect(await routeIpc(request, onboarding, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, port)).toEqual({ decisionReview: 'RECORDED' });
+    expect(calls).toEqual(['decision-1']);
+  });
   test('goal draft IPC accepts only bounded user text and a Project ID', async () => {
     const request = { channel: 'proposal:draft', payload: { projectId: 'project-1', objective: 'Write report', criterion: 'Report exists' } };
     expect(validateRequest(request)).toEqual(request);
