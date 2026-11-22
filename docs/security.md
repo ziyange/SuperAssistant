@@ -1,5 +1,7 @@
 # Super Assistant security model
 
+> TASK-806 investigates Windows Credential Manager using only a uniquely scoped synthetic test entry and exact-match cleanup. The test fixture is not a production credential broker and does not enable Proposal persistence or execution. CredWrite is not atomic create-if-absent against noncooperating writers.
+
 > TASK-805 introduces an isolated, durable key-reservation journal before any future WinCred write. Ambiguous reservations remain unresolved; no automatic key retry or deletion is permitted. The journal is not connected to the Proposal flow or a production vault.
 
 > Protected task content: [ADR-008](decisions/ADR-008-protected-task-content.md) defines an additive AES-GCM envelope and Windows Credential Manager key boundary. The isolated foundation is not yet connected to production Proposal, Grant, recovery or user input. Existing plaintext records and backups are not migrated by this change; actual credentials remain prohibited in SQLite.
