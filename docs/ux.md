@@ -1,5 +1,18 @@
 # Super Assistant UX contract
 
+### TASK-798 review-only goal entry
+
+An active local Project can be selected and a bounded goal and acceptance
+criterion entered for native review. The main process derives the fixed
+file-write-only proposed scope, five-minute execution budget and fifteen-minute
+review eligibility. It warns against credentials. This entry point keeps text
+in bounded main-process memory, not SQLite; it is discarded after review or
+eventual expiry and is lost on restart. Expiry is not a memory-zeroing
+guarantee and does not close an already open window. A successful acknowledgement
+says REVIEWED_ONLY and does not authorize, start or complete any execution.
+Executable identity, permission enforcement and durable authorization remain
+future requirements.
+
 The interface hides adapter, protocol, state-machine, and event complexity while keeping every material plan, authorization, decision, failure, and result inspectable. The user supplies goals and key decisions; the product explains who will act, where, with what authority, what changed, and why work is waiting.
 
 ## Navigation and persistent assistant

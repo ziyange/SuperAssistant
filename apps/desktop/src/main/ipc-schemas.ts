@@ -1,6 +1,7 @@
 /* global Buffer */
 import type { IpcRequest } from '../shared/ipc-contract.js';
 import { isGoalAction } from '@super-assistant/domain';
+import { validGoalText } from './local-goal-draft.js';
 
 const MAX_IPC_BYTES = 1_048_576;
 
@@ -44,6 +45,11 @@ export function validateRequest(value: unknown): IpcRequest {
   if (value.channel === 'proposal:review' && hasOnlyKeys(value.payload, ['draftId']) && typeof value.payload.draftId === 'string'
     && /^[a-z0-9_-]{1,128}$/i.test(value.payload.draftId)) {
     return { channel: 'proposal:review', payload: { draftId: value.payload.draftId } };
+  }
+  if (value.channel === 'proposal:draft' && hasOnlyKeys(value.payload, ['projectId', 'objective', 'criterion'])
+    && typeof value.payload.projectId === 'string' && /^[a-z0-9_-]{1,128}$/i.test(value.payload.projectId)
+    && validGoalText(value.payload.objective) && validGoalText(value.payload.criterion)) {
+    return { channel: 'proposal:draft', payload: { projectId: value.payload.projectId, objective: value.payload.objective, criterion: value.payload.criterion } };
   }
   if (value.channel === 'proposal:classify' && hasOnlyKeys(value.payload, ['actions']) && Array.isArray(value.payload.actions) && value.payload.actions.length > 0 && Array.from(value.payload.actions).every(isGoalAction)) {
     return { channel: 'proposal:classify', payload: { actions: value.payload.actions } };

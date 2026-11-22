@@ -3,6 +3,21 @@ import { validateRequest } from '../../src/main/ipc-schemas.js';
 import { routeIpc } from '../../src/main/ipc-router.js';
 
 describe('IPC request validation', () => {
+  test('goal draft IPC accepts only bounded user text and a Project ID', async () => {
+    const request = { channel: 'proposal:draft', payload: { projectId: 'project-1', objective: 'Write report', criterion: 'Report exists' } };
+    expect(validateRequest(request)).toEqual(request);
+    for (const payload of [
+      { ...request.payload, agentId: 'foreign' },
+      { ...request.payload, objective: '' },
+      { ...request.payload, criterion: 'x'.repeat(1001) },
+      { ...request.payload, projectId: '../escape' },
+      { ...request.payload, objective: '\u202eunsafe' }
+    ]) expect(() => validateRequest({ channel: 'proposal:draft', payload })).toThrow();
+    const onboarding = { async get() { return { completed: false }; }, async set(value: { completed: boolean }) { return value; } };
+    const draft = (input: { projectId: string; objective: string; criterion: string }) => input.projectId === 'project-1' ? 'draft-1' : '';
+    expect(await routeIpc(request, onboarding, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, draft)).toEqual({ proposalDraft: { status: 'CREATED', draftId: 'draft-1' } });
+    expect(await routeIpc(request, onboarding)).toEqual({ proposalDraft: { status: 'UNAVAILABLE' } });
+  });
   test('review acknowledgement accepts only a bounded draft ID and calls the main-process port', async () => {
     const request = { channel: 'proposal:review', payload: { draftId: 'draft-1' } };
     expect(validateRequest(request)).toEqual(request);

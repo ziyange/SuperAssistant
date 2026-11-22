@@ -1,5 +1,5 @@
 /* eslint-disable no-unused-vars -- type-only port parameter names are part of the public contract. */
-import type { CodexRegistrationProjection, IpcRequest, IpcResponse, OnboardingProjection, ProposalContextProjection } from '../shared/ipc-contract.js';
+import type { CodexRegistrationProjection, GoalDraftInput, IpcRequest, IpcResponse, OnboardingProjection, ProposalContextProjection } from '../shared/ipc-contract.js';
 import { validateRequest } from './ipc-schemas.js';
 import { projectArtifactForRenderer, type ArtifactReadPort } from './artifact-ipc.js';
 import { listDecisionsForRenderer, projectDecisionForRenderer, type DecisionReadPort } from './decision-ipc.js';
@@ -19,7 +19,7 @@ export interface OnboardingPort {
   set(projection: OnboardingProjection): Promise<OnboardingProjection>;
 }
 
-export async function routeIpc(request: unknown, onboarding: OnboardingPort, proposal?: ProposalIpcPort, task?: TaskReadPort, artifact?: ArtifactReadPort, decision?: DecisionReadPort, history?: HistoryReadPort, changes?: ProjectChangeReadPort, acceptance?: AcceptanceReadPort, auditExport?: AuditExportPort, monitoring?: MonitoringStatusReadPort, team?: TeamWorkspacePort, projects?: Pick<LocalProjectCatalog, 'list' | 'choose'> & Partial<Pick<LocalProjectCatalog, 'assignCodex'>>, codex?: () => Promise<CodexCheck>, codexRegistration?: () => CodexRegistrationProjection, proposalContext?: (projectId: string) => ProposalContextProjection, queuedCancellation?: Pick<QueuedTaskCancellation, 'cancel'>, reviewProposal?: (draftId: string) => Promise<boolean>): Promise<IpcResponse> {
+export async function routeIpc(request: unknown, onboarding: OnboardingPort, proposal?: ProposalIpcPort, task?: TaskReadPort, artifact?: ArtifactReadPort, decision?: DecisionReadPort, history?: HistoryReadPort, changes?: ProjectChangeReadPort, acceptance?: AcceptanceReadPort, auditExport?: AuditExportPort, monitoring?: MonitoringStatusReadPort, team?: TeamWorkspacePort, projects?: Pick<LocalProjectCatalog, 'list' | 'choose'> & Partial<Pick<LocalProjectCatalog, 'assignCodex'>>, codex?: () => Promise<CodexCheck>, codexRegistration?: () => CodexRegistrationProjection, proposalContext?: (projectId: string) => ProposalContextProjection, queuedCancellation?: Pick<QueuedTaskCancellation, 'cancel'>, reviewProposal?: (draftId: string) => Promise<boolean>, createDraft?: (input: GoalDraftInput) => string): Promise<IpcResponse> {
   const valid: IpcRequest = validateRequest(request);
   if (valid.channel === 'onboarding:get') return { onboarding: await onboarding.get() };
   if (valid.channel === 'onboarding:set') return { onboarding: await onboarding.set(valid.payload) };
@@ -89,6 +89,13 @@ export async function routeIpc(request: unknown, onboarding: OnboardingPort, pro
     const status = proposalContext?.(valid.payload.projectId).status;
     if (status === 'CODEX_REQUIRED' || status === 'FUNCTION_REQUIRED' || status === 'LIVE_VERIFICATION_REQUIRED') return { proposalContext: { status } };
     return { proposalContext: { status: 'PROJECT_UNAVAILABLE' } };
+  }
+  if (valid.channel === 'proposal:draft') {
+    try {
+      const draftId = createDraft?.(valid.payload);
+      if (typeof draftId === 'string' && /^[a-z0-9_-]{1,128}$/i.test(draftId)) return { proposalDraft: { status: 'CREATED', draftId } };
+    } catch { /* return only a sanitized unavailable result */ }
+    return { proposalDraft: { status: 'UNAVAILABLE' } };
   }
   if (valid.channel === 'proposal:review') {
     try { return { proposalReview: await reviewProposal?.(valid.payload.draftId) === true ? 'REVIEWED_ONLY' : 'UNAVAILABLE' }; }

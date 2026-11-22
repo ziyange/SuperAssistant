@@ -20,6 +20,7 @@ import { recoverLocalStartup } from './recovery-service.js';
 import { QueuedTaskCancellation } from './queued-task-cancellation.js';
 import { CodexAttemptRecovery } from './codex-attempt-recovery.js';
 import { LocalProposalReview } from './local-proposal-review.js';
+import { LocalGoalDraft } from './local-goal-draft.js';
 import { ImmutableProposalConfirmation } from './immutable-proposal-confirmation.js';
 import { presentReview } from './review-window.js';
 
@@ -127,7 +128,8 @@ if (isPrimaryInstance) void app.whenReady().then(async () => {
     return answer.response === 0;
   });
   const localReview = new LocalProposalReview(localDatabase);
-  const confirmation = new ImmutableProposalConfirmation(id => localReview.read(id), async review => {
+  const goalDraft = new LocalGoalDraft(localDatabase);
+  const confirmation = new ImmutableProposalConfirmation(id => id.startsWith('goal-review-') ? goalDraft.read(id) : localReview.read(id), async review => {
     const parent = applicationWindow;
     if (!parent || parent.isDestroyed()) return false;
     const token = randomUUID();
@@ -138,13 +140,14 @@ if (isPrimaryInstance) void app.whenReady().then(async () => {
   });
   const reviewDraft = async (draftId: string): Promise<boolean> => {
     try {
+      if (draftId.startsWith('goal-')) return await goalDraft.review(draftId, review => confirmation.confirm(review.proposalVersionId, review.digest));
       const review = localReview.prepare(draftId);
       return await confirmation.confirm(review.proposalVersionId, review.digest);
     } catch { return false; }
   };
   const routeTrustedIpc = (event: IpcMainInvokeEvent, channel: string, payload: unknown) => {
     if (!isTrustedIpcSender(event.senderFrame?.url ?? '', rendererUrl, event.sender === applicationWindow?.webContents, event.senderFrame === event.sender.mainFrame)) throw new Error('Untrusted IPC sender.');
-    return routeIpc({ channel, payload }, onboardingPort, undefined, taskPort, artifactPort, decisionPort, historyPort, changePort, acceptancePort, auditExportPort, monitoringStatusPort, teamPort, projectPort, runCodexCheck, () => codexRegistration.get(), projectId => readLocalProposalContext(localDatabase, projectId), queuedCancellation, reviewDraft);
+    return routeIpc({ channel, payload }, onboardingPort, undefined, taskPort, artifactPort, decisionPort, historyPort, changePort, acceptancePort, auditExportPort, monitoringStatusPort, teamPort, projectPort, runCodexCheck, () => codexRegistration.get(), projectId => readLocalProposalContext(localDatabase, projectId), queuedCancellation, reviewDraft, input => goalDraft.create(input));
   };
   ipcMain.handle('onboarding:get', (event, payload) => {
     return routeTrustedIpc(event, 'onboarding:get', payload);
@@ -158,6 +161,7 @@ if (isPrimaryInstance) void app.whenReady().then(async () => {
   ipcMain.handle('codex:check', (event, payload) => routeTrustedIpc(event, 'codex:check', payload));
   ipcMain.handle('codex:registration', (event, payload) => routeTrustedIpc(event, 'codex:registration', payload));
   ipcMain.handle('proposal:context', (event, payload) => routeTrustedIpc(event, 'proposal:context', payload));
+  ipcMain.handle('proposal:draft', (event, payload) => routeTrustedIpc(event, 'proposal:draft', payload));
   ipcMain.handle('proposal:review', (event, payload) => routeTrustedIpc(event, 'proposal:review', payload));
   ipcMain.handle('task:get', (event, payload) => routeTrustedIpc(event, 'task:get', payload));
   ipcMain.handle('task:list', (event, payload) => routeTrustedIpc(event, 'task:list', payload));
