@@ -188,7 +188,11 @@ Resolving a Decision uses optimistic concurrency and records one Human History e
 The initial PHASE-003 Decision repository enforces this command boundary in
 one SQLite transaction: it rejects a missing, `UNKNOWN`, or `RECONCILING`
 originating Attempt before writing a resolution; a repeated resolution key
-returns the persisted outcome without another Outbox row. A dispatcher invokes
+returns the persisted outcome without another Outbox row only for the same
+actor and choice. Because the legacy Decision record does not identify the
+originating Attempt, more than one Attempt for its WorkItem is ambiguous and
+must not be resumed; an unambiguous Attempt must be waiting for input.
+An Outbox insertion conflict rolls back the Decision change. A dispatcher invokes
 the stable Adapter `resume` operation only after that row has been claimed.
 
 ## Resource conflict and fencing

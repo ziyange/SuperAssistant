@@ -15,7 +15,10 @@ export function createDecision(input: DecisionInput): Decision {
 
 export function resolveDecision(decision: Decision, resolution: DecisionResolution): Decision {
   if (decision.status === 'RESOLVED') {
-    if (decision.resolution?.idempotencyKey === resolution.idempotencyKey) return decision;
+    if (decision.resolution?.idempotencyKey === resolution.idempotencyKey) {
+      if (decision.resolution.actorId !== resolution.actorId || decision.resolution.option !== resolution.option) throw new Error('IDEMPOTENCY_CONFLICT');
+      return decision;
+    }
     throw new Error('Decision is already resolved');
   }
   return { ...decision, status: 'RESOLVED', resolution: { ...resolution } };

@@ -21,4 +21,11 @@ describe('Decision', () => {
     const resolved = resolveDecision(createDecision(input), { resolutionId: 'resolution-1', idempotencyKey: 'resolve-key-1', actorId: 'user-1', option: 'ALLOW', resolvedAt: '2026-08-21T00:01:00.000Z' });
     expect(() => resolveDecision(resolved, { resolutionId: 'resolution-2', idempotencyKey: 'resolve-key-2', actorId: 'user-1', option: 'DENY', resolvedAt: '2026-08-21T00:02:00.000Z' })).toThrow('Decision is already resolved');
   });
+
+  test('rejects changed actor or choice when a resolution key is reused', () => {
+    const original = { resolutionId: 'resolution-1', idempotencyKey: 'key-1', actorId: 'user-1', option: 'ALLOW' as const, resolvedAt: '2026-08-21T00:01:00.000Z' };
+    const resolved = resolveDecision(createDecision(input), original);
+    expect(() => resolveDecision(resolved, { ...original, option: 'DENY' })).toThrow('IDEMPOTENCY_CONFLICT');
+    expect(() => resolveDecision(resolved, { ...original, actorId: 'user-2' })).toThrow('IDEMPOTENCY_CONFLICT');
+  });
 });

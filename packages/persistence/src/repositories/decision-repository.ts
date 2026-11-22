@@ -39,18 +39,20 @@ export class SqliteDecisionRepository {
       const existing = this.get(decisionId);
       if (!existing) throw new Error('DECISION_NOT_FOUND');
       if (existing.status === 'RESOLVED') {
-        if (existing.resolution?.idempotencyKey === resolution.idempotencyKey) return { decision: existing, resumeEnqueued: false };
-        throw new Error('Decision is already resolved');
+        return { decision: resolveDecision(existing, resolution), resumeEnqueued: false };
       }
-      const attempt = this.database.prepare('SELECT attempt_id, request_id, state FROM execution_attempts WHERE work_item_id = ? ORDER BY created_at DESC LIMIT 1').get(existing.workItemId) as { attempt_id: string; request_id: string; state: string } | undefined;
-      if (!attempt) throw new Error('DECISION_ATTEMPT_NOT_FOUND');
+      const attempts = this.database.prepare('SELECT attempt_id, request_id, state FROM execution_attempts WHERE work_item_id = ? LIMIT 2').all(existing.workItemId) as { attempt_id: string; request_id: string; state: string }[];
+      if (attempts.length === 0) throw new Error('DECISION_ATTEMPT_NOT_FOUND');
+      if (attempts.length !== 1) throw new Error('DECISION_ATTEMPT_AMBIGUOUS');
+      const attempt = attempts[0]!;
       if (attempt.state === 'UNKNOWN' || attempt.state === 'RECONCILING') throw new Error('ATTEMPT_RECONCILIATION_REQUIRED');
+      if (attempt.state !== 'WAITING_USER' && attempt.state !== 'WAITING_INPUT') throw new Error('ATTEMPT_NOT_WAITING');
       const decision = resolveDecision(existing, resolution);
       const resolved = this.database.prepare("UPDATE decisions SET status = 'RESOLVED', resolution_id = ?, resolution_key = ?, resolution_actor_id = ?, resolution_option = ?, resolved_at = ? WHERE decision_id = ? AND status = 'OPEN'").run(resolution.resolutionId, resolution.idempotencyKey, resolution.actorId, resolution.option, resolution.resolvedAt, decisionId);
       if (resolved.changes !== 1) throw new Error('DECISION_RESOLUTION_CONFLICT');
-      const outbox = this.database.prepare('INSERT OR IGNORE INTO outbox (message_id, attempt_id, request_id, idempotency_key, message_type, payload_json, state, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run(`resume:${decisionId}`, attempt.attempt_id, attempt.request_id, resolution.idempotencyKey, 'resume', JSON.stringify({ attempt_id: attempt.attempt_id, decision_id: decisionId, resolution_id: resolution.resolutionId }), 'PENDING', resolution.resolvedAt);
-      return { decision, resumeEnqueued: outbox.changes === 1 };
+      this.database.prepare('INSERT INTO outbox (message_id, attempt_id, request_id, idempotency_key, message_type, payload_json, state, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run(`resume:${decisionId}`, attempt.attempt_id, attempt.request_id, resolution.idempotencyKey, 'resume', JSON.stringify({ attempt_id: attempt.attempt_id, decision_id: decisionId, resolution_id: resolution.resolutionId }), 'PENDING', resolution.resolvedAt);
+      return { decision, resumeEnqueued: true };
     });
-    return transaction();
+    return transaction.immediate();
   }
 }
