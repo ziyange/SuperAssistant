@@ -190,8 +190,10 @@ one SQLite transaction: it rejects a missing, `UNKNOWN`, or `RECONCILING`
 originating Attempt before writing a resolution; a repeated resolution key
 returns the persisted outcome without another Outbox row only for the same
 actor and choice. Because the legacy Decision record does not identify the
-originating Attempt, more than one Attempt for its WorkItem is ambiguous and
-must not be resumed; an unambiguous Attempt must be waiting for input.
+originating Attempt, first resolution with more than one Attempt for its
+WorkItem is ambiguous and must not be resumed; an unambiguous Attempt must
+be waiting for input. A same-key read of an already-resolved Decision may
+return matching existing evidence without redispatch, even with multiple Attempts.
 An Outbox insertion conflict rolls back the Decision change. A dispatcher invokes
 the stable Adapter `resume` operation only after that row has been claimed.
 
@@ -202,6 +204,17 @@ consumed Grant. A duplicate can return the stored outcome only when its matching
 durable resume evidence exists. The legacy direct write is unavailable; it
 cannot bypass this transaction. Team authorization and actual delivery of a
 decision option remain separate integration requirements.
+
+Before the first resolution queues a resume, the same transaction must check
+the current clock, Proposal digest and Grant scope/expiry, Project snapshot,
+Agent and Function versions, and the original Attempt's live Project Lease and
+fencing history. A duplicate read after expiry does not issue another command.
+The Lease observation watermark is committed on expiration or failed
+Decision/Outbox savepoints; a caller-owned outer transaction is rejected so
+it cannot roll that observation back. This detects rollback only relative to
+durably observed Lease timestamps, not a global trusted-clock history.
+The dispatcher still needs independent checks immediately before side effects;
+this transaction cannot prove Git baseline, process ownership or confinement.
 
 ## Resource conflict and fencing
 

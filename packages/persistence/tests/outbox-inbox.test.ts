@@ -52,7 +52,7 @@ test('a real claimed SQLite start and resume reach the dispatcher with matching 
     }, () => true);
     expect(await dispatcher.dispatchOne()).toEqual({ messageId: 'outbox:attempt-1', dispatched: true });
     db.prepare("UPDATE execution_attempts SET state = 'WAITING_USER' WHERE attempt_id = 'attempt-1'").run();
-    const decisions = new SqliteDecisionRepository(db, () => 'owner-1');
+    const decisions = new SqliteDecisionRepository(db, () => 'owner-1', () => '2026-08-13T00:00:02.000Z');
     decisions.create(createDecision({ decisionId: 'decision-1', workspaceId: 'workspace-1', projectId: 'project-1', taskId: 'task-1', workItemId: 'work-1', question: 'Proceed?', level: 'L3', createdAt: '2026-08-13T00:00:01.000Z' }));
     decisions.resolveAndEnqueueResume('decision-1', { resolutionId: 'resolution-1', idempotencyKey: 'resume-key', actorId: 'owner-1', option: 'ALLOW', resolvedAt: '2026-08-13T00:00:02.000Z' });
     expect(await dispatcher.dispatchOne()).toEqual({ messageId: 'resume:decision-1', dispatched: true });

@@ -454,6 +454,17 @@ the fence before each write.
 Rollback detection compares the trusted clock to the last persisted
 observation; time jumps with no intervening observation are not detectable.
 
+The legacy local Decision resolution transaction also revalidates the
+Proposal digest, consumed Grant scope and expiry, current catalog versions and
+the original Attempt's Project Lease before it queues a resume. It records the
+trusted transaction clock, not a renderer-supplied resolution time. This is
+not a dispatch authorization: Git baseline, OS process ownership and policy,
+and all mutable authority must be checked again at the external-effect boundary.
+The observed Lease time is committed even when its expiry or a rejected
+Decision savepoint blocks the resume; caller-owned outer transactions are
+rejected. This protects only observations that actually commit. It cannot
+detect a rollback of the database itself or clock changes before observation.
+
 Renewal depends on a trusted ownership check. Loss, a thrown check or failed
 renewal stops the supervisor; it cannot establish process termination and
 must never release the Lease or permit redispatch on that basis alone.

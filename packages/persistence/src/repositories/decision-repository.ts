@@ -1,6 +1,8 @@
 /* eslint-disable no-unused-vars -- constructor parameter property is used at runtime. */
 import type Database from 'better-sqlite3';
-import { resolveDecision, type Decision, type DecisionResolution } from '@super-assistant/domain';
+import { classifyGoalActions, createH1ReviewedProposal, createProposalVersion, resolveDecision, type Decision, type DecisionResolution, type GoalAction } from '@super-assistant/domain';
+import { SqliteProposalRepository } from './proposal-repository.js';
+import { SqliteResourceLeaseRepository } from './resource-lease-repository.js';
 
 function toDecision(row: Record<string, unknown>): Decision {
   const resolution = row.status === 'RESOLVED' ? { resolutionId: String(row.resolution_id), idempotencyKey: String(row.resolution_key), actorId: String(row.resolution_actor_id), option: String(row.resolution_option) as 'ALLOW' | 'DENY', resolvedAt: String(row.resolved_at) } : undefined;
@@ -8,7 +10,8 @@ function toDecision(row: Record<string, unknown>): Decision {
 }
 
 export class SqliteDecisionRepository {
-  constructor(private readonly database: Database.Database, private readonly principal: () => string | undefined = () => undefined) {}
+  constructor(private readonly database: Database.Database, private readonly principal: () => string | undefined = () => undefined,
+    private readonly clock: () => string = () => new Date().toISOString()) {}
 
   create(decision: Decision): void {
     this.database.prepare('INSERT INTO decisions VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').run(decision.decisionId, decision.workspaceId, decision.projectId, decision.taskId, decision.workItemId, decision.question, decision.level, decision.fingerprint, decision.status, null, null, null, null, null, decision.createdAt);
@@ -34,6 +37,7 @@ export class SqliteDecisionRepository {
   }
 
   resolveAndEnqueueResume(decisionId: string, resolution: DecisionResolution): { decision: Decision; resumeEnqueued: boolean } {
+    if (this.database.inTransaction) throw new Error('DECISION_NESTED_TRANSACTION_DENIED');
     const valid = (value: unknown): value is string => typeof value === 'string' && value.length > 0 && value.length <= 128
       && value.trim() === value && !Array.from(value).some(char => char.charCodeAt(0) < 32 || char.charCodeAt(0) === 127)
       && !/[\u202a-\u202e\u2066-\u2069]/u.test(value);
@@ -41,13 +45,16 @@ export class SqliteDecisionRepository {
       || !valid(resolution.actorId) || (resolution.option !== 'ALLOW' && resolution.option !== 'DENY')
       || typeof resolution.resolvedAt !== 'string' || !Number.isFinite(Date.parse(resolution.resolvedAt))
       || new Date(resolution.resolvedAt).toISOString() !== resolution.resolvedAt) throw new Error('INVALID_DECISION_RESOLUTION');
-    const transaction = this.database.transaction((): { decision: Decision; resumeEnqueued: boolean } => {
+    const transaction = this.database.transaction((): { decision: Decision; resumeEnqueued: boolean } | { failure: string } => {
       const existing = this.get(decisionId);
       if (!existing) throw new Error('DECISION_NOT_FOUND');
       const principal = this.principal();
       if (!valid(principal) || principal !== resolution.actorId) throw new Error('DECISION_AUTHORITY_DENIED');
       const scope = this.database.prepare(`
-        SELECT t.state AS task_state FROM work_items w
+        SELECT t.state AS task_state,p.proposal_version_id,g.actions_json,g.issued_at,g.expires_at,
+          p.project_snapshot_version,p.agent_version AS approved_agent_version,p.function_version AS approved_function_version,
+          pr.snapshot_version,a.agent_version,a.connection,a.availability,f.function_version,f.lifecycle
+        FROM work_items w
         JOIN tasks t ON t.task_id=w.task_id
         JOIN projects pr ON pr.project_id=t.project_id AND pr.workspace_id=t.workspace_id AND pr.status='ACTIVE'
         JOIN workspaces ws ON ws.workspace_id=t.workspace_id AND ws.status='ACTIVE'
@@ -57,8 +64,12 @@ export class SqliteDecisionRepository {
         JOIN authorization_grants g ON g.grant_id=t.authorization_grant_id
           AND g.proposal_version_id=p.proposal_version_id AND g.proposal_digest=p.digest
           AND g.actor_id=ws.owner_id AND g.status='CONSUMED'
+        JOIN agents a ON a.agent_id=w.agent_id AND a.workspace_id=t.workspace_id
+        JOIN functions f ON f.function_id=w.function_id AND f.agent_id=a.agent_id
         WHERE w.work_item_id=? AND t.task_id=? AND t.workspace_id=? AND t.project_id=? AND ws.owner_id=?
-      `).get(existing.workItemId, existing.taskId, existing.workspaceId, existing.projectId, principal) as { task_state: string } | undefined;
+      `).get(existing.workItemId, existing.taskId, existing.workspaceId, existing.projectId, principal) as { task_state: string; proposal_version_id: string; actions_json: string; issued_at: string; expires_at: string;
+        project_snapshot_version: string; approved_agent_version: string; approved_function_version: string; snapshot_version: number;
+        agent_version: string; connection: string; availability: string; function_version: string; lifecycle: string } | undefined;
       if (!scope) throw new Error('DECISION_AUTHORITY_DENIED');
       const other = this.database.prepare(`
         SELECT o.payload_json,o.attempt_id,o.idempotency_key,o.request_id,a.request_id AS attempt_request
@@ -113,12 +124,53 @@ export class SqliteDecisionRepository {
       if (!valid(attempt.attempt_id) || !valid(attempt.request_id)) throw new Error('DECISION_ATTEMPT_INVALID');
       if (attempt.state === 'UNKNOWN' || attempt.state === 'RECONCILING') throw new Error('ATTEMPT_RECONCILIATION_REQUIRED');
       if (attempt.state !== 'WAITING_USER' && attempt.state !== 'WAITING_INPUT') throw new Error('ATTEMPT_NOT_WAITING');
-      const decision = resolveDecision(existing, resolution);
-      const resolved = this.database.prepare("UPDATE decisions SET status = 'RESOLVED', resolution_id = ?, resolution_key = ?, resolution_actor_id = ?, resolution_option = ?, resolved_at = ? WHERE decision_id = ? AND status = 'OPEN'").run(resolution.resolutionId, resolution.idempotencyKey, resolution.actorId, resolution.option, resolution.resolvedAt, decisionId);
+      const now = this.clock();
+      const instant = (value: unknown): number | null => {
+        if (typeof value !== 'string') return null;
+        const time = Date.parse(value);
+        return Number.isFinite(time) && new Date(time).toISOString() === value ? time : null;
+      };
+      const current = instant(now), issued = instant(scope.issued_at), expires = instant(scope.expires_at);
+      if (current === null) throw new Error('DECISION_AUTHORITY_STALE');
+      const resource = `project:${existing.projectId}`, legacy = `worktree:${existing.projectId}`;
+      const leases = this.database.prepare('SELECT lease_id,attempt_id,fencing_token,state,resource_key FROM resource_leases WHERE resource_key IN (?, ?)').all(resource, legacy) as { lease_id: string; attempt_id: string; fencing_token: number; state: string; resource_key: string }[];
+      const active = leases.filter(lease => lease.state !== 'RELEASED');
+      const lease = active[0];
+      if (leases.some(item => !Number.isSafeInteger(item.fencing_token) || item.fencing_token <= 0 || !['ACTIVE', 'RELEASING', 'RELEASED'].includes(item.state))
+        || active.length !== 1 || !lease || lease.state !== 'ACTIVE' || lease.resource_key !== resource
+        || lease.attempt_id !== attempt.attempt_id
+        || leases.some(otherLease => otherLease.lease_id !== lease.lease_id && otherLease.fencing_token >= lease.fencing_token)) throw new Error('DECISION_LEASE_STALE');
+      // Persist the Lease time observation even when it establishes expiry;
+      // throwing inside the transaction would roll it back and permit clock rollback.
+      if (!new SqliteResourceLeaseRepository(this.database, () => now).canWrite({ leaseId: lease.lease_id, attemptId: attempt.attempt_id, fencingToken: lease.fencing_token })) return { failure: 'DECISION_LEASE_STALE' };
+      if (issued === null || expires === null || current < issued || current >= expires) return { failure: 'DECISION_AUTHORITY_STALE' };
+      try {
+      return this.database.transaction((): { decision: Decision; resumeEnqueued: boolean } => {
+      if (scope.project_snapshot_version !== String(scope.snapshot_version)
+        || scope.approved_agent_version !== scope.agent_version || scope.connection !== 'CONNECTED' || scope.availability !== 'AVAILABLE'
+        || scope.approved_function_version !== scope.function_version || scope.lifecycle !== 'ACTIVE') throw new Error('DECISION_AUTHORITY_STALE');
+      const proposal = new SqliteProposalRepository(this.database).get(scope.proposal_version_id);
+      if (!proposal || proposal.expiresAt !== scope.expires_at) throw new Error('DECISION_AUTHORITY_STALE');
+      const { digest, ...fields } = proposal;
+      if (createProposalVersion(fields).digest !== digest || (proposal.fullReview && createH1ReviewedProposal(proposal.proposalVersionId, proposal.fullReview).digest !== digest)) throw new Error('DECISION_AUTHORITY_STALE');
+      const actions: unknown = JSON.parse(scope.actions_json);
+      if (!Array.isArray(actions) || classifyGoalActions(proposal.actions).kind !== 'SIDE_EFFECTING'
+        || classifyGoalActions(actions as GoalAction[]).kind !== 'SIDE_EFFECTING'
+        || JSON.stringify(proposal.actions) !== JSON.stringify(actions)) throw new Error('DECISION_AUTHORITY_STALE');
+      const committed = { ...resolution, resolvedAt: now };
+      const decision = resolveDecision(existing, committed);
+      const resolved = this.database.prepare("UPDATE decisions SET status = 'RESOLVED', resolution_id = ?, resolution_key = ?, resolution_actor_id = ?, resolution_option = ?, resolved_at = ? WHERE decision_id = ? AND status = 'OPEN'").run(committed.resolutionId, committed.idempotencyKey, committed.actorId, committed.option, committed.resolvedAt, decisionId);
       if (resolved.changes !== 1) throw new Error('DECISION_RESOLUTION_CONFLICT');
-      this.database.prepare('INSERT INTO outbox (message_id, attempt_id, request_id, idempotency_key, message_type, payload_json, state, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run(`resume:${decisionId}`, attempt.attempt_id, attempt.request_id, resolution.idempotencyKey, 'resume', JSON.stringify({ attempt_id: attempt.attempt_id, decision_id: decisionId, resolution_id: resolution.resolutionId }), 'PENDING', resolution.resolvedAt);
+      this.database.prepare('INSERT INTO outbox (message_id, attempt_id, request_id, idempotency_key, message_type, payload_json, state, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run(`resume:${decisionId}`, attempt.attempt_id, attempt.request_id, committed.idempotencyKey, 'resume', JSON.stringify({ attempt_id: attempt.attempt_id, decision_id: decisionId, resolution_id: committed.resolutionId }), 'PENDING', committed.resolvedAt);
       return { decision, resumeEnqueued: true };
+      })();
+      } catch {
+        // Roll back the Decision/Outbox savepoint but retain the Lease watermark.
+        return { failure: 'DECISION_AUTHORITY_STALE' };
+      }
     });
-    return transaction.immediate();
+    const result = transaction.immediate();
+    if ('failure' in result) throw new Error(result.failure);
+    return result;
   }
 }
