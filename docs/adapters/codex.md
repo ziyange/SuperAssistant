@@ -1,5 +1,21 @@
 # Codex Adapter
 
+### TASK-800 review-time executable consistency
+
+Review-only goal drafts bind an in-memory fingerprint of the registered
+executable. A bounded worker reads the canonical file through a handle,
+compares before/after metadata and SHA-256, and rechecks it before and after
+native review. Literal UNC and extended-device paths are rejected; mapped
+drives or reparse points can still reach remote storage. Two fingerprint
+workers are allowed concurrently; an I/O-stalled worker retains its slot
+until it actually exits, even after the request times out. Git baseline checks
+still run synchronously on the main process.
+
+This observation is not publisher authentication, proof of the image loaded
+by a process, an atomic launch binding or proof of sandbox enforcement.
+Authorization and execution remain disabled until those independently
+verified boundaries exist.
+
 ### TASK-799 legacy cancellation is fail-closed
 
 The exported legacy PID-only cancellation method currently returns

@@ -29,6 +29,14 @@ test('confirms only an unchanged full persisted review and displays every field'
   expect(await changed.confirm('review-1', original.digest)).toBe(false);
 });
 
+test('waits for asynchronous authority checks before and after native review', async () => {
+  const review = createH1ReviewedProposal('review-async', candidate);
+  let reads = 0;
+  const confirmation = new ImmutableProposalConfirmation(async () => { reads += 1; return review; }, async () => true);
+  expect(await confirmation.confirm('review-async', review.digest)).toBe(true);
+  expect(reads).toBe(2);
+});
+
 test('rejects a second concurrent confirmation while a dialog is open', async () => {
   const review = createH1ReviewedProposal('review-2', candidate);
   const other = createH1ReviewedProposal('review-other', candidate);
