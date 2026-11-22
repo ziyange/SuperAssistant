@@ -1,5 +1,7 @@
 # Super Assistant security model
 
+> Protected task content: [ADR-008](decisions/ADR-008-protected-task-content.md) defines an additive AES-GCM envelope and Windows Credential Manager key boundary. The isolated foundation is not yet connected to production Proposal, Grant, recovery or user input. Existing plaintext records and backups are not migrated by this change; actual credentials remain prohibited in SQLite.
+
 Local Codex registration accepts a path only from the trusted native picker
 after successful read-only discovery. The Renderer receives no executable
 path or credential. Cached registration never authorizes execution or starts

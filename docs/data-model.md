@@ -1,5 +1,7 @@
 # Super Assistant data model
 
+> Protected task content: [ADR-008](decisions/ADR-008-protected-task-content.md) defines an additive AES-GCM envelope and Windows Credential Manager key boundary. The isolated foundation is not yet connected to production Proposal, Grant, recovery or user input. Existing plaintext records and backups are not migrated by this change; actual credentials remain prohibited in SQLite.
+
 ### TASK-797: immutable draft Agent generation
 
 Migration 028 adds `draft_agent_generations`, an append-only one-to-one
