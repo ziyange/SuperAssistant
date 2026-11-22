@@ -1,5 +1,23 @@
 # Codex Adapter
 
+### TASK-799 legacy cancellation is fail-closed
+
+The exported legacy PID-only cancellation method currently returns
+`CANCELLATION_INCOMPLETE` without interrupting, terminating a process or
+releasing a lease. It has no OS-owned process incarnation and cannot safely
+cancel a delayed kill or release callback. Prior simulated-success tests were
+superseded; they do not prove a Windows process tree exited. Real running
+cancellation requires an owned-process supervisor, whole-tree exit evidence,
+and an atomic Attempt/incarnation/lease-fence-aware release. Until those exist,
+this legacy method must not be presented as functional cancellation.
+The legacy `describe` operation still enumerates the SAI method names for
+interface compatibility; that enumeration is not a live availability claim.
+Windows Job Objects are a candidate ownership primitive, not by themselves a
+complete sandbox. Microsoft documents that children created through
+`Win32_Process.Create` are not automatically associated with the job; the
+future supervisor must prevent or account for such escape paths before claiming
+whole-tree termination. See [Microsoft Job Objects](https://learn.microsoft.com/en-us/windows/win32/procthread/job-objects).
+
 ### TASK-797 Proposal registration generation
 
 New local Proposal drafts persist the registered Agent row version in an
