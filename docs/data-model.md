@@ -1,4 +1,7 @@
 # Super Assistant data model
+# TASK-820 protected Proposal authority boundary
+
+The informational protected Proposal check captures the linked reservation and exact envelope before asynchronous decryption, then rechecks them with current Project/Agent/Function facts in an immediate SQLite transaction. Its result is not a Grant, executable Attempt, live Git baseline lock or native approval and cannot authorize a later write.
 
 > TASK-811 introduces an isolated encrypted full ProposalVersion repository with domain and digest validation. A recovery result of UNRESOLVED may follow a successful cryptographic reservation link when the decrypted Proposal fails semantic validation; LINKED alone never proves Proposal validity or authorization. Legacy plaintext Proposal records remain unchanged; user input, Grants and execution are not connected until their independent safety prerequisites are met.
 

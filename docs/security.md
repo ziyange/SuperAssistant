@@ -1,6 +1,9 @@
 # Super Assistant security model
 # TASK-818 resume safety boundary
 # TASK-819 native Decision boundary
+# TASK-820 protected Proposal transaction
+
+Protected Proposal decryption is followed by byte-exact envelope and reservation revalidation in a main-owned SQLite transaction. The informational check accepts no callback and provides no authorization for later actions. Its wall-clock check has no persistent anti-rollback watermark. Production key provenance, credential handling, Git baseline and process containment remain separate gates.
 
 Native Decision review derives its actor and ALLOW/DENY selection in the main process, presents complete bounded context, and rechecks the same context after the dialog. The existing transactional authority and lease checks remain mandatory. A recorded Decision is not a structured upstream request binding and cannot by itself enable production dispatch.
 
