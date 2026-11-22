@@ -1,5 +1,7 @@
 # Super Assistant data model
 
+> TASK-811 introduces an isolated encrypted full ProposalVersion repository with domain and digest validation. A recovery result of UNRESOLVED may follow a successful cryptographic reservation link when the decrypted Proposal fails semantic validation; LINKED alone never proves Proposal validity or authorization. Legacy plaintext Proposal records remain unchanged; user input, Grants and execution are not connected until their independent safety prerequisites are met.
+
 > TASK-810 specifies recovery of an already committed encrypted payload by reading its existing key, authenticating the exact envelope and linking the matching reservation inside an immediate SQLite transaction. It never creates or replaces keys and does not enable the desktop Proposal or execution flow.
 
 > TASK-807 connects the isolated reservation journal and encrypted payload store only through a test vault port. Uncertain effects are not retried; this is not a production WinCred provider or an enabled Proposal flow.
