@@ -1,10 +1,47 @@
+/* global NodeJS */
 import { expect, test } from 'vitest';
+import { request } from 'node:http';
 import { createTeamApi } from '../src/team-api.js';
 import { createAuthenticatedTeamServer } from '../src/server.js';
 import { createPersistentSessionRequestAuthenticator, createSessionRequestAuthenticator, PersistentTeamSessionService, TeamSessionService } from '../src/session-service.js';
 import { TeamAuthorizationService } from '../src/team-authorization.js';
 
 const permitAll = { async authorize() { return { allowed: true as const }; } };
+
+function loopbackRequest(port: number, path: string, options: { method?: string; headers?: Record<string, string>; body?: string } = {}): Promise<{ status: number }> {
+  return new Promise((resolve, reject) => {
+    const req = request({ hostname: '127.0.0.1', port, path, method: options.method ?? 'GET', headers: options.headers, timeout: 5000 }, response => {
+      response.resume();
+      response.once('error', reject);
+      response.once('end', () => resolve({ status: response.statusCode ?? 0 }));
+    });
+    req.once('timeout', () => req.destroy(new Error('Loopback HTTP request timed out')));
+    req.once('error', reject);
+    req.end(options.body);
+  });
+}
+
+test('loopback client reaches a fetch-forbidden port without skipping authentication', async () => {
+  const server = createAuthenticatedTeamServer({
+    async createWorkspace() {}, async getWorkspace() { return undefined; }, async listEvents() { return []; }
+  }, { async authenticate() { return { actor: 'actor-1', workspaceId: 'team-1' }; } });
+  let port = 0;
+  for (const candidate of [6000, 6665, 6666, 6667, 6668, 6669, 10080]) {
+    const available = await new Promise<boolean>((resolve, reject) => {
+      const onError = (error: NodeJS.ErrnoException) => { server.off('listening', onListening); if (error.code === 'EADDRINUSE') resolve(false); else reject(error); };
+      const onListening = () => { server.off('error', onError); resolve(true); };
+      server.once('error', onError); server.once('listening', onListening);
+      server.listen(candidate, '127.0.0.1');
+    });
+    if (available) { port = candidate; break; }
+  }
+  if (!port) throw new Error('No fetch-forbidden loopback port available for regression');
+  try {
+    await expect(globalThis.fetch(`http://127.0.0.1:${port}/v1/workspaces/team-1`)).rejects.toThrow();
+    const response = await loopbackRequest(port, '/v1/workspaces/team-1');
+    expect(response.status).toBe(403);
+  } finally { await new Promise<void>((resolve, reject) => server.close(error => error === undefined ? resolve() : reject(error))); }
+});
 
 test('audit export requires EXPORT_AUDIT before reading protected data', async () => {
   let protectedReads = 0;
@@ -73,7 +110,7 @@ test('HTTP adapter delegates identity to its verifier instead of trusting a call
   await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
   try {
     const port = (server.address() as { port: number }).port;
-    const response = await globalThis.fetch(`http://127.0.0.1:${port}/v1/workspaces`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-team-actor': 'attacker' }, body: JSON.stringify({ workspaceId: 'team-1', name: 'Team' }) });
+    const response = await loopbackRequest(port, '/v1/workspaces', { method: 'POST', headers: { 'content-type': 'application/json', 'x-team-actor': 'attacker' }, body: JSON.stringify({ workspaceId: 'team-1', name: 'Team' }) });
     expect(response.status).toBe(201);
     expect(records.get('team-1')?.ownerActor).toBe('actor-1');
   } finally { await new Promise<void>((resolve, reject) => server.close(error => error === undefined ? resolve() : reject(error))); }
@@ -86,8 +123,8 @@ test('HTTP adapter accepts only a current opaque session reference', async () =>
   await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
   try {
     const port = (server.address() as { port: number }).port;
-    const denied = await globalThis.fetch(`http://127.0.0.1:${port}/v1/workspaces/team-1`);
-    const accepted = await globalThis.fetch(`http://127.0.0.1:${port}/v1/workspaces/team-1`, { headers: { authorization: `Bearer ${sessionRef}` } });
+    const denied = await loopbackRequest(port, '/v1/workspaces/team-1');
+    const accepted = await loopbackRequest(port, '/v1/workspaces/team-1', { headers: { authorization: `Bearer ${sessionRef}` } });
     expect(denied.status).toBe(401);
     expect(accepted.status).toBe(403);
   } finally { await new Promise<void>((resolve, reject) => server.close(error => error === undefined ? resolve() : reject(error))); }
@@ -101,6 +138,6 @@ test('HTTP adapter resolves a persisted session on every request', async () => {
   await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
   try {
     const port = (server.address() as { port: number }).port;
-    expect((await globalThis.fetch(`http://127.0.0.1:${port}/v1/workspaces/team-2`, { headers: { authorization: `Bearer ${ref}` } })).status).toBe(403);
+    expect((await loopbackRequest(port, '/v1/workspaces/team-2', { headers: { authorization: `Bearer ${ref}` } })).status).toBe(403);
   } finally { await new Promise<void>((resolve, reject) => server.close(error => error === undefined ? resolve() : reject(error))); }
 });
