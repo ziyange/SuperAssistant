@@ -91,7 +91,8 @@ test('rolls back withdrawal if its lease cannot be released', async () => {
 
 test.each(['ACTIVE', 'RELEASED'])('refuses cancellation with a higher %s legacy Project fence from another Attempt', async state => {
   const db = queued();
-  db.exec("INSERT INTO tasks SELECT 'other-task', workspace_id, project_id, proposal_version_id, authorization_grant_id, 'RUNNING', created_at FROM tasks WHERE task_id = 'task';");
+  db.exec("INSERT INTO authorization_grants SELECT 'other-grant', proposal_version_id, proposal_digest, actor_id, 'other-confirm', actions_json, 'CONSUMED', issued_at, expires_at FROM authorization_grants WHERE grant_id = 'grant';");
+  db.exec("INSERT INTO tasks SELECT 'other-task', workspace_id, project_id, proposal_version_id, 'other-grant', 'RUNNING', created_at FROM tasks WHERE task_id = 'task';");
   db.exec("INSERT INTO work_items VALUES ('other-work', 'other-task', 'agent', 'function', 'RUNNING');");
   db.prepare("INSERT INTO execution_attempts VALUES ('other-attempt', 'other-work', 'another-request', 'other-key', 'UNKNOWN', 0, ?)").run(now);
   db.prepare("INSERT INTO resource_leases (lease_id, resource_key, attempt_id, fencing_token, state, created_at) VALUES ('other-lease', 'worktree:project', 'other-attempt', 2, ?, ?)").run(state, now);

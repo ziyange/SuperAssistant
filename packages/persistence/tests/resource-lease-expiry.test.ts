@@ -84,6 +84,14 @@ test('version-19 active leases migrate without invented expiry and retain a rest
     const old = new Database(path);
     applyMigrations(old, foundationMigrations.filter(migration => migration.version <= 19));
     old.pragma('foreign_keys = OFF');
+    old.prepare("INSERT INTO workspaces VALUES ('w','local-owner','W','ACTIVE','2026','2026',1)").run();
+    old.prepare("INSERT INTO agents VALUES ('a','w','A','1','CONNECTED','AVAILABLE',NULL,1)").run();
+    old.prepare("INSERT INTO projects VALUES ('p','w','P','E:/p','e:/p','ACTIVE','a',1,'2026','2026',1)").run();
+    old.prepare("INSERT INTO functions VALUES ('f','a','F','1','ACTIVE')").run();
+    old.prepare("INSERT INTO proposal_versions VALUES ('proposal','w','p','a','f','goal','[]','1','1','1','1','base','2027','2026','sha256:abc')").run();
+    old.prepare("INSERT INTO authorization_grants VALUES ('grant','proposal','sha256:abc','local-owner','grant-key','[]','CONSUMED','2026','2027')").run();
+    old.prepare("INSERT INTO tasks VALUES ('task','w','p','proposal','grant','RUNNING','2026')").run();
+    old.prepare("INSERT INTO work_items VALUES ('work-1','task','a','f','WAITING')").run();
     old.prepare("INSERT INTO execution_attempts VALUES ('attempt-1', 'work-1', 'request-1', 'key-1', 'RUNNING', 0, ?)").run(start);
     old.prepare("INSERT INTO resource_leases VALUES ('lease-1', 'project:p', 'attempt-1', 1, 'ACTIVE', ?, NULL)").run(start);
     old.close();

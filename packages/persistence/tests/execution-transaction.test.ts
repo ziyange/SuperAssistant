@@ -123,6 +123,9 @@ test.each([
 
 test('rejects a Grant digest mismatch without consuming it', () => {
   const db = createFoundationDatabase(':memory:'); seedAuthorizedProposal(db, 'ISSUED');
+  // Simulate a corrupted legacy database after bypassing the schema-level guard;
+  // the repository must independently reject the mismatch.
+  db.exec('DROP TRIGGER grants_legacy_authority_update');
   db.prepare("UPDATE authorization_grants SET proposal_digest = 'sha256:bad'").run();
   const input = { taskId: 'task-1', workItemId: 'work-1', attemptId: 'attempt-1', leaseId: 'lease-1', requestId: 'request-1', idempotencyKey: 'confirm-1', workspaceId: 'workspace-1', projectId: 'project-1', agentId: 'agent-1', functionId: 'function-1', proposalVersionId: 'proposal-1', authorizationGrantId: 'grant-1', resourceKey: 'project:project-1', fencingToken: 1, createdAt: '2026-08-13T00:00:00.000Z' };
   expect(() => new SqliteExecutionRepository(db, () => '2026-08-13T00:00:00.000Z', () => 'owner-1').createAuthorizedExecution(input)).toThrow();

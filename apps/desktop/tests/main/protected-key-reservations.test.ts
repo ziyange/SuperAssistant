@@ -8,6 +8,7 @@ import { Worker } from 'node:worker_threads';
 import Database from 'better-sqlite3';
 import { expect, test } from 'vitest';
 import { applyMigrations } from '../../../../packages/persistence/src/sqlite/migration-runner.js';
+import { createFoundationDatabase } from '../../../../packages/persistence/src/sqlite/database.js';
 import { ProtectedKeyReservations } from '../../src/main/protected-key-reservations.js';
 
 const scope = { workspaceId: 'w', projectId: 'p', recordId: 'r' };
@@ -23,7 +24,7 @@ function insertPayload(db: Database.Database, keyRef: string): void {
 test('reserves once across connections and persists only a token digest', () => {
   const folder = mkdtempSync(join(tmpdir(), 'sa-reservation-'));
   const path = join(folder, 'journal.sqlite');
-  const db = new Database(path); let second: Database.Database | undefined;
+  const db = createFoundationDatabase(path); let second: Database.Database | undefined;
   try {
     setup(db);
     const first = new ProtectedKeyReservations(db);
@@ -39,7 +40,7 @@ test('reserves once across connections and persists only a token digest', () => 
 test('two simultaneous worker connections cannot reserve the same record twice', async () => {
   const folder = mkdtempSync(join(tmpdir(), 'sa-reservation-race-'));
   const path = join(folder, 'journal.sqlite');
-  const initial = new Database(path);
+  const initial = createFoundationDatabase(path);
   setup(initial); initial.close();
   const gate = new SharedArrayBuffer(4);
   const moduleUrl = pathToFileURL(join(process.cwd(), 'apps/desktop/dist/main/protected-key-reservations.js')).href;
@@ -84,7 +85,7 @@ test('wrong owner and revoked local authority cannot advance state', () => {
 });
 test('unknown key write survives restart and is never retried automatically', () => {
   const folder = mkdtempSync(join(tmpdir(), 'sa-reservation-')); const path = join(folder, 'journal.sqlite');
-  let db = new Database(path);
+  let db = createFoundationDatabase(path);
   try {
     setup(db); const journal = new ProtectedKeyReservations(db); const item = journal.reserve(scope);
     journal.markUncertain(scope, item.ownerToken);

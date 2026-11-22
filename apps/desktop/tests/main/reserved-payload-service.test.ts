@@ -9,6 +9,7 @@ import { Worker } from 'node:worker_threads';
 import Database from 'better-sqlite3';
 import { expect, test, vi } from 'vitest';
 import { applyMigrations } from '../../../../packages/persistence/src/sqlite/migration-runner.js';
+import { createFoundationDatabase } from '../../../../packages/persistence/src/sqlite/database.js';
 import { ProtectedKeyReservations } from '../../src/main/protected-key-reservations.js';
 import { authenticatePayloadForRecovery } from '../../src/main/protected-payload-store.js';
 import { ReservedPayloadService, type ReservedVault } from '../../src/main/reserved-payload-service.js';
@@ -414,7 +415,7 @@ test('concurrent recoveries authenticate and link the same payload idempotently'
 test('two reopened SQLite connections recover the same record without extra key writes', async () => {
   const folder = mkdtempSync(join(tmpdir(), 'sa-recover-'));
   const path = join(folder, 'control.sqlite');
-  const first = new Database(path);
+  const first = createFoundationDatabase(path);
   let second: Database.Database | undefined;
   const vault = new TestVault();
   try {
@@ -436,7 +437,7 @@ test('two reopened SQLite connections recover the same record without extra key 
 test('two worker connections contend to authenticate and recover one committed payload', async () => {
   const folder = mkdtempSync(join(tmpdir(), 'sa-recovery-workers-'));
   const path = join(folder, 'control.sqlite');
-  const db = new Database(path);
+  const db = createFoundationDatabase(path);
   const vault = new TestVault();
   try {
     applyMigrations(db);

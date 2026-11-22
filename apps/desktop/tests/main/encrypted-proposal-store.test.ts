@@ -7,6 +7,7 @@ import Database from 'better-sqlite3';
 import { createH1ReviewedProposal } from '@super-assistant/domain';
 import { expect, test, vi } from 'vitest';
 import { applyMigrations } from '../../../../packages/persistence/src/sqlite/migration-runner.js';
+import { createFoundationDatabase } from '../../../../packages/persistence/src/sqlite/database.js';
 import { ProtectedKeyReservations } from '../../src/main/protected-key-reservations.js';
 import { ReservedPayloadService, type ReservedVault } from '../../src/main/reserved-payload-service.js';
 import { EncryptedProposalStore } from '../../src/main/encrypted-proposal-store.js';
@@ -56,7 +57,7 @@ test('persists and reopens the exact full Proposal without plaintext legacy reco
 test('reopens an on-disk WAL database without storing Proposal text in the database or WAL', async () => {
   const folder = mkdtempSync(join(tmpdir(), 'sa-proposal-wal-'));
   const path = join(folder, 'control.sqlite');
-  const db = new Database(path); let reopened: Database.Database | undefined;
+  const db = createFoundationDatabase(path); let reopened: Database.Database | undefined;
   try {
     db.pragma('journal_mode = WAL'); db.pragma('wal_autocheckpoint = 0'); applyMigrations(db);
     db.prepare("INSERT INTO workspaces VALUES ('w','local-owner','Local','ACTIVE','2026','2026',1)").run();

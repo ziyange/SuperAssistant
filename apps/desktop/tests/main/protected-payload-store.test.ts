@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { randomBytes } from 'node:crypto';
 import Database from 'better-sqlite3';
 import { applyMigrations } from '../../../../packages/persistence/src/sqlite/migration-runner.js';
+import { createFoundationDatabase } from '../../../../packages/persistence/src/sqlite/database.js';
 import { ProtectedPayloadStore, type ProtectedKeyProvider } from '../../src/main/protected-payload-store.js';
 
 class TestKeys implements ProtectedKeyProvider {
@@ -39,7 +40,7 @@ describe('authenticated protected payloads', () => {
     const keys = new TestKeys();
     let db: Database.Database | undefined;
     try {
-      db = new Database(path);
+      db = createFoundationDatabase(path);
       applyMigrations(db);
       db.prepare("INSERT INTO workspaces VALUES ('w','local-owner','Local','ACTIVE','2026','2026',1)").run();
       db.prepare("INSERT INTO projects VALUES ('p','w','Project','E:/fixture','e:/fixture','ACTIVE',NULL,1,'2026','2026',1)").run();

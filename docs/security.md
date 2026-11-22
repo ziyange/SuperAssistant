@@ -3,6 +3,9 @@
 # TASK-819 native Decision boundary
 # TASK-820 protected Proposal transaction
 # TASK-821 protected identity registry
+# TASK-822 controlled rebuild boundary
+
+Grant and Task parent tables may be rebuilt only with verified backup context, exclusive ownership, exact row preservation and foreign-key/integrity checks. Protected identities remain fail-closed until native approval, authenticated decryption and transactional issuer checks are implemented.
 
 The registry stores identity, source and encrypted-payload linkage only. A protected binding is not proof of an authenticated Proposal or user approval; consumers must decrypt, reconstruct and revalidate it at the eventual authorization boundary. No protected Grant, Task or execution is enabled by the registry.
 

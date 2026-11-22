@@ -7,7 +7,7 @@ import { createReadStream } from 'node:fs';
 import { createHash, randomUUID } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import type Database from 'better-sqlite3';
-import { createFoundationDatabase, SqliteAcceptanceRepository, SqliteArtifactRepository, SqliteAuditExportRepository, SqliteDecisionRepository, SqliteHistoryRepository, SqliteMonitoringStatusRepository, SqliteOnboardingRepository, SqliteProjectChangeRepository, SqliteTaskProjectionQuery } from '@super-assistant/persistence';
+import { createFoundationDatabaseAsync, SqliteAcceptanceRepository, SqliteArtifactRepository, SqliteAuditExportRepository, SqliteDecisionRepository, SqliteHistoryRepository, SqliteMonitoringStatusRepository, SqliteOnboardingRepository, SqliteProjectChangeRepository, SqliteTaskProjectionQuery } from '@super-assistant/persistence';
 import { codexDiscoveryEnvironment, createAppServerDiscoverySupervisor, createReadOnlyCodexLaunch, terminateProcessTree } from '@super-assistant/codex-adapter';
 import { routeIpc } from './ipc-router.js';
 import { createWindowOptions, isAllowedNavigation, isTrustedIpcSender } from './window-policy.js';
@@ -47,7 +47,7 @@ const isPrimaryInstance = app.requestSingleInstanceLock();
 if (!isPrimaryInstance) app.quit();
 
 if (isPrimaryInstance) void app.whenReady().then(async () => {
-  database = createFoundationDatabase(join(app.getPath('userData'), 'super-assistant.sqlite'));
+  database = await createFoundationDatabaseAsync(join(app.getPath('userData'), 'super-assistant.sqlite'));
   const localDatabase = database;
   recoverLocalStartup(localDatabase);
   const onboardingPort = new SqliteOnboardingRepository(database);

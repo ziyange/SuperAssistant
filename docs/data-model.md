@@ -1,8 +1,11 @@
 # Super Assistant data model
 # TASK-820 protected Proposal authority boundary
 # TASK-821 Proposal authority identity
+# TASK-822 controlled Proposal-parent transition
 
-Migration 031 adds a common identity registry and protected encrypted-payload binding without changing legacy Grant/Task foreign keys. Legacy Proposal rows are backfilled and future legacy inserts create a same-scope identity atomically. Protected bindings contain neither Proposal text nor raw digest and are not authorization. Rebuilding existing foreign keys is a separate migration with exclusive ownership, backup and integrity checks.
+Migration 032 rebuilds the Grant and Task Proposal foreign keys to the shared authority identity while retaining legacy rows, rowids and dependent references. Unknown or altered target-table schema blocks migration. This is a local implementation pending integrated acceptance; until a later trusted issuer is implemented, protected identities cannot create or update Grants or Tasks.
+
+Migration 031 adds a common identity registry and protected encrypted-payload binding; migration 032 performs the later foreign-key rebuild with exclusive ownership, backup and integrity checks. Legacy Proposal rows are backfilled and future legacy inserts create a same-scope identity atomically. Protected bindings contain neither Proposal text nor raw digest and are not authorization.
 
 The informational protected Proposal check captures the linked reservation and exact envelope before asynchronous decryption, then rechecks them with current Project/Agent/Function facts in an immediate SQLite transaction. Its result is not a Grant, executable Attempt, live Git baseline lock or native approval and cannot authorize a later write.
 
