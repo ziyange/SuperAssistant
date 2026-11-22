@@ -195,6 +195,14 @@ must not be resumed; an unambiguous Attempt must be waiting for input.
 An Outbox insertion conflict rolls back the Decision change. A dispatcher invokes
 the stable Adapter `resume` operation only after that row has been claimed.
 
+The local H1 resolution boundary must additionally verify the Decision's exact
+Workspace, Project, Task and WorkItem against an independently supplied active
+owner principal and the
+consumed Grant. A duplicate can return the stored outcome only when its matching
+durable resume evidence exists. The legacy direct write is unavailable; it
+cannot bypass this transaction. Team authorization and actual delivery of a
+decision option remain separate integration requirements.
+
 ## Resource conflict and fencing
 
 For the current H1 local integration, the coarse Project lease key is exactly

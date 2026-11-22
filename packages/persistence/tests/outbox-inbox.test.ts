@@ -3,7 +3,7 @@ import { createFoundationDatabase } from '../src/sqlite/database.js';
 import { SqliteInboxRepository } from '../src/repositories/inbox-repository.js';
 import { SqliteOutboxRepository } from '../src/repositories/outbox-repository.js';
 import { SqliteExecutionRepository } from '../src/repositories/execution-repository.js';
-import { createDecision, createProposalVersion, resolveDecision } from '@super-assistant/domain';
+import { createDecision, createProposalVersion } from '@super-assistant/domain';
 import { SqliteDecisionRepository } from '../src/repositories/decision-repository.js';
 import Database from 'better-sqlite3';
 import { applyMigrations, foundationMigrations } from '../src/sqlite/migration-runner.js';
@@ -52,7 +52,7 @@ test('a real claimed SQLite start and resume reach the dispatcher with matching 
     }, () => true);
     expect(await dispatcher.dispatchOne()).toEqual({ messageId: 'outbox:attempt-1', dispatched: true });
     db.prepare("UPDATE execution_attempts SET state = 'WAITING_USER' WHERE attempt_id = 'attempt-1'").run();
-    const decisions = new SqliteDecisionRepository(db);
+    const decisions = new SqliteDecisionRepository(db, () => 'owner-1');
     decisions.create(createDecision({ decisionId: 'decision-1', workspaceId: 'workspace-1', projectId: 'project-1', taskId: 'task-1', workItemId: 'work-1', question: 'Proceed?', level: 'L3', createdAt: '2026-08-13T00:00:01.000Z' }));
     decisions.resolveAndEnqueueResume('decision-1', { resolutionId: 'resolution-1', idempotencyKey: 'resume-key', actorId: 'owner-1', option: 'ALLOW', resolvedAt: '2026-08-13T00:00:02.000Z' });
     expect(await dispatcher.dispatchOne()).toEqual({ messageId: 'resume:decision-1', dispatched: true });
@@ -157,7 +157,8 @@ test.each(['missing', 'wrong-resolution', 'wrong-work-item', 'wrong-key', 'open'
     if (kind !== 'missing') {
       const decision = createDecision({ decisionId: 'decision-1', workspaceId: 'workspace-1', projectId: 'project-1', taskId: 'task-1', workItemId: kind === 'wrong-work-item' ? 'other-work' : 'work-1', question: 'Proceed?', level: 'L3', createdAt: '2026-08-13T00:00:01.000Z' });
       decisions.create(decision);
-      if (kind !== 'open') decisions.resolve(resolveDecision(decision, { resolutionId: 'resolution-1', idempotencyKey: 'resume-key', actorId: 'owner-1', option: 'ALLOW', resolvedAt: '2026-08-13T00:00:02.000Z' }));
+      // Deliberately seed inconsistent historical evidence to test fail-closed dispatch.
+      if (kind !== 'open') db.prepare("UPDATE decisions SET status='RESOLVED', resolution_id='resolution-1', resolution_key='resume-key', resolution_actor_id='owner-1', resolution_option='ALLOW', resolved_at='2026-08-13T00:00:02.000Z' WHERE decision_id='decision-1'").run();
     }
     db.prepare("UPDATE outbox SET message_type = 'resume', idempotency_key = ?, payload_json = ? WHERE message_id = 'outbox:attempt-1'").run(kind === 'wrong-key' ? 'other-key' : 'resume-key', JSON.stringify({ attempt_id: 'attempt-1', decision_id: 'decision-1', resolution_id: kind === 'wrong-resolution' ? 'other' : 'resolution-1' }));
     const effects: unknown[] = [];
