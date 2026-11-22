@@ -1,5 +1,7 @@
 # Super Assistant security model
 
+> TASK-810 specifies recovery of an already committed encrypted payload by reading its existing key, authenticating the exact envelope and linking the matching reservation inside an immediate SQLite transaction. It never creates or replaces keys and does not enable the desktop Proposal or execution flow.
+
 > TASK-809 adds explicit ownership-aware cleanup for Windows vault result buffers, including results arriving after a caller timeout. Borrowed buffers must not be cleared; cleanup is best effort and does not establish cancellation, production provenance or execution authorization.
 
 > TASK-808 implements an isolated native Windows protected-key vault. It is not connected to desktop execution. Hashing a helper path is not provenance and cannot prevent replacement; production activation requires verified packaging, identity, crash reconciliation and authorization.

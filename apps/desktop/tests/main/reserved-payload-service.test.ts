@@ -1,9 +1,16 @@
 import { Buffer } from 'node:buffer';
 import { randomBytes } from 'node:crypto';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import process from 'node:process';
+import { pathToFileURL } from 'node:url';
+import { Worker } from 'node:worker_threads';
 import Database from 'better-sqlite3';
 import { expect, test, vi } from 'vitest';
 import { applyMigrations } from '../../../../packages/persistence/src/sqlite/migration-runner.js';
 import { ProtectedKeyReservations } from '../../src/main/protected-key-reservations.js';
+import { authenticatePayloadForRecovery } from '../../src/main/protected-payload-store.js';
 import { ReservedPayloadService, type ReservedVault } from '../../src/main/reserved-payload-service.js';
 
 const scope = { workspaceId: 'w', projectId: 'p', recordId: 'r', kind: 'GOAL' as const };
@@ -303,5 +310,189 @@ test('zeroes the creation copy if releasing the original vault key fails', async
     expect(captured[0]).toEqual(Buffer.alloc(32, 91));
     expect(captured[1]).toEqual(Buffer.alloc(32));
     expect(journal.inspect(scope)).toBe('UNCERTAIN');
+  } finally { vi.restoreAllMocks(); db.close(); }
+});
+test('recovers an authenticated committed payload after restart without a second vault write', async () => {
+  const { db, journal, vault, service } = fixture();
+  let reopened: Database.Database | undefined;
+  vi.spyOn(journal, 'markLinked').mockImplementation(() => { throw new Error('simulated interruption'); });
+  try {
+    await expect(service.create(scope, 'recoverable text')).rejects.toThrow();
+    vi.restoreAllMocks();
+    expect(journal.inspect(scope)).toBe('PAYLOAD_PRESENT_UNCONFIRMED');
+    reopened = new Database(db.serialize());
+    const recoveredJournal = new ProtectedKeyReservations(reopened);
+    const recovered = new ReservedPayloadService(reopened, recoveredJournal, vault);
+    expect(await recovered.reconcile(scope)).toBe('LINKED');
+    expect(await recovered.reconcile(scope)).toBe('LINKED');
+    expect(await recovered.read(scope)).toBe('recoverable text');
+    expect(vault.writes).toBe(1);
+    expect(reopened.prepare('SELECT count(*) AS n FROM tasks').get()).toEqual({ n: 0 });
+    expect(reopened.serialize().includes(Buffer.from('recoverable text'))).toBe(false);
+  } finally { vi.restoreAllMocks(); reopened?.close(); db.close(); }
+});
+test('recovery leaves missing or incorrect keys unresolved without a new key', async () => {
+  const { db, journal, vault, service } = fixture();
+  vi.spyOn(journal, 'markLinked').mockImplementation(() => { throw new Error('simulated interruption'); });
+  try {
+    await expect(service.create(scope, 'text')).rejects.toThrow();
+    vi.restoreAllMocks();
+    const [ref, stored] = [...vault.values.entries()][0]!;
+    vault.values.delete(ref);
+    expect(await service.reconcile(scope)).toBe('UNRESOLVED');
+    vault.values.set(ref, randomBytes(32));
+    expect(await service.reconcile(scope)).toBe('UNRESOLVED');
+    expect(journal.inspect(scope)).toBe('PAYLOAD_PRESENT_UNCONFIRMED');
+    vault.values.set(ref, stored);
+    expect(vault.writes).toBe(1);
+    expect(await service.reconcile(scope)).toBe('LINKED');
+  } finally { vi.restoreAllMocks(); db.close(); }
+});
+test('recovery never recreates a key when no encrypted payload was committed', async () => {
+  const { db, journal, vault, service } = fixture(); vault.failAfterWrite = true;
+  try {
+    await expect(service.create(scope, 'text')).rejects.toThrow();
+    expect(journal.inspect(scope)).toBe('UNCERTAIN');
+    vault.failAfterWrite = false;
+    expect(await service.reconcile(scope)).toBe('UNRESOLVED');
+    expect(vault.writes).toBe(1);
+    expect(db.prepare('SELECT count(*) AS n FROM protected_payloads').get()).toEqual({ n: 0 });
+  } finally { db.close(); }
+});
+test('vault read errors leave recovery unresolved without exposing provider details', async () => {
+  const { db, journal, vault, service } = fixture();
+  vi.spyOn(journal, 'markLinked').mockImplementation(() => { throw new Error('simulated interruption'); });
+  try {
+    await expect(service.create(scope, 'text')).rejects.toThrow();
+    vi.restoreAllMocks();
+    vault.read = async () => { throw new Error('private vault detail'); };
+    expect(await service.reconcile(scope)).toBe('UNRESOLVED');
+    expect(journal.inspect(scope)).toBe('PAYLOAD_PRESENT_UNCONFIRMED');
+    expect(vault.writes).toBe(1);
+  } finally { vi.restoreAllMocks(); db.close(); }
+});
+test('recovery refuses tampered ciphertext and wrong content kind', async () => {
+  const { db, journal, vault, service } = fixture();
+  vi.spyOn(journal, 'markLinked').mockImplementation(() => { throw new Error('simulated interruption'); });
+  try {
+    await expect(service.create(scope, 'text')).rejects.toThrow();
+    vi.restoreAllMocks();
+    expect(await service.reconcile({ ...scope, kind: 'PROPOSAL' })).toBe('UNRESOLVED');
+    db.exec('DROP TRIGGER protected_payloads_no_update');
+    db.prepare("UPDATE protected_payloads SET ciphertext=x'00'").run();
+    expect(await service.reconcile(scope)).toBe('UNRESOLVED');
+    expect(journal.inspect(scope)).toBe('PAYLOAD_PRESENT_UNCONFIRMED');
+    expect(vault.writes).toBe(1);
+  } finally { vi.restoreAllMocks(); db.close(); }
+});
+test('recovery rechecks authority after awaiting the vault', async () => {
+  const { db, journal, vault, service } = fixture();
+  vi.spyOn(journal, 'markLinked').mockImplementation(() => { throw new Error('simulated interruption'); });
+  try {
+    await expect(service.create(scope, 'text')).rejects.toThrow();
+    vi.restoreAllMocks();
+    const original = vault.read.bind(vault);
+    vault.read = async ref => { const result = await original(ref); db.prepare("UPDATE workspaces SET status='LOCKED' WHERE workspace_id='w'").run(); return result; };
+    expect(await service.reconcile(scope)).toBe('UNRESOLVED');
+    db.prepare("UPDATE workspaces SET status='ACTIVE' WHERE workspace_id='w'").run();
+    expect(journal.inspect(scope)).toBe('PAYLOAD_PRESENT_UNCONFIRMED');
+    expect(vault.writes).toBe(1);
+  } finally { vi.restoreAllMocks(); db.close(); }
+});
+test('concurrent recoveries authenticate and link the same payload idempotently', async () => {
+  const { db, journal, vault, service } = fixture();
+  vi.spyOn(journal, 'markLinked').mockImplementation(() => { throw new Error('simulated interruption'); });
+  try {
+    await expect(service.create(scope, 'text')).rejects.toThrow();
+    vi.restoreAllMocks();
+    expect(await Promise.all([service.reconcile(scope), service.reconcile(scope)])).toEqual(['LINKED', 'LINKED']);
+    expect(vault.writes).toBe(1);
+    expect(await service.read(scope)).toBe('text');
+    expect(await service.reconcile({ ...scope, kind: 'PROPOSAL' })).toBe('UNRESOLVED');
+  } finally { vi.restoreAllMocks(); db.close(); }
+});
+test('two reopened SQLite connections recover the same record without extra key writes', async () => {
+  const folder = mkdtempSync(join(tmpdir(), 'sa-recover-'));
+  const path = join(folder, 'control.sqlite');
+  const first = new Database(path);
+  let second: Database.Database | undefined;
+  const vault = new TestVault();
+  try {
+    applyMigrations(first);
+    first.prepare("INSERT INTO workspaces VALUES ('w','local-owner','Local','ACTIVE','2026','2026',1)").run();
+    first.prepare("INSERT INTO projects VALUES ('p','w','P','E:/fixture','e:/fixture','ACTIVE',NULL,1,'2026','2026',1)").run();
+    const journal = new ProtectedKeyReservations(first); const creator = new ReservedPayloadService(first, journal, vault);
+    vi.spyOn(journal, 'markLinked').mockImplementation(() => { throw new Error('simulated interruption'); });
+    await expect(creator.create(scope, 'text')).rejects.toThrow();
+    vi.restoreAllMocks();
+    second = new Database(path);
+    const recovery1 = new ReservedPayloadService(first, new ProtectedKeyReservations(first), vault);
+    const recovery2 = new ReservedPayloadService(second, new ProtectedKeyReservations(second), vault);
+    expect(await Promise.all([recovery1.reconcile(scope), recovery2.reconcile(scope)])).toEqual(['LINKED', 'LINKED']);
+    expect(await recovery2.read(scope)).toBe('text');
+    expect(vault.writes).toBe(1);
+  } finally { vi.restoreAllMocks(); second?.close(); first.close(); rmSync(folder, { recursive: true, force: true }); }
+});
+test('two worker connections contend to authenticate and recover one committed payload', async () => {
+  const folder = mkdtempSync(join(tmpdir(), 'sa-recovery-workers-'));
+  const path = join(folder, 'control.sqlite');
+  const db = new Database(path);
+  const vault = new TestVault();
+  try {
+    applyMigrations(db);
+    db.prepare("INSERT INTO workspaces VALUES ('w','local-owner','Local','ACTIVE','2026','2026',1)").run();
+    db.prepare("INSERT INTO projects VALUES ('p','w','P','E:/fixture','e:/fixture','ACTIVE',NULL,1,'2026','2026',1)").run();
+    const journal = new ProtectedKeyReservations(db);
+    vi.spyOn(journal, 'markLinked').mockImplementation(() => { throw new Error('simulated interruption'); });
+    await expect(new ReservedPayloadService(db, journal, vault).create(scope, 'text')).rejects.toThrow();
+    vi.restoreAllMocks();
+    const [ref, key] = [...vault.values.entries()][0]!;
+    db.close();
+    const gate = new SharedArrayBuffer(4);
+    const moduleUrl = pathToFileURL(join(process.cwd(), 'apps/desktop/dist/main/protected-key-reservations.js')).href;
+    const code = `
+      const { parentPort, workerData } = require('node:worker_threads');
+      const Database = require('better-sqlite3');
+      (async () => {
+        const { ProtectedKeyReservations } = await import(workerData.moduleUrl);
+        const db = new Database(workerData.path); db.pragma('busy_timeout=5000');
+        const gate = new Int32Array(workerData.gate);
+        if (Atomics.add(gate, 0, 1) === 0) Atomics.wait(gate, 0, 1, 5000);
+        else Atomics.notify(gate, 0, 1);
+        let result;
+        try {
+          new ProtectedKeyReservations(db).linkRecovered({ workspaceId: 'w', projectId: 'p', recordId: 'r', kind: 'GOAL' },
+            workerData.ref, Buffer.from(workerData.key));
+          result = 'linked';
+        } catch { result = 'rejected'; }
+        finally { db.close(); }
+        parentPort.postMessage(result);
+      })().catch(error => { throw error; });
+    `;
+    const run = () => new Promise<string>((resolve, reject) => {
+      const worker = new Worker(code, { eval: true, workerData: { path, gate, moduleUrl, ref, key } });
+      worker.once('message', resolve); worker.once('error', reject);
+    });
+    expect(await Promise.all([run(), run()])).toEqual(['linked', 'linked']);
+    const check = new Database(path, { readonly: true });
+    try { expect(check.prepare('SELECT state FROM protected_key_reservations').get()).toEqual({ state: 'LINKED' }); }
+    finally { check.close(); }
+    expect(vault.writes).toBe(1);
+  } finally { vi.restoreAllMocks(); if (db.open) db.close(); rmSync(folder, { recursive: true, force: true }); }
+});
+test('recovery rejects a conflicting key reference, wrong scope and direct nontransactional authentication', async () => {
+  const { db, journal, vault, service } = fixture();
+  vi.spyOn(journal, 'markLinked').mockImplementation(() => { throw new Error('simulated interruption'); });
+  try {
+    await expect(service.create(scope, 'text')).rejects.toThrow();
+    vi.restoreAllMocks();
+    const [ref, key] = [...vault.values.entries()][0]!;
+    expect(() => authenticatePayloadForRecovery(db, scope, ref, key)).toThrow();
+    expect(await service.reconcile({ ...scope, workspaceId: 'other' })).toBe('UNRESOLVED');
+    db.exec('DROP TRIGGER protected_key_reservations_identity_immutable');
+    db.prepare("UPDATE protected_key_reservations SET key_ref=?").run('pkey-' + 'b'.repeat(64));
+    expect(journal.inspect(scope)).toBe('CONFLICT');
+    expect(await service.reconcile(scope)).toBe('UNRESOLVED');
+    expect(vault.writes).toBe(1);
   } finally { vi.restoreAllMocks(); db.close(); }
 });

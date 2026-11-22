@@ -42,6 +42,35 @@ function validateEnvelope(row: Envelope): void {
   }
 }
 
+/** Authentication only; the caller must already hold the SQLite write transaction. */
+export function authenticatePayloadForRecovery(db: Database.Database, scope: ProtectedPayloadScope,
+  expectedKeyRef: string, key: Buffer): void {
+  if (!db.inTransaction) throw new Error('Recovery transaction required');
+  validateScope(scope);
+  if (typeof expectedKeyRef !== 'string' || !keyReference.test(expectedKeyRef) || !Buffer.isBuffer(key) || key.length !== 32) {
+    throw new Error('Recovery key rejected');
+  }
+  const authority = db.prepare(`SELECT 1 FROM projects p JOIN workspaces w ON p.workspace_id = w.workspace_id
+    WHERE w.workspace_id = ? AND p.project_id = ? AND w.owner_id = 'local-owner'
+    AND w.status = 'ACTIVE' AND p.status = 'ACTIVE'`).get(scope.workspaceId, scope.projectId);
+  if (!authority) throw new Error('Recovery scope unavailable');
+  const row = db.prepare(`SELECT * FROM protected_payloads
+    WHERE record_id = ? AND workspace_id = ? AND project_id = ? AND content_kind = ?`)
+    .get(scope.recordId, scope.workspaceId, scope.projectId, scope.kind) as Envelope | undefined;
+  if (!row) throw new Error('Recovery payload unavailable');
+  validateEnvelope(row);
+  if (row.key_ref !== expectedKeyRef) throw new Error('Recovery binding rejected');
+  let first: Buffer | undefined;
+  let last: Buffer | undefined;
+  try {
+    const decipher = createDecipheriv('aes-256-gcm', key, row.nonce, { authTagLength: 16 });
+    decipher.setAAD(associatedData(row));
+    decipher.setAuthTag(row.auth_tag);
+    first = decipher.update(row.ciphertext);
+    last = decipher.final();
+  } finally { first?.fill(0); last?.fill(0); }
+}
+
 /** Isolated foundation. No production key provider or desktop entry point is configured here. */
 export class ProtectedPayloadStore {
   constructor(private readonly db: Database.Database, private readonly keys: ProtectedKeyProvider) {}

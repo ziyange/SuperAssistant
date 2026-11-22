@@ -2,6 +2,7 @@
 import { Buffer } from 'node:buffer';
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import type Database from 'better-sqlite3';
+import { authenticatePayloadForRecovery, type ProtectedPayloadScope } from './protected-payload-store.js';
 
 export interface ReservationScope { workspaceId: string; projectId: string; recordId: string; }
 interface ReservationRow {
@@ -72,8 +73,9 @@ export class ProtectedKeyReservations {
           || !timingSafeEqual(owner, Buffer.from(row.owner_hash, 'hex'))) throw new Error('Reservation owner rejected');
         const valid = next === 'STORED' ? row.state === 'RESERVED'
           : next === 'UNCERTAIN' ? row.state === 'RESERVED' || row.state === 'STORED'
-            : row.state === 'STORED' && this.payloadState(row) === 'MATCH';
+            : (row.state === 'STORED' || row.state === 'LINKED') && this.payloadState(row) === 'MATCH';
         if (!valid) throw new Error('Reservation transition rejected');
+        if (next === 'LINKED' && row.state === 'LINKED') return;
         const updated = this.db.prepare('UPDATE protected_key_reservations SET state=?,updated_at=? WHERE record_id=? AND state=?')
           .run(next, new Date().toISOString(), row.record_id, row.state);
         if (updated.changes !== 1) throw new Error('Reservation transition lost');
@@ -83,6 +85,32 @@ export class ProtectedKeyReservations {
   confirmStored(scope: ReservationScope, ownerToken: string): void { this.transition(scope, ownerToken, 'STORED'); }
   markUncertain(scope: ReservationScope, ownerToken: string): void { this.transition(scope, ownerToken, 'UNCERTAIN'); }
   markLinked(scope: ReservationScope, ownerToken: string): void { this.transition(scope, ownerToken, 'LINKED'); }
+  recoveryReference(input: ProtectedPayloadScope): string | null {
+    const scope = { ...input };
+    return this.db.transaction(() => {
+      this.authorize(scope);
+      if (scope.kind !== 'GOAL' && scope.kind !== 'PROPOSAL') return null;
+      const row = this.lookup(scope);
+      if (!row || !['STORED', 'UNCERTAIN', 'LINKED'].includes(row.state) || this.payloadState(row) !== 'MATCH') return null;
+      const payload = this.db.prepare('SELECT 1 FROM protected_payloads WHERE record_id=? AND content_kind=?').get(scope.recordId, scope.kind);
+      if (!payload) return null;
+      return row.key_ref;
+    })();
+  }
+  linkRecovered(input: ProtectedPayloadScope, keyRef: string, key: Buffer): void {
+    const scope = { ...input };
+    this.db.transaction(() => {
+      this.authorize(scope);
+      const row = this.lookup(scope);
+      if (!row || row.key_ref !== keyRef || !['STORED', 'UNCERTAIN', 'LINKED'].includes(row.state)
+        || this.payloadState(row) !== 'MATCH') throw new Error('Recovery reservation rejected');
+      authenticatePayloadForRecovery(this.db, scope, keyRef, key);
+      if (row.state === 'LINKED') return;
+      const result = this.db.prepare('UPDATE protected_key_reservations SET state=?,updated_at=? WHERE record_id=? AND state=?')
+        .run('LINKED', new Date().toISOString(), row.record_id, row.state);
+      if (result.changes !== 1) throw new Error('Recovery reservation changed');
+    }).immediate();
+  }
   inspect(input: ReservationScope): ReservationObservation {
     const scope = { ...input };
     return this.db.transaction(() => {

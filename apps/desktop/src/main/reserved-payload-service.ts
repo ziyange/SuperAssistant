@@ -117,4 +117,20 @@ export class ReservedPayloadService {
     };
     return new ProtectedPayloadStore(this.db, provider).read(scope);
   }
+
+  /** Authenticate the existing envelope and link it without any vault write or key creation. */
+  async reconcile(input: ProtectedPayloadScope): Promise<'LINKED' | 'UNRESOLVED'> {
+    const scope = { ...input };
+    let key: Buffer | null = null;
+    try {
+      const reference = this.journal.recoveryReference(scope);
+      if (!reference) return 'UNRESOLVED';
+      key = await this.readCopy(reference);
+      if (!key) return 'UNRESOLVED';
+      this.journal.linkRecovered(scope, reference, key);
+      return 'LINKED';
+    } catch {
+      return 'UNRESOLVED';
+    } finally { key?.fill(0); }
+  }
 }

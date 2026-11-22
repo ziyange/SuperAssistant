@@ -105,6 +105,10 @@ test('cannot link until the exact durable payload exists', () => {
     expect(journal.inspect(scope)).toBe('PAYLOAD_PRESENT_UNCONFIRMED');
     journal.markLinked(scope, item.ownerToken);
     expect(journal.inspect(scope)).toBe('LINKED');
+    const linked = db.prepare('SELECT updated_at FROM protected_key_reservations').get();
+    journal.markLinked(scope, item.ownerToken);
+    expect(db.prepare('SELECT updated_at FROM protected_key_reservations').get()).toEqual(linked);
+    expect(() => journal.markLinked(scope, 'a'.repeat(64))).toThrow();
     expect(() => journal.markUncertain(scope, item.ownerToken)).toThrow();
   } finally { db.close(); }
 });

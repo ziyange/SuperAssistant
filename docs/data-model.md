@@ -1,5 +1,7 @@
 # Super Assistant data model
 
+> TASK-810 specifies recovery of an already committed encrypted payload by reading its existing key, authenticating the exact envelope and linking the matching reservation inside an immediate SQLite transaction. It never creates or replaces keys and does not enable the desktop Proposal or execution flow.
+
 > TASK-807 connects the isolated reservation journal and encrypted payload store only through a test vault port. Uncertain effects are not retried; this is not a production WinCred provider or an enabled Proposal flow.
 
 > TASK-805 introduces an isolated, durable key-reservation journal before any future WinCred write. Ambiguous reservations remain unresolved; no automatic key retry or deletion is permitted. The journal is not connected to the Proposal flow or a production vault.
