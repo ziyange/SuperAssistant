@@ -8,8 +8,9 @@ compares before/after metadata and SHA-256, and rechecks it before and after
 native review. Literal UNC and extended-device paths are rejected; mapped
 drives or reparse points can still reach remote storage. Two fingerprint
 workers are allowed concurrently; an I/O-stalled worker retains its slot
-until it actually exits, even after the request times out. Git baseline checks
-still run synchronously on the main process.
+until it actually exits, even after the request times out. TASK-801 moves
+review-only goal baseline checks to a bounded worker using the existing Git
+policy; other paths may still use synchronous checks.
 
 This observation is not publisher authentication, proof of the image loaded
 by a process, an atomic launch binding or proof of sandbox enforcement.

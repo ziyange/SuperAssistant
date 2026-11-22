@@ -7,7 +7,7 @@ import type Database from 'better-sqlite3';
 import { createH1ReviewedProposal, type ProposalVersion } from '@super-assistant/domain';
 import { builtinCodexFunctionId, isBuiltinCodexFunction } from './local-codex-function.js';
 import { findLocalWorkspace } from './local-workspace.js';
-import { readProjectHead } from './project-git-baseline.js';
+import { readProjectHeadAsync } from './async-project-baseline.js';
 
 export interface GoalDraftInput { projectId: string; objective: string; criterion: string; }
 
@@ -143,7 +143,7 @@ export class LocalGoalDraft {
     try {
     const observed = this.authority(input.projectId);
     const binary = await fingerprintExecutable(observed.executable_path);
-    const baselineCommit = readProjectHead(observed.canonical_path);
+    const baselineCommit = await readProjectHeadAsync(observed.canonical_path);
     if (!baselineCommit) throw new Error('GOAL_UNAVAILABLE');
     const authority = this.db.transaction(() => {
       const current = this.authority(input.projectId);
@@ -202,7 +202,7 @@ export class LocalGoalDraft {
       const observed = this.authority(entry.proposal.projectId);
       if (JSON.stringify(observed) !== JSON.stringify(entry.authority.catalog)
         || JSON.stringify(await fingerprintExecutable(observed.executable_path)) !== JSON.stringify(entry.authority.binary)
-        || readProjectHead(observed.canonical_path) !== entry.proposal.baselineCommit) return null;
+        || await readProjectHeadAsync(observed.canonical_path) !== entry.proposal.baselineCommit) return null;
       const afterHash = this.clock().getTime();
       if (!Number.isSafeInteger(afterHash) || afterHash >= entry.expires || this.drafts.get(draftId) !== entry) return null;
       return this.db.transaction(() => {

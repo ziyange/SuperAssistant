@@ -17,6 +17,10 @@ The currently selected executable is also checked for review-time byte and
 metadata consistency through a bounded asynchronous worker. If it changes or
 cannot be read, the review is unavailable. This check is not an assertion that
 the executable is trusted or that a future process will run those bytes.
+Review-only goal baseline queries run in bounded workers using the existing
+Git policy. A timeout is fail-closed, but worker termination does not prove
+that an obstructed Git subprocess has exited; packaged Electron behavior
+remains to be verified.
 
 The interface hides adapter, protocol, state-machine, and event complexity while keeping every material plan, authorization, decision, failure, and result inspectable. The user supplies goals and key decisions; the product explains who will act, where, with what authority, what changed, and why work is waiting.
 
