@@ -2,6 +2,9 @@
 # TASK-818 resume safety boundary
 # TASK-819 native Decision boundary
 # TASK-820 protected Proposal transaction
+# TASK-821 protected identity registry
+
+The registry stores identity, source and encrypted-payload linkage only. A protected binding is not proof of an authenticated Proposal or user approval; consumers must decrypt, reconstruct and revalidate it at the eventual authorization boundary. No protected Grant, Task or execution is enabled by the registry.
 
 Protected Proposal decryption is followed by byte-exact envelope and reservation revalidation in a main-owned SQLite transaction. The informational check accepts no callback and provides no authorization for later actions. Its wall-clock check has no persistent anti-rollback watermark. Production key provenance, credential handling, Git baseline and process containment remain separate gates.
 

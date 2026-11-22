@@ -1,5 +1,8 @@
 # Super Assistant data model
 # TASK-820 protected Proposal authority boundary
+# TASK-821 Proposal authority identity
+
+Migration 031 adds a common identity registry and protected encrypted-payload binding without changing legacy Grant/Task foreign keys. Legacy Proposal rows are backfilled and future legacy inserts create a same-scope identity atomically. Protected bindings contain neither Proposal text nor raw digest and are not authorization. Rebuilding existing foreign keys is a separate migration with exclusive ownership, backup and integrity checks.
 
 The informational protected Proposal check captures the linked reservation and exact envelope before asynchronous decryption, then rechecks them with current Project/Agent/Function facts in an immediate SQLite transaction. Its result is not a Grant, executable Attempt, live Git baseline lock or native approval and cannot authorize a later write.
 
