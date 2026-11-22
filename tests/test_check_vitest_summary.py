@@ -68,6 +68,41 @@ class VitestSummaryGateTests(unittest.TestCase):
                                          "--allow-skipped-file", "db.test.ts",
                                          "--require-file", "missing.test.ts").returncode, 0)
 
+    def test_accepts_exact_skipped_test(self):
+        result = self.run_gate(self.sample(), "--expected-skipped", "1",
+                               "--allow-skipped-test", "db.test.ts::database",
+                               "--require-file", "a.test.ts")
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_rejects_different_or_missing_exact_skip(self):
+        self.assertNotEqual(self.run_gate(self.sample(), "--expected-skipped", "1",
+                            "--allow-skipped-test", "db.test.ts::other").returncode, 0)
+        self.assertNotEqual(self.run_gate(self.sample(), "--expected-skipped", "1",
+                            "--allow-skipped-file", "db.test.ts",
+                            "--allow-skipped-test", "db.test.ts::other").returncode, 0)
+
+    def test_rejects_duplicate_and_unsafe_exact_skip_declarations(self):
+        for value in ("../db.test.ts::database", "*.test.ts::database",
+                      "db.test.ts::", "::database", "/db.test.ts::database"):
+            with self.subTest(value=value):
+                self.assertNotEqual(self.run_gate(self.sample(), "--expected-skipped", "1",
+                                    "--allow-skipped-file", "db.test.ts",
+                                    "--allow-skipped-test", value).returncode, 0)
+        self.assertNotEqual(self.run_gate(self.sample(), "--expected-skipped", "1",
+                            "--allow-skipped-test", "db.test.ts::database",
+                            "--allow-skipped-test", "db.test.ts::database").returncode, 0)
+
+    def test_rejects_duplicate_matching_assertions_and_ambiguous_paths(self):
+        report = self.sample()
+        report["testResults"][1]["assertionResults"].append({"title": "database", "status": "skipped"})
+        report["numTotalTests"] = 4
+        report["numPendingTests"] = 2
+        self.assertNotEqual(self.run_gate(report, "--expected-skipped", "2",
+                            "--allow-skipped-test", "db.test.ts::database").returncode, 0)
+        self.assertNotEqual(self.run_gate(self.sample(), "--expected-skipped", "1",
+                            "--allow-skipped-test", "db.test.ts::database",
+                            "--allow-skipped-test", "repo/db.test.ts::database").returncode, 0)
+
 
 if __name__ == "__main__":
     unittest.main()

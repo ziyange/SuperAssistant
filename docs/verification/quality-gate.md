@@ -112,6 +112,9 @@ For a development-baseline merge, Windows build, lint, typecheck, nonempty
 unit and contract tests and isolated PostgreSQL 16 compatibility tests must
 pass on the candidate SHA. The Windows unit job may omit only the six named
 PostgreSQL cases when the separate database job executes them with no skips.
+Three opt-in native Windows credential tests may also be skipped only when
+each exact file and assertion title is declared and observed once. Their
+skipped status is not evidence of native integration; all other skips fail.
 The summary checker must reject missing, failed, inconsistent, zero-test or
 unexpectedly skipped reports. Deferred real Codex and Electron sandbox tests
 remain required for their original acceptance or release gates; a development
