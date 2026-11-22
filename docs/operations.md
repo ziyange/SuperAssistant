@@ -1,5 +1,7 @@
 # Super Assistant operations
 
+> TASK-807 connects the isolated reservation journal and encrypted payload store only through a test vault port. Uncertain effects are not retried; this is not a production WinCred provider or an enabled Proposal flow.
+
 > TASK-806 investigates Windows Credential Manager using only a uniquely scoped synthetic test entry and exact-match cleanup. The test fixture is not a production credential broker and does not enable Proposal persistence or execution. CredWrite is not atomic create-if-absent against noncooperating writers.
 
 > TASK-805 introduces an isolated, durable key-reservation journal before any future WinCred write. Ambiguous reservations remain unresolved; no automatic key retry or deletion is permitted. The journal is not connected to the Proposal flow or a production vault.
