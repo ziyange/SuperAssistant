@@ -1,5 +1,15 @@
 # Super Assistant data model
 
+### TASK-797: immutable draft Agent generation
+
+Migration 028 adds `draft_agent_generations`, an append-only one-to-one
+binding from a new local Proposal draft to its Agent and positive row version.
+The draft and binding are inserted atomically; existing drafts are not
+backfilled and cannot be reviewed until recreated. The main process validates
+the binding again inside the final immediate review transaction. This local
+version check is not proof against database rollback or a privileged database
+writer and is not executable provenance.
+
 Migration 021 adds a Workspace-scoped local Codex registration with one
 stable Agent reference, selected canonical executable path and observed
 version. It is additive. The linked durable Agent remains UNAVAILABLE/PAUSED:

@@ -2,7 +2,9 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { expect, test } from 'vitest';
+import { expect, test, vi } from 'vitest';
+import Database from 'better-sqlite3';
+import * as baseline from '../../src/main/project-git-baseline.js';
 import { createFoundationDatabase } from '@super-assistant/persistence';
 import { ProposalDraftStore } from '../../src/main/proposal-draft-store.js';
 import { LocalProposalReview } from '../../src/main/local-proposal-review.js';
@@ -13,7 +15,8 @@ import { builtinCodexFunctionId, provisionBuiltinCodexFunction } from '../../src
 test('persists the exact local review and refuses a changed Project snapshot', async () => {
   const root = mkdtempSync(join(tmpdir(), 'sa-review-'));
   const source = join(root, 'project');
-  const db = createFoundationDatabase(':memory:');
+  const databasePath = join(root, 'platform.sqlite');
+  const db = createFoundationDatabase(databasePath);
   const git = (...args: string[]) => execFileSync('git', ['-C', source, '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
   try {
     execFileSync('git', ['init', '--quiet', source]);
@@ -71,5 +74,33 @@ test('persists the exact local review and refuses a changed Project snapshot', a
     expect(() => service.prepare(draft)).toThrow();
     expect(service.read(review.proposalVersionId)).toBeNull();
     expect(await route()).toEqual({ proposalReview: 'UNAVAILABLE' });
+    db.prepare("UPDATE projects SET snapshot_version=1 WHERE project_id='project'").run();
+    db.prepare("UPDATE agents SET agent_version='0.122.0', row_version=row_version+1 WHERE agent_id='agent'").run();
+    db.prepare("UPDATE local_codex_registrations SET observed_version='0.122.0' WHERE agent_id='agent'").run();
+    db.prepare("UPDATE agents SET agent_version='0.121.0', row_version=row_version+1 WHERE agent_id='agent'").run();
+    db.prepare("UPDATE local_codex_registrations SET observed_version='0.121.0' WHERE agent_id='agent'").run();
+    expect(() => new ProposalDraftStore(db).get(draft)).toThrow();
+    expect(service.read(review.proposalVersionId)).toBeNull();
+    const fresh = new ProposalDraftStore(db).create(candidate);
+    expect(service.prepare(fresh).fullReview).toEqual(candidate);
+    const raceDraft = new ProposalDraftStore(db).create(candidate);
+    const external = new Database(databasePath);
+    const originalHead = baseline.readProjectHead;
+    try {
+      vi.spyOn(baseline, 'readProjectHead').mockImplementationOnce(path => {
+        external.prepare("UPDATE agents SET row_version=row_version+1 WHERE agent_id='agent'").run();
+        return originalHead(path);
+      });
+      expect(() => service.prepare(raceDraft)).toThrow();
+      expect(db.prepare("SELECT count(*) AS n FROM proposal_versions WHERE proposal_version_id = ?").get('review-' + raceDraft)).toEqual({ n: 0 });
+      vi.restoreAllMocks();
+      const readDraft = new ProposalDraftStore(db).create(candidate);
+      const readReview = service.prepare(readDraft);
+      vi.spyOn(baseline, 'readProjectHead').mockImplementationOnce(path => {
+        external.prepare("UPDATE agents SET row_version=row_version+1 WHERE agent_id='agent'").run();
+        return originalHead(path);
+      });
+      expect(service.read(readReview.proposalVersionId)).toBeNull();
+    } finally { vi.restoreAllMocks(); external.close(); }
   } finally { db.close(); rmSync(root, { recursive: true, force: true }); }
 }, 30000);

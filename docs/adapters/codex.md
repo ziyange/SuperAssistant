@@ -1,5 +1,17 @@
 # Codex Adapter
 
+### TASK-797 Proposal registration generation
+
+New local Proposal drafts persist the registered Agent row version in an
+append-only binding. Draft reads and the final write-locked Proposal review
+transactions recheck that binding and the immutable Proposal digest; existing
+drafts without bindings fail closed. A re-registration changes the Agent row
+version, so a version change and later rollback does not make an old draft
+valid in the same current database. This is not an anti-rollback guarantee
+against restoring an older database or a malicious database writer, nor does
+it identify the executable bytes. Grant consumption still requires independent
+binary identity, OS confinement, current Git baseline and authorization checks.
+
 ### TASK-796 built-in Function catalog boundary
 
 The local Codex registration transaction provisions a fixed, versioned built-in

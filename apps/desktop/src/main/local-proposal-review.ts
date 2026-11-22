@@ -30,6 +30,8 @@ export class LocalProposalReview {
     if (!observed || readProjectHead(observed.path) !== draft.baselineCommit) throw new Error('REVIEW_STALE');
     const proposal = createH1ReviewedProposal('review-' + draftId, draft);
     return this.database.transaction(() => {
+      const latestDraft = this.drafts.get(draftId);
+      if (createH1ReviewedProposal(proposal.proposalVersionId, latestDraft).digest !== proposal.digest) throw new Error('REVIEW_STALE');
       const current = this.authority(draft);
       if (!current || current.path !== observed.path || current.rowVersion !== observed.rowVersion) throw new Error('REVIEW_STALE');
       const existing = this.proposals.get(proposal.proposalVersionId);
@@ -48,13 +50,20 @@ export class LocalProposalReview {
     try {
       const proposal = this.proposals.get(id);
       if (!proposal?.fullReview) return null;
+      if (!id.startsWith('review-')) return null;
       const observed = this.authority(proposal.fullReview);
       if (!observed || readProjectHead(observed.path) !== proposal.fullReview.baselineCommit) return null;
-      const current = this.authority(proposal.fullReview);
-      if (!current || current.path !== observed.path || current.rowVersion !== observed.rowVersion) return null;
-      const { digest, ...fields } = proposal;
-      if (createProposalVersion(fields).digest !== digest || createH1ReviewedProposal(id, proposal.fullReview).digest !== digest) return null;
-      return proposal;
+      return this.database.transaction(() => {
+        const currentDraft = this.drafts.get(id.slice('review-'.length));
+        const latest = this.proposals.get(id);
+        if (!latest?.fullReview || latest.digest !== proposal.digest) return null;
+        const current = this.authority(latest.fullReview);
+        if (!current || current.path !== observed.path || current.rowVersion !== observed.rowVersion) return null;
+        const { digest, ...fields } = latest;
+        if (createProposalVersion(fields).digest !== digest || createH1ReviewedProposal(id, latest.fullReview).digest !== digest
+          || createH1ReviewedProposal(id, currentDraft).digest !== digest) return null;
+        return latest;
+      }).immediate();
     } catch { return null; }
   }
 }

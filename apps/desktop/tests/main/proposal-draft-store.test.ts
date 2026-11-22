@@ -65,6 +65,9 @@ test('persists only locally scoped immutable drafts and verifies stored content'
     vi.stubEnv('GIT_DIR', join(unborn, '.git'));
     vi.stubEnv('GIT_WORK_TREE', unborn);
     const id = store.create(candidate);
+    expect(() => db.prepare('INSERT OR REPLACE INTO draft_agent_generations (draft_id, agent_id, agent_row_version) VALUES (?, ?, ?)').run(id, a.agentId, 999)).toThrow();
+    expect(() => db.prepare('UPDATE draft_agent_generations SET agent_row_version = 999 WHERE draft_id = ?').run(id)).toThrow();
+    expect(() => db.prepare('DELETE FROM draft_agent_generations WHERE draft_id = ?').run(id)).toThrow();
     vi.unstubAllEnvs();
     git(projectDir, 'commit', '--allow-empty', '-qm', 'advanced baseline');
     expect(() => store.create(candidate)).toThrow('DRAFT_BASELINE_UNVERIFIED');
@@ -74,6 +77,12 @@ test('persists only locally scoped immutable drafts and verifies stored content'
     const reopened = new Database(db.serialize());
     try { expect(new ProposalDraftStore(reopened).get(id)).toEqual(candidate); }
     finally { reopened.close(); }
+    db.prepare("INSERT INTO proposal_candidate_drafts SELECT 'legacy-unbound', workspace_id, project_id, payload_json, payload_sha256 FROM proposal_candidate_drafts WHERE draft_id = ?").run(id);
+    expect(() => store.get('legacy-unbound')).toThrow();
+    db.prepare('UPDATE agents SET row_version = row_version + 1 WHERE agent_id = ?').run(a.agentId);
+    expect(() => store.get(id)).toThrow();
+    const refreshed = store.create(currentCandidate);
+    expect(store.get(refreshed)).toEqual(currentCandidate);
     expect(() => db.prepare("UPDATE proposal_candidate_drafts SET payload_json = '{}' WHERE draft_id = ?").run(id)).toThrow();
     expect(() => db.prepare('DELETE FROM proposal_candidate_drafts WHERE draft_id = ?').run(id)).toThrow();
     expect(db.prepare('SELECT count(*) AS count FROM authorization_grants').get()).toEqual({ count: 0 });
