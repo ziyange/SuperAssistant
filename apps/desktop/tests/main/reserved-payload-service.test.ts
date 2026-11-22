@@ -210,3 +210,98 @@ test('a vault read timeout does not mutate a linked payload or retry its key', a
     expect(vault.writes).toBe(1);
   } finally { vi.useRealTimers(); db.close(); }
 });
+test('releases owned vault buffers after successful creation and reading', async () => {
+  const { db, vault, service } = fixture();
+  const owned = new Set<Buffer>(); const returned: Buffer[] = [];
+  const originalCreate = vault.create.bind(vault); const originalRead = vault.read.bind(vault);
+  const tracked: ReservedVault = vault;
+  tracked.release = value => { if (owned.delete(value)) value.fill(0); };
+  vault.create = async ref => { const value = await originalCreate(ref); owned.add(value); returned.push(value); return value; };
+  vault.read = async ref => { const value = await originalRead(ref); if (value) { owned.add(value); returned.push(value); } return value; };
+  try {
+    await service.create(scope, 'text');
+    expect(await service.read(scope)).toBe('text');
+    expect(returned.length).toBeGreaterThanOrEqual(3);
+    for (const value of returned) expect(value).toEqual(Buffer.alloc(32));
+    expect(owned.size).toBe(0);
+  } finally { db.close(); }
+});
+test('releases an owned key delivered after a timed-out write without erasing borrowed storage', async () => {
+  const { db, journal, vault, service } = fixture();
+  vi.useFakeTimers();
+  const stored = Buffer.alloc(32, 77);
+  const late = Buffer.from(stored);
+  let finish: (() => void) | undefined;
+  const tracked: ReservedVault = vault;
+  tracked.release = value => { if (value === late) value.fill(0); };
+  vault.create = async ref => new Promise<Buffer>(resolve => {
+    vault.values.set(ref, stored);
+    finish = () => resolve(late);
+  });
+  try {
+    const rejected = expect(service.create(scope, 'text')).rejects.toThrow();
+    await vi.advanceTimersByTimeAsync(10_001); await rejected;
+    expect(journal.inspect(scope)).toBe('UNCERTAIN');
+    finish?.(); await vi.advanceTimersByTimeAsync(1);
+    expect(late).toEqual(Buffer.alloc(32));
+    expect(stored).toEqual(Buffer.alloc(32, 77));
+    expect(db.prepare('SELECT count(*) AS n FROM protected_payloads').get()).toEqual({ n: 0 });
+  } finally { vi.useRealTimers(); db.close(); }
+});
+test('releases an owned key delivered after a timed-out read', async () => {
+  const { db, vault, service } = fixture();
+  try {
+    await service.create(scope, 'text');
+    vi.useFakeTimers();
+    const late = Buffer.from([...vault.values.values()][0]!);
+    let finish: (() => void) | undefined;
+    const tracked: ReservedVault = vault;
+    tracked.release = value => { if (value === late) value.fill(0); };
+    vault.read = async () => new Promise<Buffer>(resolve => { finish = () => resolve(late); });
+    const rejected = expect(service.read(scope)).rejects.toThrow();
+    await vi.advanceTimersByTimeAsync(10_001); await rejected;
+    finish?.(); await vi.advanceTimersByTimeAsync(1);
+    expect(late).toEqual(Buffer.alloc(32));
+  } finally { vi.useRealTimers(); db.close(); }
+});
+test('zeroes its copied key if a vault release callback fails', async () => {
+  const { db, vault, service } = fixture();
+  try {
+    await service.create(scope, 'text');
+    const borrowed = Buffer.from([...vault.values.values()][0]!);
+    vault.read = async () => borrowed;
+    const tracked: ReservedVault = vault;
+    tracked.release = () => { throw new Error('release failed'); };
+    const original = Buffer.from;
+    let captured: Buffer | undefined;
+    vi.spyOn(Buffer, 'from').mockImplementation(((...args: unknown[]) => {
+      const result = Reflect.apply(original, Buffer, args) as Buffer;
+      if (args[0] === borrowed) captured = result;
+      return result;
+    }) as typeof Buffer.from);
+    await expect(service.read(scope)).rejects.toThrow();
+    expect(captured).toBeDefined();
+    expect(captured).toEqual(Buffer.alloc(32));
+  } finally { vi.restoreAllMocks(); db.close(); }
+});
+test('zeroes the creation copy if releasing the original vault key fails', async () => {
+  const { db, journal, vault, service } = fixture();
+  const originalKey = Buffer.alloc(32, 91);
+  vault.create = async ref => { vault.values.set(ref, Buffer.from(originalKey)); return originalKey; };
+  const tracked: ReservedVault = vault;
+  tracked.release = value => { if (value === originalKey) throw new Error('release failed'); };
+  const original = Buffer.from;
+  const captured: Buffer[] = [];
+  vi.spyOn(Buffer, 'from').mockImplementation(((...args: unknown[]) => {
+    const result = Reflect.apply(original, Buffer, args) as Buffer;
+    if (args[0] === originalKey) captured.push(result);
+    return result;
+  }) as typeof Buffer.from);
+  try {
+    await expect(service.create(scope, 'text')).rejects.toThrow();
+    expect(captured).toHaveLength(2);
+    expect(captured[0]).toEqual(Buffer.alloc(32, 91));
+    expect(captured[1]).toEqual(Buffer.alloc(32));
+    expect(journal.inspect(scope)).toBe('UNCERTAIN');
+  } finally { vi.restoreAllMocks(); db.close(); }
+});

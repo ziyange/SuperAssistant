@@ -36,6 +36,16 @@ test('returns an owned 32-byte key and clears the transport output', async () =>
   expect(key).toEqual(Buffer.alloc(32, 42));
   expect(transport.output).toEqual(Buffer.alloc(32));
 });
+test('only releases buffers created by this vault and makes release idempotent', async () => {
+  const transport = new FixtureTransport(); const vault = new WindowsCredentialVault(transport);
+  const key = await vault.create(ref); const foreign = Buffer.alloc(32, 17);
+  vault.release(foreign);
+  expect(foreign).toEqual(Buffer.alloc(32, 17));
+  vault.release(key);
+  expect(key).toEqual(Buffer.alloc(32));
+  vault.release(key);
+  expect(key).toEqual(Buffer.alloc(32));
+});
 test('distinguishes a missing read from duplicate creation', async () => {
   const transport = new FixtureTransport(); const vault = new WindowsCredentialVault(transport);
   transport.status = 2; transport.output = Buffer.alloc(0);
@@ -151,7 +161,10 @@ test.skipIf(process.platform !== 'win32' || process.env.SA_RUN_WINCRED_BRIDGE !=
       expect(key.length).toBe(32);
       const readback = await vault.read(reference);
       expect(readback).toEqual(key);
-      readback?.fill(0);
+      if (readback) {
+        vault.release(readback);
+        expect(readback).toEqual(Buffer.alloc(32));
+      }
       await expect(vault.create(reference)).rejects.toThrow();
       cleanupAttempted = true;
       const cleanup = spawnSync(binary, ['cleanup', reference], { input: key, windowsHide: true, stdio: ['pipe', 'ignore', 'ignore'], timeout: 10000 });

@@ -1,5 +1,7 @@
 # Super Assistant security model
 
+> TASK-809 adds explicit ownership-aware cleanup for Windows vault result buffers, including results arriving after a caller timeout. Borrowed buffers must not be cleared; cleanup is best effort and does not establish cancellation, production provenance or execution authorization.
+
 > TASK-808 implements an isolated native Windows protected-key vault. It is not connected to desktop execution. Hashing a helper path is not provenance and cannot prevent replacement; production activation requires verified packaging, identity, crash reconciliation and authorization.
 
 > TASK-807 connects the isolated reservation journal and encrypted payload store only through a test vault port. Vault-returned buffers are treated as borrowed and copied before local zeroization. Each call has a 10-second deadline; at most four underlying calls remain outstanding process-wide, including timed-out calls until settlement. Timeout is not cancellation and uncertain effects are not retried. This is not a production WinCred provider or an enabled Proposal flow.

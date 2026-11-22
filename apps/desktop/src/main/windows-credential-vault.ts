@@ -20,6 +20,7 @@ function validate(reference: string): void {
 
 /** Does not establish binary provenance; it is not wired into the desktop application. */
 export class WindowsCredentialVault implements ReservedVault {
+  private readonly owned = new WeakSet<Buffer>();
   constructor(private readonly transport: WinCredTransport) {}
   private async request(operation: WinCredOperation, ref: string): Promise<Buffer | null> {
     validate(ref);
@@ -30,7 +31,9 @@ export class WindowsCredentialVault implements ReservedVault {
       if (!Buffer.isBuffer(output)) throw new Error('Malformed output');
       if (result.status === 2 && operation === 'read' && output.length === 0) return null;
       if (result.status !== 0 || output.length !== 32) throw new Error('Credential helper failure');
-      return Buffer.from(output);
+      const ownedResult = Buffer.from(output);
+      this.owned.add(ownedResult);
+      return ownedResult;
     } catch {
       throw new Error('Windows credential operation failed');
     } finally {
@@ -43,6 +46,9 @@ export class WindowsCredentialVault implements ReservedVault {
     return value;
   }
   async read(ref: string): Promise<Buffer | null> { return this.request('read', ref); }
+  release(value: Buffer): void {
+    if (Buffer.isBuffer(value) && this.owned.delete(value)) value.fill(0);
+  }
 }
 
 type BridgeChild = {
