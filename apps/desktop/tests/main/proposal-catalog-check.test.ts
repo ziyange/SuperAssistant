@@ -3,6 +3,7 @@ import { createFoundationDatabase } from '../../../../packages/persistence/src/s
 import { SqliteFoundationRepository } from '../../../../packages/persistence/src/repositories/foundation-repository.js';
 import { checkLocalProposalCatalog } from '../../src/main/proposal-catalog-check.js';
 import * as catalog from '../../src/main/proposal-catalog-check.js';
+import { builtinCodexFunctionId, provisionBuiltinCodexFunction } from '../../src/main/local-codex-function.js';
 import { routeIpc } from '../../src/main/ipc-router.js';
 
 test('Proposal context IPC derives local scope and returns only read-only prerequisites', async () => {
@@ -35,7 +36,11 @@ test('Proposal context IPC derives local scope and returns only read-only prereq
     db.prepare("INSERT INTO local_codex_registrations VALUES (?, ?, 'E:/fake.exe', '0.121.0', '2026')").run(local.workspaceId, codex.agentId);
     await check('FUNCTION_REQUIRED');
     const fn = repo.createFunction({ agentId: codex.agentId, name: 'Code', functionVersion: '1' });
+    await check('FUNCTION_REQUIRED');
+    provisionBuiltinCodexFunction(db, local.workspaceId, codex.agentId, '0.121.0');
     await check('LIVE_VERIFICATION_REQUIRED');
+    db.prepare("UPDATE functions SET lifecycle = 'DISABLED' WHERE function_id = ?").run(builtinCodexFunctionId(codex.agentId));
+    await check('FUNCTION_REQUIRED');
     db.prepare("UPDATE functions SET lifecycle = 'DISABLED' WHERE function_id = ?").run(fn.functionId);
     await check('FUNCTION_REQUIRED');
     db.prepare("UPDATE local_codex_registrations SET observed_version = '0.122.0'").run();
@@ -64,14 +69,15 @@ test('local Proposal catalog rejects untrusted, stale and foreign facts without 
   try {
     const repo = new SqliteFoundationRepository(db);
     const w = repo.createWorkspace({ ownerId: 'local-owner', name: 'Local' });
-    const a = repo.createAgent({ workspaceId: w.workspaceId, name: 'Codex', connection: 'UNAVAILABLE', availability: 'PAUSED', agentVersion: '1' });
+    const a = repo.createAgent({ workspaceId: w.workspaceId, name: 'Codex', connection: 'UNAVAILABLE', availability: 'PAUSED', agentVersion: '0.121.0' });
     const p = repo.createProject({ workspaceId: w.workspaceId, name: 'P', canonicalPath: 'E:/fixture', defaultAgentId: a.agentId, snapshotVersion: 1 });
-    const fn = repo.createFunction({ agentId: a.agentId, name: 'Code', functionVersion: '1' });
     db.prepare("UPDATE projects SET status = 'ACTIVE' WHERE project_id = ?").run(p.projectId);
-    db.prepare("INSERT INTO local_codex_registrations VALUES (?, ?, 'E:/fake.exe', '1', '2026')").run(w.workspaceId, a.agentId);
+    db.prepare("INSERT INTO local_codex_registrations VALUES (?, ?, 'E:/fake.exe', '0.121.0', '2026')").run(w.workspaceId, a.agentId);
+    provisionBuiltinCodexFunction(db, w.workspaceId, a.agentId, '0.121.0');
+    const fn = { functionId: builtinCodexFunctionId(a.agentId) };
     const candidate = {
       objective: 'Update', workspaceId: w.workspaceId, projectId: p.projectId, agentId: a.agentId, functionId: fn.functionId,
-      projectSnapshotVersion: '1', agentVersion: '1', functionVersion: '1', capabilityVersion: '1', baselineCommit: 'abc',
+      projectSnapshotVersion: '1', agentVersion: '0.121.0', functionVersion: '1', capabilityVersion: '1', baselineCommit: 'abc',
       createdAt: '2026-08-13T00:00:00.000Z', expiresAt: '2026-08-13T01:00:00.000Z', deadlineAt: '2026-08-13T02:00:00.000Z',
       budget: { maxDurationMs: 1, maxTokens: null, maxCost: null }, capabilities: [{ id: 'code', version: '1' }],
       workItems: [{ id: 'work', projectId: p.projectId, agentId: a.agentId, functionId: fn.functionId, objective: 'Update', required: true, dependencies: [] }],
@@ -88,7 +94,7 @@ test('local Proposal catalog rejects untrusted, stale and foreign facts without 
     }
     db.prepare("UPDATE local_codex_registrations SET observed_version = '2' WHERE workspace_id = ?").run(w.workspaceId);
     expect(checkLocalProposalCatalog(db, candidate)).toEqual({ status: 'REJECTED' });
-    db.prepare("UPDATE local_codex_registrations SET observed_version = '1' WHERE workspace_id = ?").run(w.workspaceId);
+    db.prepare("UPDATE local_codex_registrations SET observed_version = '0.121.0' WHERE workspace_id = ?").run(w.workspaceId);
     db.prepare("UPDATE projects SET status = 'PAUSED' WHERE project_id = ?").run(p.projectId);
     expect(checkLocalProposalCatalog(db, candidate)).toEqual({ status: 'REJECTED' });
     db.prepare("UPDATE projects SET status = 'ACTIVE', default_agent_id = NULL WHERE project_id = ?").run(p.projectId);
@@ -102,7 +108,7 @@ test('local Proposal catalog rejects untrusted, stale and foreign facts without 
     db.prepare("UPDATE agents SET connection = 'UNAVAILABLE' WHERE agent_id = ?").run(a.agentId);
     db.prepare('DELETE FROM local_codex_registrations WHERE workspace_id = ?').run(w.workspaceId);
     expect(checkLocalProposalCatalog(db, candidate)).toEqual({ status: 'REJECTED' });
-    db.prepare("INSERT INTO local_codex_registrations VALUES (?, ?, 'E:/fake.exe', '1', '2026')").run(w.workspaceId, a.agentId);
+    db.prepare("INSERT INTO local_codex_registrations VALUES (?, ?, 'E:/fake.exe', '0.121.0', '2026')").run(w.workspaceId, a.agentId);
     const foreign = repo.createWorkspace({ ownerId: 'other-owner', name: 'Foreign' });
     const foreignAgent = repo.createAgent({ workspaceId: foreign.workspaceId, name: 'Codex', connection: 'UNAVAILABLE', availability: 'PAUSED', agentVersion: '1' });
     const foreignProject = repo.createProject({ workspaceId: foreign.workspaceId, name: 'F', canonicalPath: 'E:/foreign', defaultAgentId: foreignAgent.agentId });

@@ -5,6 +5,7 @@ import type Database from 'better-sqlite3';
 import { SqliteFoundationRepository } from '@super-assistant/persistence';
 import type { CodexRegistrationProjection } from '../shared/ipc-contract.js';
 import { ensureLocalWorkspace, findLocalWorkspace } from './local-workspace.js';
+import { provisionBuiltinCodexFunction } from './local-codex-function.js';
 
 export class LocalCodexRegistration {
   // eslint-disable-next-line no-unused-vars -- parameter property stores the authoritative database.
@@ -20,7 +21,7 @@ export class LocalCodexRegistration {
       const timestamp = new Date().toISOString();
       let agentId: string;
       if (existing) {
-        const changed = this.database.prepare("UPDATE agents SET agent_version = ?, connection = 'UNAVAILABLE', availability = 'PAUSED', row_version = row_version + 1 WHERE agent_id = ? AND workspace_id = ?").run(version, existing.agent_id, workspaceId);
+        const changed = this.database.prepare("UPDATE agents SET agent_version = ?, connection = 'UNAVAILABLE', availability = 'PAUSED', row_version = row_version + 1 WHERE agent_id = ? AND workspace_id = ? AND connection <> 'DISABLED'").run(version, existing.agent_id, workspaceId);
         if (changed.changes !== 1) throw new Error('Codex Agent unavailable.');
         agentId = existing.agent_id;
         this.database.prepare('UPDATE local_codex_registrations SET executable_path = ?, observed_version = ?, updated_at = ? WHERE workspace_id = ? AND agent_id = ?').run(canonical, version, timestamp, workspaceId, agentId);
@@ -30,6 +31,7 @@ export class LocalCodexRegistration {
         agentId = new SqliteFoundationRepository(this.database).createAgent({ workspaceId, name: 'Codex', connection: 'UNAVAILABLE', availability: 'PAUSED', agentVersion: version }).agentId;
         this.database.prepare('INSERT INTO local_codex_registrations (workspace_id, agent_id, executable_path, observed_version, updated_at) VALUES (?, ?, ?, ?, ?)').run(workspaceId, agentId, canonical, version, timestamp);
       }
+      provisionBuiltinCodexFunction(this.database, workspaceId, agentId, version);
       this.database.prepare('INSERT OR IGNORE INTO version_references (reference_id, owner_kind, owner_id, version, created_at) VALUES (?, ?, ?, ?, ?)').run(randomUUID(), 'AGENT', agentId, version, timestamp);
     });
     register();

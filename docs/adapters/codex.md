@@ -1,5 +1,19 @@
 # Codex Adapter
 
+### TASK-796 built-in Function catalog boundary
+
+The local Codex registration transaction provisions a fixed, versioned built-in
+Function only for reported App Server 0.121.0. Its deterministic Agent-scoped
+identity and fixed fields are checked when projecting Proposal prerequisites
+and checking a candidate; arbitrary active Function rows do not qualify. A
+disabled Function is not reactivated, and re-registration cannot re-enable a
+disabled Agent. The identifier is publicly derivable and database state is not
+independent provenance. Version rollback or replacement of a same-version
+executable can make an old review appear catalog-compatible again: production
+authorization must bind an unrollbackable registration generation and verified
+binary identity to the immutable Proposal and Grant, then revalidate atomically
+at consumption. This catalog check never grants permission or dispatches.
+
 ### TASK-795 execution transport, not yet enabled
 
 The private one-shot execution client targets App Server 0.121.0 and has no

@@ -23,7 +23,7 @@ test('Codex registration keeps one stable non-live Agent and a path-free project
     expect(db.prepare('SELECT agent_id FROM local_codex_registrations').get()).toEqual(first);
     expect(db.prepare('SELECT COUNT(*) AS count FROM agents').get()).toEqual({ count: 1 });
     expect(db.prepare('SELECT connection, availability, agent_version FROM agents').get()).toEqual({ connection: 'UNAVAILABLE', availability: 'PAUSED', agent_version: '0.122.0' });
-    expect(db.prepare('SELECT COUNT(*) AS count FROM functions').get()).toEqual({ count: 0 });
+    expect(db.prepare('SELECT COUNT(*) AS count FROM functions').get()).toEqual({ count: 1 });
     db.close(); db = createFoundationDatabase(databasePath);
     const projection = new Constructor(db).get();
     expect(projection).toEqual({ state: 'RECHECK_REQUIRED', version: '0.122.0' });

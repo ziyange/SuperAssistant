@@ -13,6 +13,7 @@ import { projectGitEnvironment } from '../../src/main/project-git-baseline.js';
 import { createFoundationDatabase } from '@super-assistant/persistence';
 import { FixtureProposalLoop } from '../../src/main/fixture-proposal-loop.js';
 import { ProposalDraftStore } from '../../src/main/proposal-draft-store.js';
+import { builtinCodexFunctionId, provisionBuiltinCodexFunction } from '../../src/main/local-codex-function.js';
 import { recoverLocalStartup } from '../../src/main/recovery-service.js';
 
 function fakeServer(root: string, receipt: string, mode: string) {
@@ -72,13 +73,14 @@ test.each(['normal', 'lost-receipt', 'baseline-moved', 'agent-paused'])('fixture
     db.prepare('INSERT INTO agents VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run('agent', 'workspace', 'Codex', '0.121.0', 'CONNECTED', 'AVAILABLE', null, 1);
     db.prepare('INSERT INTO local_codex_registrations VALUES (?, ?, ?, ?, ?)').run('workspace', 'agent', 'not-launched.exe', '0.121.0', now());
     db.prepare('INSERT INTO projects VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').run('project', 'workspace', 'Fixture', realpathSync(source), realpathSync(source).toLowerCase(), 'ACTIVE', 'agent', 1, now(), now(), 1);
-    db.prepare('INSERT INTO functions VALUES (?, ?, ?, ?, ?)').run('function', 'agent', 'Fixture coding', version, 'ACTIVE');
+    provisionBuiltinCodexFunction(db, 'workspace', 'agent', '0.121.0');
+    const functionId = builtinCodexFunctionId('agent');
     const proposal = {
-      objective: 'Produce the fixture file', workspaceId: 'workspace', projectId: 'project', agentId: 'agent', functionId: 'function',
-      projectSnapshotVersion: '1', agentVersion: '0.121.0', functionVersion: version, capabilityVersion: version, baselineCommit,
+      objective: 'Produce the fixture file', workspaceId: 'workspace', projectId: 'project', agentId: 'agent', functionId,
+      projectSnapshotVersion: '1', agentVersion: '0.121.0', functionVersion: '1', capabilityVersion: version, baselineCommit,
       createdAt: '2026-08-12T00:00:00.000Z', expiresAt: '2026-08-14T00:00:00.000Z', deadlineAt: '2026-08-14T00:00:00.000Z',
       budget: { maxDurationMs: 5000, maxTokens: null, maxCost: null }, capabilities: [{ id: 'fixture-write', version }],
-      workItems: [{ id: 'work', projectId: 'project', agentId: 'agent', functionId: 'function', objective: 'Produce the fixture file', required: true, dependencies: [] }],
+      workItems: [{ id: 'work', projectId: 'project', agentId: 'agent', functionId, objective: 'Produce the fixture file', required: true, dependencies: [] }],
       resources: [{ key: 'fixture:result.txt', intent: 'WRITE' }], allowedActions: ['FILE_WRITE'], forbiddenActions: ['COMMAND'],
       reconfirmationTriggers: ['baseline changed'], risk: 'LOW', acceptanceCriteria: [{ criterion: 'file exists', evidence: 'result.txt' }]
     };
@@ -86,7 +88,7 @@ test.each(['normal', 'lost-receipt', 'baseline-moved', 'agent-paused'])('fixture
     const draftId = drafts.create(proposal);
     const wrong = fakeServer(worktrees, receipt, 'wrong-version');
     servers.push(wrong);
-    await expect(new FixtureProposalLoop(db, wrong, 'function', worktrees, now).connect()).rejects.toThrow('FUNCTION_UNVERIFIED');
+    await expect(new FixtureProposalLoop(db, wrong, functionId, worktrees, now).connect()).rejects.toThrow('FUNCTION_UNVERIFIED');
     const child = fakeServer(worktrees, receipt, lostReceipt ? 'lost-receipt' : 'normal');
     servers.push(child);
     const loop = new FixtureProposalLoop(db, {
@@ -96,7 +98,7 @@ test.each(['normal', 'lost-receipt', 'baseline-moved', 'agent-paused'])('fixture
         if (mode === 'agent-paused' && method === 'thread/start') db.prepare("UPDATE agents SET availability = 'PAUSED' WHERE agent_id = 'agent'").run();
         return result;
       }
-    }, 'function', worktrees, now);
+    }, functionId, worktrees, now);
     expect(() => loop.review(draftId)).toThrow('FUNCTION_UNVERIFIED');
     await loop.connect();
     const wrongCapability = drafts.create({ ...proposal, capabilities: [{ id: 'fixture-write', version: '2.0.0' }] });
@@ -157,7 +159,7 @@ test.each(['normal', 'lost-receipt', 'baseline-moved', 'agent-paused'])('fixture
     for (const variant of (lostReceipt ? ['wrong-turn'] : ['wrong-thread', 'wrong-turn', 'duplicate-turn', 'in-progress', 'read-error'])) {
       const restarted = fakeServer(worktrees, receipt, variant);
       servers.push(restarted);
-      const recovering = new FixtureProposalLoop(db, restarted, 'function', worktrees, now);
+      const recovering = new FixtureProposalLoop(db, restarted, functionId, worktrees, now);
       await recovering.connect();
       expect(await recovering.reconcile(attemptId)).toBe('UNKNOWN');
       expect(restarted.observations).toEqual(observations);
@@ -166,7 +168,7 @@ test.each(['normal', 'lost-receipt', 'baseline-moved', 'agent-paused'])('fixture
     }
     const honest = fakeServer(worktrees, receipt, 'normal');
     servers.push(honest);
-    const final = new FixtureProposalLoop(db, honest, 'function', worktrees, now);
+    const final = new FixtureProposalLoop(db, honest, functionId, worktrees, now);
     await final.connect();
     expect(await final.reconcile(attemptId)).toBe(lostReceipt ? 'UNKNOWN' : 'SUCCEEDED');
     await expect(final.dispatch(attemptId)).rejects.toThrow();

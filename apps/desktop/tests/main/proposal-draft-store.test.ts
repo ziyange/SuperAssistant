@@ -8,6 +8,7 @@ import Database from 'better-sqlite3';
 import { createFoundationDatabase } from '../../../../packages/persistence/src/sqlite/database.js';
 import { SqliteFoundationRepository } from '../../../../packages/persistence/src/repositories/foundation-repository.js';
 import { ProposalDraftStore } from '../../src/main/proposal-draft-store.js';
+import { builtinCodexFunctionId, provisionBuiltinCodexFunction } from '../../src/main/local-codex-function.js';
 
 test('persists only locally scoped immutable drafts and verifies stored content', () => {
   const temp = realpathSync(tmpdir());
@@ -30,14 +31,15 @@ test('persists only locally scoped immutable drafts and verifies stored content'
     const baseline = git(projectDir, 'rev-parse', 'HEAD');
     const repo = new SqliteFoundationRepository(db);
     const w = repo.createWorkspace({ ownerId: 'local-owner', name: 'Local' });
-    const a = repo.createAgent({ workspaceId: w.workspaceId, name: 'Codex', connection: 'UNAVAILABLE', availability: 'PAUSED', agentVersion: '1' });
+    const a = repo.createAgent({ workspaceId: w.workspaceId, name: 'Codex', connection: 'UNAVAILABLE', availability: 'PAUSED', agentVersion: '0.121.0' });
     const p = repo.createProject({ workspaceId: w.workspaceId, name: 'P', canonicalPath: realpathSync(projectDir).replaceAll('\\', '/'), defaultAgentId: a.agentId, snapshotVersion: 1 });
-    const fn = repo.createFunction({ agentId: a.agentId, name: 'Code', functionVersion: '1' });
     db.prepare("UPDATE projects SET status = 'ACTIVE' WHERE project_id = ?").run(p.projectId);
-    db.prepare("INSERT INTO local_codex_registrations VALUES (?, ?, 'E:/fake.exe', '1', '2026')").run(w.workspaceId, a.agentId);
+    db.prepare("INSERT INTO local_codex_registrations VALUES (?, ?, 'E:/fake.exe', '0.121.0', '2026')").run(w.workspaceId, a.agentId);
+    provisionBuiltinCodexFunction(db, w.workspaceId, a.agentId, '0.121.0');
+    const fn = { functionId: builtinCodexFunctionId(a.agentId) };
     const candidate = {
       objective: 'Update', workspaceId: w.workspaceId, projectId: p.projectId, agentId: a.agentId, functionId: fn.functionId,
-      projectSnapshotVersion: '1', agentVersion: '1', functionVersion: '1', capabilityVersion: '1', baselineCommit: baseline,
+      projectSnapshotVersion: '1', agentVersion: '0.121.0', functionVersion: '1', capabilityVersion: '1', baselineCommit: baseline,
       createdAt: '2026-08-13T00:00:00.000Z', expiresAt: '2026-08-13T01:00:00.000Z', deadlineAt: '2026-08-13T02:00:00.000Z',
       budget: { maxDurationMs: 1, maxTokens: null, maxCost: null }, capabilities: [{ id: 'code', version: '1' }],
       workItems: [{ id: 'work', projectId: p.projectId, agentId: a.agentId, functionId: fn.functionId, objective: 'Update', required: true, dependencies: [] }],

@@ -8,6 +8,7 @@ import { ProposalDraftStore } from '../../src/main/proposal-draft-store.js';
 import { LocalProposalReview } from '../../src/main/local-proposal-review.js';
 import { ImmutableProposalConfirmation } from '../../src/main/immutable-proposal-confirmation.js';
 import { routeIpc } from '../../src/main/ipc-router.js';
+import { builtinCodexFunctionId, provisionBuiltinCodexFunction } from '../../src/main/local-codex-function.js';
 
 test('persists the exact local review and refuses a changed Project snapshot', async () => {
   const root = mkdtempSync(join(tmpdir(), 'sa-review-'));
@@ -23,13 +24,14 @@ test('persists the exact local review and refuses a changed Project snapshot', a
     db.prepare('INSERT INTO agents VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run('agent', 'workspace', 'Codex', '0.121.0', 'CONNECTED', 'AVAILABLE', null, 1);
     db.prepare('INSERT INTO local_codex_registrations VALUES (?, ?, ?, ?, ?)').run('workspace', 'agent', 'fixture.exe', '0.121.0', now);
     db.prepare('INSERT INTO projects VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').run('project', 'workspace', 'Project', realpathSync(source), realpathSync(source).toLowerCase(), 'ACTIVE', 'agent', 1, now, now, 1);
-    db.prepare('INSERT INTO functions VALUES (?, ?, ?, ?, ?)').run('function', 'agent', 'Code', '1', 'ACTIVE');
+    provisionBuiltinCodexFunction(db, 'workspace', 'agent', '0.121.0');
+    const functionId = builtinCodexFunctionId('agent');
     const candidate = {
-      objective: 'Update', workspaceId: 'workspace', projectId: 'project', agentId: 'agent', functionId: 'function',
+      objective: 'Update', workspaceId: 'workspace', projectId: 'project', agentId: 'agent', functionId,
       projectSnapshotVersion: '1', agentVersion: '0.121.0', functionVersion: '1', capabilityVersion: '1', baselineCommit,
       createdAt: now, expiresAt: '2030-01-01T00:00:00.000Z', deadlineAt: '2030-01-01T00:00:00.000Z',
       budget: { maxDurationMs: 5000, maxTokens: null, maxCost: null }, capabilities: [{ id: 'code', version: '1' }],
-      workItems: [{ id: 'work', projectId: 'project', agentId: 'agent', functionId: 'function', objective: 'Update', required: true, dependencies: [] }],
+      workItems: [{ id: 'work', projectId: 'project', agentId: 'agent', functionId, objective: 'Update', required: true, dependencies: [] }],
       resources: [{ key: 'project:project', intent: 'WRITE' }], allowedActions: ['FILE_WRITE'], forbiddenActions: [],
       reconfirmationTriggers: ['change'], risk: 'HIGH', acceptanceCriteria: [{ criterion: 'passes', evidence: 'test log' }]
     };

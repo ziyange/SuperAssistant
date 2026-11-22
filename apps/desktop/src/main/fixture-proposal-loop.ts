@@ -169,7 +169,7 @@ export class FixtureProposalLoop {
   private assertFunction(review: ProposalVersion): void {
     const full = review.fullReview;
     if (!this.connected || !full || review.agentVersion !== '0.121.0' || review.functionId !== this.functionId
-      || review.functionVersion !== '1.0.0' || review.capabilityVersion !== '1.0.0'
+      || review.functionVersion !== '1' || review.capabilityVersion !== '1.0.0'
       || full.capabilities.length !== 1 || full.capabilities[0]?.id !== 'fixture-write' || full.capabilities[0].version !== '1.0.0'
       || full.allowedActions.length !== 1 || full.allowedActions[0] !== 'FILE_WRITE'
       || full.resources.length !== 1 || full.resources[0]?.key !== 'fixture:result.txt' || full.resources[0].intent !== 'WRITE'
