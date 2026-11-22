@@ -1,5 +1,33 @@
 # Codex Adapter
 
+### TASK-795 execution transport, not yet enabled
+
+The private one-shot execution client targets App Server 0.121.0 and has no
+production entry point. Fake-server tests do not establish trusted binary
+provenance, account identity, OS confinement or effective Turn policy.
+The pinned upstream thread workspace-write configuration resolves read access
+to fullAccess. The server submits the restricted Turn override without checking
+the submission result before submitting user input. Independent owned-process
+confinement, continuously valid and bound to the Attempt, is mandatory before
+dispatch. The injected boolean verifier is a test seam, not production proof.
+The compared principal is self-reported and must be bound to a verified
+executable and the native Grant.
+
+The client synchronously records the original start receipt before processing
+another frame or returning RUNNING. Its UNKNOWN callback can atomically fence
+the original claim in SQLite, quarantine subsequent outbox deliveries and keep
+the lease active. Fake-child and concurrent SQLite tests exercise these paths,
+but neither callback is wired into production dispatch. Quarantining a claimed
+delivery does not prove its worker stopped. A terminal event still yields
+UNKNOWN until a durable ordered event bridge exists; an event preceding the
+start response may leave no receipt. Interrupt acknowledges a request only:
+it does not prove the process tree exited or authorize lease release.
+
+Pinned protocol evidence: [ThreadStartParams](https://github.com/openai/codex/blob/rust-v0.121.0/codex-rs/app-server-protocol/schema/typescript/v2/ThreadStartParams.ts),
+[ThreadStartResponse](https://github.com/openai/codex/blob/rust-v0.121.0/codex-rs/app-server-protocol/schema/typescript/v2/ThreadStartResponse.ts),
+[TurnStartParams](https://github.com/openai/codex/blob/rust-v0.121.0/codex-rs/app-server-protocol/schema/typescript/v2/TurnStartParams.ts),
+and [turn-start implementation](https://github.com/openai/codex/blob/rust-v0.121.0/codex-rs/app-server/src/codex_message_processor.rs).
+Real Codex and Electron sandbox verification remain deferred.
 For recovery, original Turn evidence is read-only. The exact-Turn read is
 supported by the desktop observer for the authenticated `0.121.0` session;
 other builds remain indeterminate for this operation. Use `thread/read` with

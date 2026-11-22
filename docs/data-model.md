@@ -19,6 +19,16 @@ the holder of the current token may acknowledge or mark an active claim
 uncertain. Interrupted claims move to RECONCILING and their nonterminal
 Attempts to UNKNOWN; they are not automatically requeued.
 
+Migration 027 adds a nullable SHA-256 claim fingerprint to immutable Codex
+start receipts. New receipts bind the original Attempt and claim before the
+start call returns; historic receipts remain null and are never backfilled.
+The private owner can mark the matching nonterminal Attempt UNKNOWN before
+or after acknowledgement. That transition also moves pending or in-flight
+subsequent Outbox messages to RECONCILING and clears their claim tokens in the
+same transaction. It never changes a terminal Attempt or releases the lease.
+This supports original-Attempt recovery but is not proof of process termination
+or authorization to redispatch.
+
 ## H1 Project catalog persistence contract
 
 TASK-731 makes the Project catalog list Workspace-scoped and makes registration
