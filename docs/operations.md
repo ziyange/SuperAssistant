@@ -462,3 +462,9 @@ isolate Electron's database. The native directory picker is replaced by a
 fixture. This test does not verify the Electron sandbox, real Codex or task
 execution, and is not H1 acceptance. Built renderer assets use relative paths
 so the packaged page can load them through `file://`.
+
+The real desktop suite also compiles a disposable Windows fake Codex executable
+for version and read-only App Server discovery. It exercises Project assignment
+and native Proposal review, and checks the isolated database has no Grant or
+Attempt afterward. The fixture performs no model, network or execution action;
+its success does not prove real Codex compatibility or process confinement.

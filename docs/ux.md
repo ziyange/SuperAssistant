@@ -272,6 +272,12 @@ Task progress reads up to 100 matching Activity records within the same
 SQLite snapshot as the Task. Unknown event types display only “Activity
 recorded”; raw provider event content never appears in this projection.
 
+The desktop can show a Project's prepared goal and acceptance criterion in a
+main-owned review window after read-only Agent discovery. Acknowledging this
+review is explicitly review-only: it issues no Grant or Attempt and does not
+enable the disabled Confirm proposal control. Fake App Server integration
+evidence is not evidence of real Codex execution.
+
 Quality views identify the Testing or Inspector role, evaluator, outcome, and
 the original Work Item needing repair. Rejection never presents a new top-level
 Task or a completion state.
