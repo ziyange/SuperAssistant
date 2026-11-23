@@ -34,6 +34,15 @@ issued.
 An unreadable record, process loss, event gap, or uncertain interval is
 `UNKNOWN/RECONCILING`; it never creates a replacement Attempt.
 
+The disconnected legacy desktop cancellation service has no trustworthy
+whole-tree termination evidence or atomic fenced Lease release. It therefore
+returns not-cancelled without invoking a caller-provided termination callback,
+host callback, or Lease release. Earlier synthetic boolean-success tests were
+not proof of a stopped process and are superseded. A future DSH cancellation
+implementation must establish owned process-tree termination and fence-bound
+release before reporting completion. This limitation does not disable the
+brokered Shell, filesystem, network or plugin capabilities described below.
+
 ## Brokered capabilities
 
 DSH Shell, filesystem, network, and plugin capabilities are intentionally not

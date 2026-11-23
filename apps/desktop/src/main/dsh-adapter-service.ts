@@ -5,10 +5,10 @@ export interface DshBrokerPort { authorize(request: { capability: 'shell' | 'fil
 
 export class DshAdapterService {
   constructor(private readonly host: DshCancellationHost, private readonly leases: DshLeasePort, private readonly broker?: DshBrokerPort) {}
-  async cancel(input: { attemptId: string; leaseId: string; fencingToken: number; now: string }, terminate: () => Promise<boolean>): Promise<{ cancelled: boolean; leaseReleased: boolean }> {
-    const cancelled = await this.host.cancel(input.attemptId, terminate);
-    if (!cancelled.cancelled) return { cancelled: false, leaseReleased: false };
-    return { cancelled: true, leaseReleased: this.leases.release(input.leaseId, input.fencingToken, input.now) };
+  async cancel(_input: { attemptId: string; leaseId: string; fencingToken: number; now: string }, _terminate: () => Promise<boolean>): Promise<{ cancelled: boolean; leaseReleased: boolean }> {
+    // No owned-tree termination proof or atomic fenced release exists here.
+    // A caller-supplied boolean is not evidence and must not trigger effects.
+    return { cancelled: false, leaseReleased: false };
   }
   async executeCapability(request: { capability: 'shell' | 'filesystem' | 'network' | 'plugin'; grant: string; snapshot: string; fence: number; target: string; pluginDigest?: string }, effect: () => Promise<void>): Promise<{ executed: boolean; reason?: string }> {
     if (!this.broker) return { executed: false, reason: 'BROKER_UNAVAILABLE' };
