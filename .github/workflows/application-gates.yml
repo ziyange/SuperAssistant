@@ -35,6 +35,8 @@ jobs:
         run: npm ci
       - name: Build application
         run: npm run build
+      - name: Real desktop Project registration and restart
+        run: npx playwright test --config playwright.real-desktop.config.ts
       - name: Lint
         run: npm run lint
       - name: Typecheck

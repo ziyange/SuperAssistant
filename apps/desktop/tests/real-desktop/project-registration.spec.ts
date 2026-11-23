@@ -4,13 +4,17 @@ import { resolve } from 'node:path';
 import process from 'node:process';
 import { _electron as electron, expect, test, type ElectronApplication } from '@playwright/test';
 
-test('registers a disposable Project through real IPC and reloads it after restart', async (fixtures, info) => {
-  void fixtures;
+// Playwright requires object destructuring even when no built-in fixture is used.
+// eslint-disable-next-line no-empty-pattern
+test('registers a disposable Project through real IPC and reloads it after restart', async ({}, info) => {
   const profile = info.outputPath('isolated-appdata');
   const project = info.outputPath('disposable-project');
   mkdirSync(profile, { recursive: true });
   mkdirSync(project, { recursive: true });
-  execFileSync('git', ['init', '--quiet', project], { windowsHide: true, env: { ...process.env, GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: process.platform === 'win32' ? 'NUL' : '/dev/null' } });
+  const gitEnv: Record<string, string> = Object.fromEntries(Object.entries(process.env).filter((entry): entry is [string, string] => typeof entry[1] === 'string' && !/^GIT_/i.test(entry[0])));
+  gitEnv.GIT_CONFIG_NOSYSTEM = '1';
+  gitEnv.GIT_CONFIG_GLOBAL = process.platform === 'win32' ? 'NUL' : '/dev/null';
+  execFileSync('git', ['init', '--quiet', project], { windowsHide: true, env: gitEnv });
   const bootstrap = info.outputPath('test-bootstrap.cjs');
   writeFileSync(bootstrap, `const { app } = require('electron');
 const { pathToFileURL } = require('node:url');

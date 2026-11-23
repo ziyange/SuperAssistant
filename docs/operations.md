@@ -450,3 +450,15 @@ only audited scope from TASK-823 onward; it cannot establish that unlogged write
 did not occur, so the Git file-boundary check remains mandatory. Historic Task
 Pack changes also affect this check and are not a substitute for archived
 immutable approval snapshots.
+
+## Real desktop registration check
+
+After `npm run build`, run `npx playwright test --config
+playwright.real-desktop.config.ts` to exercise a real Electron process,
+preload, IPC and SQLite against a disposable Git Project and application-data
+directory. The test bootstrap sets `app.setPath('userData', ...)` before loading
+the production main module; on Windows, changing `APPDATA` alone did not
+isolate Electron's database. The native directory picker is replaced by a
+fixture. This test does not verify the Electron sandbox, real Codex or task
+execution, and is not H1 acceptance. Built renderer assets use relative paths
+so the packaged page can load them through `file://`.

@@ -1,7 +1,7 @@
 # TASK-835: Exercise real desktop Project registration and restart
 
 ## Status
-IN_PROGRESS
+COMPLETED
 PHASE: PHASE-007
 MAX_ITERATIONS: 5
 user_confirmed: true
@@ -87,8 +87,11 @@ startup, and must confirm that the shared file's hash is unchanged.
 ## Current result
 After setting `userData` before importing the application, the isolated launch
 reached a real window and the shared database hash remained unchanged. The
-renderer did not show its heading. The built `index.html` references
-`/assets/...` while the desktop loads it via `file://`; a separate authorized
-task must test and fix that build-path issue because the Vite config is outside
-this Task Pack. Registration and restart remain unverified. The test and this
-record are retained as WIP; no completion, H1 or merge claim is made.
+renderer initially did not show its heading because built assets used root
+paths while the desktop loads through `file://`. TASK-836 corrected the asset
+base and the real Electron test then registered a disposable Git Project via
+real preload, IPC and SQLite, closed the app, restarted with the same isolated
+profile and displayed exactly one persisted Project. The shared database hash
+was checked before and after and remained unchanged. The native dialog was
+replaced with a test-owned directory selection; this does not validate OS
+dialog behavior, sandbox security, Codex, task execution or H1 acceptance.
