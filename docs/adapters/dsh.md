@@ -43,6 +43,14 @@ fields. Its per-instance keyed fingerprints are not durable or an identity
 proof. Key-name redaction is not sufficient for secrets embedded in free text;
 production collection requires a separately verified redaction boundary.
 
+The SQLite DSH journal now rejects invalid inputs and treats a same-Attempt,
+same-sequence row as an exact replay only when type, JSON bytes and creation
+time all match. Differing evidence raises a conflict and preserves the first
+row. This is a call-time failure, not durable conflict evidence: the current
+schema does not persist AMBIGUOUS state, prove append-only ownership, or retain
+the fact that a gap existed before it was later filled. DSH must remain
+RECONCILING until a separately verified durable model and caller are available.
+
 The disconnected legacy desktop cancellation service has no trustworthy
 whole-tree termination evidence or atomic fenced Lease release. It therefore
 returns not-cancelled without invoking a caller-provided termination callback,
