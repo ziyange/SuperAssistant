@@ -1,7 +1,7 @@
 # TASK-836: Render the real desktop application from file URLs
 
 ## Status
-IN_PROGRESS
+COMPLETED
 PHASE: PHASE-007
 MAX_ITERATIONS: 5
 user_confirmed: true
@@ -84,5 +84,9 @@ Codex operation was tested.
 
 Local browser E2E: 9 passed. Lint, typecheck, build, full host unit (1115
 passed, 9 skipped) and contract (50 passed) succeeded. Skips are not PASS
-evidence. The Windows workflow now invokes the real desktop test, but that
-workflow has not yet run on this change; completion awaits its actual result.
+evidence. On candidate commit `f272b0e7776b54cb4f51e625ab1d44b36703ec6d`,
+the [GitHub application workflow](https://github.com/ziyange/SuperAssistant/actions/runs/45233104163)
+passed Windows build, the real desktop test, lint, typecheck, unit and contract
+gates, and the PostgreSQL 16 job. The [documentation workflow](https://github.com/ziyange/SuperAssistant/actions/runs/45233104148)
+also passed. This evidence is for the cited commit; later code changes require
+fresh CI. These results do not establish H1 or authorize merge.

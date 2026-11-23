@@ -10464,4 +10464,6 @@
 {"tx_id":"task-836-write-007","timestamp":"2026-11-23T17:48:39.629Z","action_type":"FILE_WRITE","normalized_path":"docs/operations.md","prev_hash":"daa00f7c93e6e584dedc97423c33a9fd54f0215b2b18546c1e8c2bad1fc729a8","intent_hash":"0891b221d3c20954f5184d6b48d674ab7f85f2f25772628845e5e58b0ff7e231","status":"COMMITTED","artifact_metadata":{"sha256":"b12dfa7254ad0e7223c695547745dc8b6e252cd0b220e70f93fa771257b3279f"}}
 ,
 {"tx_id":"task-836-write-008","timestamp":"2026-11-23T17:52:59.488Z","action_type":"FILE_WRITE","normalized_path":"docs/delivery/tasks/TASK-836.md","prev_hash":"0891b221d3c20954f5184d6b48d674ab7f85f2f25772628845e5e58b0ff7e231","intent_hash":"5ac4cfed5d7f919bd6aab660d367a68cd33d1d88da8476cf67f5f9ca859a3a69","status":"COMMITTED","artifact_metadata":{"sha256":"6775253d23eb20641dfc675040cac47b99a45845d277ef957caf9ea141ef1f26"}}
+,
+{"tx_id":"task-836-write-009","timestamp":"2026-11-23T18:07:17.224Z","action_type":"FILE_WRITE","normalized_path":"docs/delivery/tasks/TASK-836.md","prev_hash":"5ac4cfed5d7f919bd6aab660d367a68cd33d1d88da8476cf67f5f9ca859a3a69","intent_hash":"797bf7cbbf59c7297dce1c6bb0be997a288b1118803e9be4ef98c20b0f3ce3f9","status":"COMMITTED","artifact_metadata":{"sha256":"ecf8a20e7782eec98876fed039624db76a128a87c21e89c4ba272337ac28130c"}}
 ]
