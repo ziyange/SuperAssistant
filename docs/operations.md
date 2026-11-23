@@ -421,3 +421,11 @@ once. It is not wired into production startup and its callback is not durable
 reconciliation evidence. A stopped supervisor does not release its Lease.
 Synchronous notification errors and asynchronous notification rejections are
 recorded as failures; a pending notification is not proof of durable delivery.
+
+The TASK-824 Job Object helper is not packaged or wired into production.
+Its test executable is compiled only inside a unique disposable temporary
+directory and uses test-owned processes. Do not treat the helper's process
+status, a closed pipe, a PID or Job membership as sufficient evidence for
+releasing a production Lease. A missing owner or ambiguous result remains
+UNKNOWN until a separately verified recovery and process-ownership protocol
+exists. Helper provenance and filesystem/network confinement remain open.

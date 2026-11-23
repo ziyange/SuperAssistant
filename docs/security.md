@@ -493,3 +493,20 @@ file navigation only to that exact URL. Other local files, hosts, query
 strings and fragments are denied. Exact IPC sender and main-frame checks
 remain independent; an untrusted environment variable cannot change the
 production navigation authority.
+
+The TASK-824 Windows process owner is an isolated development implementation,
+not an enabled execution boundary. Its native helper places a suspended test
+process into a non-breakaway Job using the process-creation Job-list attribute,
+checks Job membership before resuming, and suppresses a terminal response when
+Job termination, accounting or handle release is uncertain. Disposable tests
+cover owned descendants, owner loss, an unrelated process, a protected
+pre-resume crash checkpoint, malformed control, a root-relative path and
+injected Job-configuration and handle-release failures. The helper constructs
+an allowlisted test environment rather than forwarding all environment
+variables. The four allowed values still originate from its parent; this is
+not proof of production credential isolation. These tests do not
+prove every crash inside `CreateProcessW`, an actual OS API failure, helper
+binary provenance, hostile same-user handle duplication, or effects launched
+via an external broker. A Windows Job Object is not a filesystem or network
+sandbox. No protected Lease may be released and no production route enabled
+solely from these observations.
