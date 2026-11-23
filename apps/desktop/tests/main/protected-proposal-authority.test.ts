@@ -585,6 +585,28 @@ test('native confirmed running cancellation keeps the original Attempt and Lease
   } finally { db.close(); }
 });
 
+test.each(['before review', 'during review'])('expired Lease %s cannot authorize a running cancellation', async (when) => {
+  const { db, vault, authority, proposal } = await fixture();
+  try {
+    bindProtected(db, proposal);
+    const original = await confirm(authority, scope, async () => true, async () => 'a'.repeat(40));
+    const claim = await authority.claimQueued(scope);
+    const cwd = 'E:/private-worktrees/task-1', principalHash = 'b'.repeat(64);
+    const writer = await authority.prepareReceipt(scope, claim.claimToken, { cwd, principalHash });
+    expect(writer.record({ threadId: 'thread-1', turnId: 'turn-1', cwd, principalHash })).toBe(true);
+    let time = when === 'before review' ? '2026-08-01T00:00:30.000Z' : '2026-08-01T00:00:00.000Z';
+    const cancelling = new ProtectedProposalAuthority(db, vault, () => time);
+    vi.mocked(presentProtectedCancellation).mockImplementation(async () => { time = '2026-08-01T00:00:30.000Z'; return true; });
+    expect(await cancelling.requestCancellation(scope)).toBe('UNAVAILABLE');
+    expect(db.prepare('SELECT attempt_id,state FROM execution_attempts').get()).toEqual({ attempt_id: original.attemptId, state: 'RUNNING' });
+    expect(db.prepare('SELECT state FROM resource_leases').get()).toEqual({ state: 'ACTIVE' });
+    time = '2026-08-01T00:00:00.000Z';
+    expect(await cancelling.requestCancellation(scope)).toBe('UNAVAILABLE');
+    expect(db.prepare('SELECT attempt_id,state FROM execution_attempts').get()).toEqual({ attempt_id: original.attemptId, state: 'RUNNING' });
+    writer.dispose();
+  } finally { db.close(); }
+});
+
 test('dismissing running cancellation leaves the original Attempt running', async () => {
   const { db, authority, proposal } = await fixture();
   try {
@@ -678,6 +700,41 @@ test('vault key removed during cancellation review cannot authorize an interrupt
     expect(db.prepare('SELECT state FROM resource_leases').get()).toEqual({ state: 'ACTIVE' });
     writer.dispose();
   } finally { db.close(); }
+});
+
+test('approval cannot display a temporary different valid Proposal and authorize the original envelope', async () => {
+  const { db, vault, authority, proposal } = await fixture();
+  let key: Buffer | null = null;
+  try {
+    bindProtected(db, proposal);
+    const row = db.prepare('SELECT * FROM protected_payloads').get() as {
+      record_id: string; workspace_id: string; project_id: string; content_kind: string; format_version: number;
+      key_ref: string; nonce: Buffer; ciphertext: Buffer; auth_tag: Buffer; created_at: string;
+    };
+    key = await vault.read(row.key_ref);
+    if (!key) throw new Error('synthetic key unavailable');
+    const altered = createH1ReviewedProposal(scope.proposalVersionId, { ...candidate, objective: 'forged goal',
+      workItems: candidate.workItems.map(item => ({ ...item, objective: 'forged goal' })) });
+    const nonce = randomBytes(12), cipher = createCipheriv('aes-256-gcm', key, nonce);
+    cipher.setAAD(Buffer.from(JSON.stringify([row.format_version, row.workspace_id, row.project_id,
+      row.record_id, row.content_kind, row.key_ref, row.created_at])));
+    const ciphertext = Buffer.concat([cipher.update(JSON.stringify(altered), 'utf8'), cipher.final()]);
+    db.exec('DROP TRIGGER protected_payloads_no_update');
+    const replace = db.prepare('UPDATE protected_payloads SET nonce=?,ciphertext=?,auth_tag=? WHERE record_id=?');
+    const read = EncryptedProposalStore.prototype.read;
+    const injected = vi.spyOn(EncryptedProposalStore.prototype, 'read').mockImplementation(async function (this: EncryptedProposalStore, input) {
+      replace.run(nonce, ciphertext, cipher.getAuthTag(), row.record_id);
+      try { return await read.call(this, input); }
+      finally { replace.run(row.nonce, row.ciphertext, row.auth_tag, row.record_id); }
+    });
+    let displayed = '';
+    try {
+      await confirm(authority, scope, async review => { displayed = review; return true; }, async () => 'a'.repeat(40));
+      expect(displayed).toContain(candidate.objective);
+      expect(displayed).not.toContain('forged goal');
+      expect(db.prepare('SELECT count(*) AS n FROM execution_attempts').get()).toEqual({ n: 1 });
+    } finally { injected.mockRestore(); }
+  } finally { key?.fill(0); db.close(); }
 });
 
 test('bound Proposal read refuses an envelope changed while its vault key is pending', async () => {

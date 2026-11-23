@@ -242,7 +242,7 @@ export class ProtectedProposalAuthority {
       try {
         const authenticated = await this.authenticatedReceipt(scope);
         if (!authenticated || this.db.inTransaction) return 'UNAVAILABLE' as const;
-        const initial = this.db.transaction(() => this.receiptState(scope, authenticated)).immediate();
+        const initial = this.db.transaction(() => this.cancellationState(scope, authenticated)).immediate();
         if (initial?.state === 'CANCELLING') return 'ALREADY_CANCELLING' as const;
         if (initial?.state !== 'RUNNING') return 'UNAVAILABLE' as const;
         const proposal = await this.store.readBound(scope, authenticated.captured);
@@ -256,13 +256,23 @@ export class ProtectedProposalAuthority {
         if (!confirmed || !isDeepStrictEqual(confirmed, authenticated)) return 'UNAVAILABLE' as const;
         if (this.db.inTransaction) return 'UNAVAILABLE' as const;
         return this.db.transaction(() => {
-          if (this.receiptState(scope, authenticated)?.state !== 'RUNNING') return 'UNAVAILABLE' as const;
+          if (this.cancellationState(scope, authenticated)?.state !== 'RUNNING') return 'UNAVAILABLE' as const;
           const changed = this.db.prepare("UPDATE execution_attempts SET state='CANCELLING' WHERE attempt_id=? AND state='RUNNING'")
             .run(authenticated.receipt.attemptId);
           return changed.changes === 1 ? 'STARTED' as const : 'UNAVAILABLE' as const;
         }).immediate();
       } catch { return 'UNAVAILABLE' as const; }
     }, 'UNAVAILABLE' as const);
+  }
+
+  private cancellationState(scope: EncryptedProposalScope, authenticated: AuthenticatedReceipt): { state: string } | undefined {
+    const state = this.receiptState(scope, authenticated);
+    const leaseId = authenticated.snapshot.fields[11];
+    const attemptId = authenticated.snapshot.fields[10];
+    const fencingToken = Number(authenticated.snapshot.fields[13]);
+    if (!state || !leaseId || !attemptId || !Number.isSafeInteger(fencingToken) || fencingToken <= 0
+      || !new SqliteResourceLeaseRepository(this.db, this.clock).canWrite({ leaseId, attemptId, fencingToken })) return undefined;
+    return state;
   }
 
   private receiptState(scope: EncryptedProposalScope, authenticated: AuthenticatedReceipt): { state: string } | undefined {
@@ -326,7 +336,7 @@ export class ProtectedProposalAuthority {
       }
       const captured = this.envelope(scope);
       if (!captured) throw new Error('unavailable');
-      const proposal = await this.store.read(scope);
+      const proposal = await this.store.readBound(scope, captured);
       if (!proposal?.fullReview || !isDeepStrictEqual(proposal, createH1ReviewedProposal(scope.proposalVersionId, proposal.fullReview))
         || proposal.workspaceId !== scope.workspaceId || proposal.projectId !== scope.projectId) throw new Error('unavailable');
       try {
