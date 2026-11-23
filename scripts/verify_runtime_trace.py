@@ -11,6 +11,7 @@ import sys
 import json
 import argparse
 import fnmatch
+import re
 from typing import List, Dict, Tuple, Optional, Set
 
 # Import internal check_permission_log helper module
@@ -216,7 +217,8 @@ def run_verification(
     expansions_path: str = "docs/delivery/expansions.json",
     runtime_event_reason: Optional[str] = None,
     require_task_evidence: bool = False,
-    task_start_tx: Optional[str] = None
+    task_start_tx: Optional[str] = None,
+    task_end_tx: Optional[str] = None
 ) -> Tuple[int, Dict]:
     """
     Executes core verification and returns (exit_code, payload_dict).
@@ -367,6 +369,31 @@ def run_verification(
             payload['reason'] = 'TASK_START_INVALID'
             return 3, payload
 
+    scope_end_idx = len(audit_entries)
+    if task_end_tx is not None:
+        end = audit_map.get(task_end_tx)
+        result = trace_map.get(task_end_tx)
+        match = re.fullmatch(r'task-(\d+)-(?:pack|write)-001', task_end_tx.lower())
+        end_path = ('docs/delivery/tasks/TASK-' + match.group(1) + '.md') if match else ''
+        if (task_start_tx is None or end is None or result is None or not match
+                or end.get('action_type') != 'FILE_WRITE' or end.get('status') != 'COMMITTED'
+                or normalize_path(end.get('normalized_path', '')) != normalize_path(end_path)
+                or result.get('intent_hash') != end.get('intent_hash')
+                or result.get('action_type') != end.get('action_type')
+                or result.get('normalized_path') != end.get('normalized_path')):
+            payload['exit_code'] = 3
+            payload['reason'] = 'TASK_END_INVALID'
+            return 3, payload
+        scope_end_idx = next(i for i, item in enumerate(audit_entries) if item['tx_id'] == task_end_tx)
+        if scope_end_idx <= scope_start_idx or any(
+                item.get('action_type') == 'FILE_WRITE'
+                and normalize_path(item.get('normalized_path', '')) == normalize_path(end_path)
+                and ('task-' + match.group(1) + '-') in item.get('tx_id', '').lower()
+                for item in audit_entries[:scope_end_idx]):
+            payload['exit_code'] = 3
+            payload['reason'] = 'TASK_END_INVALID'
+            return 3, payload
+
     # Find latest MODE_SWITCH index for Post-MODE_SWITCH isolation
     last_mode_switch_idx = -1
     for idx, entry in enumerate(audit_entries):
@@ -376,7 +403,7 @@ def run_verification(
     # Build Post-MODE_SWITCH approved whitelist for Plan/Goal mode
     approved_patterns = set(allowed_files)
     for idx, entry in enumerate(audit_entries):
-        if idx > last_mode_switch_idx and idx >= scope_start_idx and entry.get("action_type") == "PERMISSION_GRANT" and entry.get("status") == "COMMITTED":
+        if idx > last_mode_switch_idx and scope_start_idx <= idx < scope_end_idx and entry.get("action_type") == "PERMISSION_GRANT" and entry.get("status") == "COMMITTED":
             approved_patterns.add(entry.get("normalized_path", ""))
 
     scanned_exit_codes = []
@@ -425,7 +452,7 @@ def run_verification(
                 return 5, payload
 
         # Whitelist Boundary Check on writes/deletes
-        if idx >= scope_start_idx and action_type in ["FILE_WRITE", "FILE_DELETE"]:
+        if scope_start_idx <= idx < scope_end_idx and action_type in ["FILE_WRITE", "FILE_DELETE"]:
             if mode.lower() == "build":
                 if matches_glob(path, BUILD_MODE_BLACKLIST):
                     payload["exit_code"] = 2
@@ -441,7 +468,7 @@ def run_verification(
 
     if require_task_evidence and not scanned_exit_codes:
         task_id = os.path.splitext(os.path.basename(task_pack_path))[0].lower()
-        current_entries = audit_entries[scope_start_idx:]
+        current_entries = audit_entries[scope_start_idx:scope_end_idx]
         matched = any(task_id in entry['tx_id'].lower() and entry.get('action_type') == 'FILE_WRITE'
                       and matches_glob(entry.get('normalized_path', ''), allowed_files)
                       and entry['tx_id'] in trace_map
@@ -479,6 +506,7 @@ def main():
     parser.add_argument("--runtime-event-reason", default=None, help="Runtime event reason string")
     parser.add_argument("--require-task-evidence", action="store_true", help="Require a matched task-specific FILE_WRITE intent and result")
     parser.add_argument("--task-start-tx", default=None, help="Committed matching Task Pack write marking the current scope start")
+    parser.add_argument("--task-end-tx", default=None, help="Exclusive committed next Task Pack start transaction")
     parser.add_argument("--json", action="store_true", help="Output JSON payload")
 
     args = parser.parse_args()
@@ -493,7 +521,8 @@ def main():
         expansions_path=args.expansions,
         runtime_event_reason=args.runtime_event_reason,
         require_task_evidence=args.require_task_evidence,
-        task_start_tx=args.task_start_tx
+        task_start_tx=args.task_start_tx,
+        task_end_tx=args.task_end_tx
     )
 
     if args.json:

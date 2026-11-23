@@ -13,6 +13,34 @@ import verify_runtime_trace as verifier
 
 
 class RuntimeInputsTests(unittest.TestCase):
+    def test_exclusive_next_task_anchor_bounds_only_scope_not_chain_integrity(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            pack = root / 'TASK-823.md'
+            pack.write_text('## Allowed Files\n- docs/delivery/tasks/TASK-823.md\n- old.txt\n', encoding='utf-8')
+            audit, trace = root / 'audit.json', root / 'trace.json'
+            records, results = [], []
+            def append(tx, path):
+                prev = records[-1]['intent_hash'] if records else 'GENESIS'
+                digest = hashlib.sha256(f'{prev}:FILE_WRITE:{path}:{tx}'.encode()).hexdigest()
+                records.append({'tx_id': tx, 'timestamp': '2026-11-04T00:00:00Z', 'action_type': 'FILE_WRITE', 'normalized_path': path, 'prev_hash': prev, 'intent_hash': digest, 'status': 'COMMITTED'})
+                results.append({'tx_id': tx, 'iteration_index': 1, 'timestamp': '2026-11-04T00:00:00Z', 'action_type': 'FILE_WRITE', 'normalized_path': path, 'intent_hash': digest, 'result_status': 'COMPLETED', 'ignored_candidates': []})
+            append('task-823-pack-001', 'docs/delivery/tasks/TASK-823.md')
+            append('task-823-write-001', 'old.txt')
+            append('task-824-pack-001', 'docs/delivery/tasks/TASK-824.md')
+            append('task-824-write-001', 'new.txt')
+            def run(end='task-824-pack-001'):
+                audit.write_text(json.dumps(records), encoding='utf-8')
+                trace.write_text(json.dumps(results), encoding='utf-8')
+                return subprocess.run([sys.executable, str(ROOT / 'scripts/verify_runtime_trace.py'), '--trace', str(trace), '--permission-log', str(audit), '--task-pack', str(pack), '--mode', 'plan', '--schemas', str(ROOT / 'references/schemas.md'), '--expansions', str(root / 'absent.json'), '--task-start-tx', 'task-823-pack-001', '--task-end-tx', end, '--json'], capture_output=True, text=True)
+            self.assertEqual(run().returncode, 0)
+            self.assertEqual(run('missing').returncode, 3)
+            records[-1]['status'] = 'PENDING'
+            self.assertNotEqual(run().returncode, 0, 'later invalid transaction must not be ignored')
+            records[-1]['status'] = 'COMMITTED'
+            records[-1]['intent_hash'] = '0' * 64
+            self.assertEqual(run().returncode, 5, 'later hash tampering must not be ignored')
+
     def test_anchored_scope_preserves_history_and_detects_unrelated_current_tx(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

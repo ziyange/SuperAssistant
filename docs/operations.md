@@ -438,3 +438,15 @@ The accompanying framed transport is an untrusted fixture client, not a
 launch or recovery service. `UNVERIFIED_TERMINATION` is not a cancellation
 receipt and must never be used to release a Lease. On stream loss or deadline
 expiry, keep the original Attempt UNKNOWN and do not redispatch it.
+
+## Audited task history in CI
+
+The documentation workflow runs `python scripts/check_task_audit_history.py`.
+Starting at `task-823-pack-001`, it verifies each contiguous task against its
+own current Task Pack and validates the complete audit chain on every range.
+A later task is not checked against TASK-823's file allowlist. Missing, reordered
+or repeated task starts and unassigned transactions fail closed. This covers
+only audited scope from TASK-823 onward; it cannot establish that unlogged writes
+did not occur, so the Git file-boundary check remains mandatory. Historic Task
+Pack changes also affect this check and are not a substitute for archived
+immutable approval snapshots.

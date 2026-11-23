@@ -104,15 +104,8 @@ jobs:
           if missing or empty:
               raise SystemExit(f"Missing runtime evidence: {missing}; empty runtime evidence: {empty}")
 
-      - name: Verify Plan-mode runtime trace
-        run: >-
-          python scripts/verify_runtime_trace.py
-          --mode plan
-          --task-pack docs/delivery/tasks/TASK-823.md
-          --schemas references/schemas.md
-          --next-iteration 1
-          --task-start-tx task-823-pack-001
-          --json
+      - name: Verify every current audit task scope
+        run: python scripts/check_task_audit_history.py
 
       - name: Run governance unit tests
         run: python -m unittest discover -s tests -v
