@@ -167,7 +167,7 @@ test('concurrent intake instances never create duplicate key material for one dr
   } finally { drafts.discard(draftId); item.db.close(); rmSync(item.folder, { recursive: true, force: true }); }
 }, 60000);
 
-test('discarding a draft during registry authentication never reports a staged success or creates a Grant', async () => {
+test('discarding a draft during registry authentication prevents protected registration', async () => {
   const item = await fixture();
   const drafts = new LocalGoalDraft(item.db, () => new Date('2026-08-01T00:00:00.000Z'));
   let draftId = '';
@@ -186,7 +186,53 @@ test('discarding a draft during registry authentication never reports a staged s
     expect(item.db.prepare('SELECT COUNT(*) AS n FROM authorization_grants').get()).toEqual({ n: 0 });
     expect(item.db.prepare('SELECT COUNT(*) AS n FROM execution_attempts').get()).toEqual({ n: 0 });
     expect(item.db.prepare("SELECT COUNT(*) AS n FROM protected_payloads WHERE record_id LIKE 'goal-review-%'").get()).toEqual({ n: 1 });
-    expect(item.db.prepare("SELECT COUNT(*) AS n FROM protected_proposal_bindings WHERE proposal_version_id LIKE 'goal-review-%'").get()).toEqual({ n: 1 });
+    expect(item.db.prepare("SELECT COUNT(*) AS n FROM protected_proposal_bindings WHERE proposal_version_id LIKE 'goal-review-%'").get()).toEqual({ n: 0 });
+    expect(item.db.prepare("SELECT COUNT(*) AS n FROM proposal_authority_refs WHERE proposal_version_id LIKE 'goal-review-%'").get()).toEqual({ n: 0 });
+  } finally { drafts.discard(draftId); item.db.close(); rmSync(item.folder, { recursive: true, force: true }); }
+}, 60000);
+
+test('a draft discarded reentrantly by its clock cannot be registered', async () => {
+  const item = await fixture();
+  let armed = false;
+  let draftId = '';
+  const drafts = new LocalGoalDraft(item.db, () => {
+    if (armed) { armed = false; drafts.discard(draftId); }
+    return new Date('2026-08-01T00:00:00.000Z');
+  });
+  try {
+    draftId = await drafts.create({ projectId: 'p', objective: 'Write the approved change', criterion: 'Document the fixture' });
+    const read = item.vault.read.bind(item.vault);
+    let reads = 0;
+    vi.spyOn(item.vault, 'read').mockImplementation(async ref => {
+      const result = await read(ref);
+      if (++reads === 3) armed = true;
+      return result;
+    });
+    const intake = new ProtectedProposalIntake(item.db, item.vault, drafts, () => '2026-08-01T00:00:00.000Z');
+    await expect(intake.stage(draftId)).rejects.toThrow();
+    expect(item.db.prepare("SELECT COUNT(*) AS n FROM protected_proposal_bindings WHERE proposal_version_id LIKE 'goal-review-%'").get()).toEqual({ n: 0 });
+  } finally { drafts.discard(draftId); item.db.close(); rmSync(item.folder, { recursive: true, force: true }); }
+}, 60000);
+
+test('a draft expiring during registry authentication cannot be registered', async () => {
+  const item = await fixture();
+  let now = '2026-08-01T00:00:00.000Z';
+  const drafts = new LocalGoalDraft(item.db, () => new Date(now));
+  let draftId = '';
+  try {
+    draftId = await drafts.create({ projectId: 'p', objective: 'Write the approved change', criterion: 'Document the fixture' });
+    const read = item.vault.read.bind(item.vault);
+    let reads = 0;
+    vi.spyOn(item.vault, 'read').mockImplementation(async ref => {
+      const result = await read(ref);
+      if (++reads === 3) now = '2026-08-01T00:16:00.000Z';
+      return result;
+    });
+    const intake = new ProtectedProposalIntake(item.db, item.vault, drafts, () => '2026-08-01T00:00:00.000Z');
+    await expect(intake.stage(draftId)).rejects.toThrow();
+    expect(item.db.prepare("SELECT COUNT(*) AS n FROM protected_proposal_bindings WHERE proposal_version_id LIKE 'goal-review-%'").get()).toEqual({ n: 0 });
+    expect(item.db.prepare("SELECT COUNT(*) AS n FROM proposal_authority_refs WHERE proposal_version_id LIKE 'goal-review-%'").get()).toEqual({ n: 0 });
+    expect(item.db.prepare('SELECT COUNT(*) AS n FROM authorization_grants').get()).toEqual({ n: 0 });
   } finally { drafts.discard(draftId); item.db.close(); rmSync(item.folder, { recursive: true, force: true }); }
 }, 60000);
 

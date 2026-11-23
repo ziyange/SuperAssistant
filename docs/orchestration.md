@@ -395,6 +395,7 @@ built-in Codex Function, and it is not yet wired to desktop production intake.
 
 TASK-839 composes an actual LocalGoalDraft with encrypted storage and the
 protected registry. Repeated staging of an identical linked payload reuses it;
+TASK-840 rejects a draft discarded or expired before registration commits.
 ambiguous key operations do not retry. Test-only native-consent and fake App
 Server composition reaches one original Attempt and quarantines a lost reply.
 This is not a production UI route, a verified real process owner or permission

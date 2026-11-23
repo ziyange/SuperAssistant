@@ -114,3 +114,11 @@ Profile remain separate enablement evidence; their absence keeps DSH Disabled.
 
 See [ADR-007](../decisions/ADR-007-external-dsh-adapter.md),
 [SAI](../api/sai.md), and [operations](../operations.md).
+
+## Fixture probe exit observation
+
+The fixture probe recognizes a directly observed process exit through its exit
+code, signal code, or exit event. An unobserved exit remains failure. This is
+not proof that a process tree has terminated and cannot release a Task Lease.
+Failure to spawn is reported as `LAUNCH_FAILED` and is not reported as a reaped
+process; observed transport errors also block the probe.

@@ -47,7 +47,7 @@ export class ProtectedProposalIntake {
         if (!isDeepStrictEqual(await this.store.read(scope), proposal)) throw new Error('unavailable');
       } else throw new Error('unavailable');
       if (this.db.inTransaction || !isDeepStrictEqual(await this.drafts.prepare(draftId), proposal) || this.db.inTransaction) throw new Error('unavailable');
-      await this.registry.registerMatching(scope, proposal);
+      await this.registry.registerMatchingLive(scope, proposal, this.drafts, draftId);
       if (this.db.inTransaction || !isDeepStrictEqual(await this.drafts.prepare(draftId), proposal) || this.db.inTransaction) throw new Error('unavailable');
       return scope;
     } catch { throw new Error('PROTECTED_INTAKE_UNAVAILABLE'); }

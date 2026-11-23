@@ -20,10 +20,11 @@ and does not yet connect the production review or execution route.
 
 TASK-839 stages a current local goal draft into encrypted Proposal storage and
 the protected registry. The registry independently authenticates the envelope
-and rejects it unless it matches the captured draft. If the draft is discarded
-during an in-flight registry operation, an encrypted identity may remain even
-though staging returns failure; it is not consent or authorization and must
-not by itself make a production confirmation action available.
+and rejects it unless it matches the captured draft. TASK-840 additionally
+checks the main-owned draft's identity and lifetime in the registration
+transaction. Discard after commit can still leave an encrypted identity even
+though staging returns failure; it is not consent or authorization and must not
+by itself make a production confirmation action available.
 
 Migration 032 rebuilds the Grant and Task Proposal foreign keys to the shared authority identity while retaining legacy rows, rowids and dependent references. Unknown or altered target-table schema blocks migration. This is a local implementation pending integrated acceptance; until a later trusted issuer is implemented, protected identities cannot create or update Grants or Tasks.
 

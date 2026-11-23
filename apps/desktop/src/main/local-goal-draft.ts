@@ -3,6 +3,7 @@
 import { randomUUID } from 'node:crypto';
 import { Worker } from 'node:worker_threads';
 import { isAbsolute } from 'node:path';
+import { isDeepStrictEqual } from 'node:util';
 import type Database from 'better-sqlite3';
 import { createH1ReviewedProposal, type ProposalVersion } from '@super-assistant/domain';
 import { builtinCodexFunctionId, isBuiltinCodexFunction } from './local-codex-function.js';
@@ -28,6 +29,7 @@ export type FileFingerprint = { hash: string; dev: string; ino: string; size: st
 type CatalogAuthority = { workspace: string; canonical_path: string; executable_path: string; snapshot_version: number; project_row_version: number; agent_id: string; agent_version: string; agent_row_version: number };
 type Authority = { catalog: CatalogAuthority; binary: FileFingerprint };
 type Entry = { proposal: ProposalVersion; authority: Authority; expires: number; timer: ReturnType<typeof setTimeout> };
+const genuineDrafts = new WeakSet<LocalGoalDraft>();
 
 const workerSource = String.raw`
 const { parentPort, workerData } = require('node:worker_threads');
@@ -96,11 +98,25 @@ export function fingerprintExecutable(path: string): Promise<FileFingerprint> {
 
 /** Ephemeral review only: user text never enters SQLite or a Grant. */
 export class LocalGoalDraft {
-  private readonly drafts = new Map<string, Entry>();
+  readonly #drafts = new Map<string, Entry>();
+  readonly #clock: () => Date;
   private readonly reviewing = new Set<string>();
   private creating = 0;
 
-  constructor(private readonly db: Database.Database, private readonly clock: () => Date = () => new Date()) {}
+  constructor(private readonly db: Database.Database, clock: () => Date = () => new Date()) { this.#clock = clock; genuineDrafts.add(this); }
+
+  /** Restrictive, synchronous liveness check; this is not authorization. */
+  matchesSnapshot(id: string, expected: ProposalVersion): boolean {
+    try {
+      if (!genuineDrafts.has(this) || typeof id !== 'string' || !/^goal-[a-z0-9-]{1,100}$/i.test(id)) return false;
+      const entry = this.#drafts.get(id);
+      const now = this.#clock().getTime();
+      return !!entry && this.#drafts.get(id) === entry && Number.isSafeInteger(now) && now >= Date.parse(entry.proposal.createdAt)
+        && entry.proposal.proposalVersionId === 'goal-review-' + id.slice(5)
+        && now < entry.expires && now < Date.parse(entry.proposal.fullReview?.deadlineAt ?? '')
+        && isDeepStrictEqual(entry.proposal, expected);
+    } catch { return false; }
+  }
 
   private authority(projectId: string): CatalogAuthority {
     const workspace = findLocalWorkspace(this.db);
@@ -120,14 +136,14 @@ export class LocalGoalDraft {
   }
 
   private prune(now: number): void {
-    for (const [id, entry] of this.drafts) if (entry.expires <= now) this.discard(id);
+    for (const [id, entry] of this.#drafts) if (entry.expires <= now) this.discard(id);
   }
 
   discard(id: string): void {
-    const entry = this.drafts.get(id);
+    const entry = this.#drafts.get(id);
     if (!entry) return;
     clearTimeout(entry.timer);
-    this.drafts.delete(id);
+    this.#drafts.delete(id);
   }
 
   async create(input: GoalDraftInput): Promise<string> {
@@ -135,10 +151,10 @@ export class LocalGoalDraft {
       || Object.keys(input).sort().join(',') !== 'criterion,objective,projectId'
       || typeof input.projectId !== 'string' || !/^[a-z0-9_-]{1,128}$/i.test(input.projectId)
       || !validGoalText(input.objective) || !validGoalText(input.criterion)) throw new Error('GOAL_INVALID');
-    const created = this.clock().getTime();
+    const created = this.#clock().getTime();
     if (!Number.isSafeInteger(created)) throw new Error('GOAL_UNAVAILABLE');
     this.prune(created);
-    if (this.drafts.size + this.creating >= 8) throw new Error('GOAL_UNAVAILABLE');
+    if (this.#drafts.size + this.creating >= 8) throw new Error('GOAL_UNAVAILABLE');
     this.creating += 1;
     try {
     const observed = this.authority(input.projectId);
@@ -170,7 +186,7 @@ export class LocalGoalDraft {
     });
     const timer = setTimeout(() => this.discard(draftId), 900000);
     timer.unref();
-    this.drafts.set(draftId, { proposal, authority: { catalog: authority, binary }, expires: created + 900000, timer });
+    this.#drafts.set(draftId, { proposal, authority: { catalog: authority, binary }, expires: created + 900000, timer });
     return draftId;
     } finally { this.creating -= 1; }
   }
@@ -193,18 +209,18 @@ export class LocalGoalDraft {
   async read(id: string): Promise<ProposalVersion | null> {
     try {
       if (!/^goal-review-[a-z0-9-]{1,100}$/i.test(id)) return null;
-      const now = this.clock().getTime();
+      const now = this.#clock().getTime();
       if (!Number.isSafeInteger(now)) return null;
       this.prune(now);
       const draftId = 'goal-' + id.slice('goal-review-'.length);
-      const entry = this.drafts.get(draftId);
+      const entry = this.#drafts.get(draftId);
       if (!entry?.proposal.fullReview || now < Date.parse(entry.proposal.createdAt) || now >= entry.expires) return null;
       const observed = this.authority(entry.proposal.projectId);
       if (JSON.stringify(observed) !== JSON.stringify(entry.authority.catalog)
         || JSON.stringify(await fingerprintExecutable(observed.executable_path)) !== JSON.stringify(entry.authority.binary)
         || await readProjectHeadAsync(observed.canonical_path) !== entry.proposal.baselineCommit) return null;
-      const afterHash = this.clock().getTime();
-      if (!Number.isSafeInteger(afterHash) || afterHash >= entry.expires || this.drafts.get(draftId) !== entry) return null;
+      const afterHash = this.#clock().getTime();
+      if (!Number.isSafeInteger(afterHash) || afterHash >= entry.expires || this.#drafts.get(draftId) !== entry) return null;
       return this.db.transaction(() => {
         if (JSON.stringify(this.authority(entry.proposal.projectId)) !== JSON.stringify(entry.authority.catalog)) return null;
         const reconstructed = createH1ReviewedProposal(id, entry.proposal.fullReview);

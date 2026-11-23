@@ -9,6 +9,7 @@ import { ProtectedKeyReservations } from '../../src/main/protected-key-reservati
 import { ReservedPayloadService, type ReservedVault } from '../../src/main/reserved-payload-service.js';
 import { EncryptedProposalStore } from '../../src/main/encrypted-proposal-store.js';
 import { ProtectedProposalRegistry } from '../../src/main/protected-proposal-registry.js';
+import { LocalGoalDraft } from '../../src/main/local-goal-draft.js';
 
 const scope = { workspaceId: 'w', projectId: 'p', proposalVersionId: 'proposal-1' };
 class Vault implements ReservedVault {
@@ -39,6 +40,27 @@ async function setup() {
   await new EncryptedProposalStore(new ReservedPayloadService(db, new ProtectedKeyReservations(db), vault)).save(scope, proposal);
   return { db, vault, proposal, registry: new ProtectedProposalRegistry(db, vault, () => '2026-08-01T00:00:00.000Z') };
 }
+
+test('a forged draft object cannot satisfy the registration liveness check', async () => {
+  const { db, registry, proposal } = await setup();
+  try {
+    const forged = Object.create(LocalGoalDraft.prototype) as LocalGoalDraft;
+    forged.matchesSnapshot = () => true;
+    await expect(registry.registerMatchingLive(scope, proposal, forged, 'goal-forged')).rejects.toThrow();
+    expect(db.prepare('SELECT COUNT(*) AS n FROM proposal_authority_refs').get()).toEqual({ n: 0 });
+    expect(db.prepare('SELECT COUNT(*) AS n FROM protected_proposal_bindings').get()).toEqual({ n: 0 });
+  } finally { db.close(); }
+});
+
+test('injecting a fake draft entry into a genuine instance cannot authorize registration', async () => {
+  const { db, registry, proposal } = await setup();
+  try {
+    const drafts = new LocalGoalDraft(db, () => new Date('2026-08-01T00:00:00.000Z'));
+    Object.assign(drafts, { drafts: new Map([['goal-forged', { proposal, expires: Date.parse('2027-01-01T00:00:00.000Z') }]]) });
+    await expect(registry.registerMatchingLive(scope, proposal, drafts, 'goal-forged')).rejects.toThrow();
+    expect(db.prepare('SELECT COUNT(*) AS n FROM proposal_authority_refs').get()).toEqual({ n: 0 });
+  } finally { db.close(); }
+});
 
 test('registers one authenticated binding idempotently without plaintext or authorization', async () => {
   const { db, registry } = await setup();

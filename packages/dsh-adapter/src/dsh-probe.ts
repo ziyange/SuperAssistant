@@ -30,6 +30,8 @@ interface FixtureObservation {
   malformedFrame: boolean;
   serverInfoVersion?: string;
   initializeReceived: boolean;
+  launchFailed: boolean;
+  transportFailed: boolean;
 }
 
 const brokeredCapabilities: DshProbeResult['capabilities'] = {
@@ -55,8 +57,9 @@ async function readPackageVersion(path: string): Promise<string> {
   return parsed.version;
 }
 
-async function waitForExit(child: ReturnType<typeof spawn>, timeoutMs: number): Promise<boolean> {
-  if (child.exitCode !== null) return true;
+export async function waitForExit(child: ReturnType<typeof spawn>, timeoutMs: number): Promise<boolean> {
+  if (child.pid === undefined) return false;
+  if (child.exitCode !== null || child.signalCode !== null) return true;
   return new Promise((resolve) => {
     const onExit = () => { globalThis.clearTimeout(timer); resolve(true); };
     const timer = globalThis.setTimeout(() => { child.off('exit', onExit); resolve(false); }, timeoutMs);
@@ -65,6 +68,7 @@ async function waitForExit(child: ReturnType<typeof spawn>, timeoutMs: number): 
 }
 
 async function reapFixture(child: ReturnType<typeof spawn>, timeoutMs: number): Promise<{ reaped: boolean; steps: string[] }> {
+  if (child.pid === undefined) return { reaped: false, steps: [] };
   const steps = ['SHUTDOWN', 'EOF'];
   const stdin = child.stdin;
   if (stdin?.writable) {
@@ -83,10 +87,13 @@ async function reapFixture(child: ReturnType<typeof spawn>, timeoutMs: number): 
 async function inspectFixture(config: DshProbeConfig): Promise<{ observation: FixtureObservation; shutdown: DshProbeResult['shutdown'] }> {
   const timeoutMs = config.shutdownTimeoutMs ?? 250;
   const child = spawn(config.runtimeCommand, [...config.runtimeArgs], { stdio: ['pipe', 'pipe', 'ignore'], windowsHide: true });
-  const observation: FixtureObservation = { malformedFrame: false, initializeReceived: false };
+  const observation: FixtureObservation = { malformedFrame: false, initializeReceived: false, launchFailed: false, transportFailed: false };
   let buffer = '';
   let resolveInitialize: (() => void) | undefined;
   const initialized = new Promise<void>((resolve) => { resolveInitialize = resolve; });
+  child.on('error', () => { if (child.pid === undefined) observation.launchFailed = true; else observation.transportFailed = true; resolveInitialize?.(); });
+  child.stdin.on('error', () => { observation.transportFailed = true; resolveInitialize?.(); });
+  child.stdout.on('error', () => { observation.transportFailed = true; resolveInitialize?.(); });
 
   child.stdout.setEncoding('utf8');
   child.stdout.on('data', (chunk: string) => {
@@ -139,6 +146,8 @@ export async function probeDsh(config: DshProbeConfig): Promise<DshProbeResult> 
     const fixture = await inspectFixture(config);
     shutdown = fixture.shutdown;
     serverInfoVersion = fixture.observation.serverInfoVersion;
+    if (fixture.observation.launchFailed) failures.push('LAUNCH_FAILED');
+    if (fixture.observation.transportFailed) failures.push('TRANSPORT_ERROR');
     if (fixture.observation.malformedFrame) failures.push('MALFORMED_FRAME');
     if (!fixture.observation.initializeReceived) failures.push('INITIALIZE_TIMEOUT');
     if (serverInfoVersion !== config.expectedProtocolVersion) failures.push('SERVER_INFO_MISMATCH');

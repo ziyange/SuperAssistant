@@ -1,7 +1,7 @@
 # TASK-839: Stage real local goal drafts as protected Proposals
 
 ## Status
-IN_PROGRESS
+COMPLETED
 PHASE: PHASE-007
 MAX_ITERATIONS: 6
 user_confirmed: true
@@ -95,4 +95,8 @@ and contract 50 passed. The shared Electron database hash remained unchanged.
 Skips are not PASS evidence. The real desktop tests cover discovery and review,
 not this unconnected production intake. No real Codex, sandbox security,
 process ownership, Lease release, H1 acceptance or merge was verified.
-GitHub CI for this exact change is pending.
+For commit `3d1389fa5d388d587016d46cae39732d202696cc`, GitHub documentation
+run 45254342652 passed and application run 45254342539 passed both Windows
+and PostgreSQL 16 jobs. These checks do not establish full H1 acceptance.
+TASK-840 subsequently addresses the pre-commit invalidation race; post-commit
+invalidation remains possible and is not evidence of approval.

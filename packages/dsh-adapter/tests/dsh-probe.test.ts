@@ -1,11 +1,12 @@
 /* global process */
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
+import { once } from 'node:events';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { probeDsh } from '../src/dsh-probe.js';
+import { probeDsh, waitForExit } from '../src/dsh-probe.js';
 
 let repositoryPath = '';
 let expectedCommit = '';
@@ -51,6 +52,34 @@ process.stdin.on('data', (chunk) => {
 `;
 
 describe('probeDsh', () => {
+  it('recognizes an already observed signal exit, without treating a live child as reaped', async () => {
+    const child = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], { stdio: 'ignore', windowsHide: true });
+    try {
+      await once(child, 'spawn');
+      expect(await waitForExit(child, 25)).toBe(false);
+      const exited = once(child, 'exit');
+      child.kill('SIGTERM');
+      await exited;
+      expect(child.exitCode).toBeNull();
+      expect(child.signalCode).toBe('SIGTERM');
+      expect(await waitForExit(child, 25)).toBe(true);
+    } finally {
+      if (child.exitCode === null && child.signalCode === null) {
+        const exited = once(child, 'exit'); child.kill('SIGKILL'); await exited;
+      }
+    }
+  });
+
+  it('blocks a missing executable without reporting a reaped process', async () => {
+    const result = await probeDsh({
+      repositoryPath, expectedCommit, expectedProtocolVersion,
+      runtimeCommand: join(repositoryPath, 'no-such-executable.exe'), runtimeArgs: [], shutdownTimeoutMs: 25
+    });
+    expect(result.outcome).toBe('BLOCKED');
+    expect(result.failures).toContain('LAUNCH_FAILED');
+    expect(result.shutdown.reaped).toBe(false);
+  });
+
   it('records a matching public profile and broker-required capability declarations', async () => {
     const result = await probeDsh({
       repositoryPath,

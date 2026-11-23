@@ -7,6 +7,7 @@ import { EncryptedProposalStore, type EncryptedProposalScope } from './encrypted
 import { ProtectedKeyReservations } from './protected-key-reservations.js';
 import { ReservedPayloadService, type ReservedVault } from './reserved-payload-service.js';
 import { isBuiltinCodexFunction } from './local-codex-function.js';
+import { LocalGoalDraft } from './local-goal-draft.js';
 
 type Envelope = {
   record_id: string; workspace_id: string; project_id: string; content_kind: string; format_version: number;
@@ -30,16 +31,26 @@ export class ProtectedProposalRegistry {
 
   /** Expected content can only reject an independently authenticated Proposal. */
   registerMatching(input: EncryptedProposalScope, expected: ProposalVersion): Promise<'REGISTERED' | 'EXISTING'> {
+    return this.matching(input, expected);
+  }
+
+  /** Draft liveness only restricts an otherwise independently authenticated registration. */
+  registerMatchingLive(input: EncryptedProposalScope, expected: ProposalVersion, drafts: LocalGoalDraft, draftId: string): Promise<'REGISTERED' | 'EXISTING'> {
+    if (!(drafts instanceof LocalGoalDraft) || typeof draftId !== 'string') return Promise.reject(new Error('PROTECTED_REGISTRY_UNAVAILABLE'));
+    return this.matching(input, expected, { drafts, draftId });
+  }
+
+  private matching(input: EncryptedProposalScope, expected: ProposalVersion, guard?: { drafts: LocalGoalDraft; draftId: string }): Promise<'REGISTERED' | 'EXISTING'> {
     try {
       const text = JSON.stringify(expected);
       if (typeof text !== 'string' || Buffer.byteLength(text, 'utf8') > 65536) throw new Error('unavailable');
       const snapshot: unknown = JSON.parse(text);
       if (!isDeepStrictEqual(snapshot, expected)) throw new Error('unavailable');
-      return this.registerOnce(input, snapshot);
+      return this.registerOnce(input, snapshot, guard);
     } catch { return Promise.reject(new Error('PROTECTED_REGISTRY_UNAVAILABLE')); }
   }
 
-  private async registerOnce(input: EncryptedProposalScope, expected?: unknown): Promise<'REGISTERED' | 'EXISTING'> {
+  private async registerOnce(input: EncryptedProposalScope, expected?: unknown, guard?: { drafts: LocalGoalDraft; draftId: string }): Promise<'REGISTERED' | 'EXISTING'> {
     try {
       if (!input || typeof input !== 'object' || Array.isArray(input) || Object.keys(input).sort().join(',') !== 'projectId,proposalVersionId,workspaceId'
         || this.db.inTransaction) throw new Error('unavailable');
@@ -55,7 +66,8 @@ export class ProtectedProposalRegistry {
       if (!proposal || (expected !== undefined && !isDeepStrictEqual(proposal, expected)) || this.db.inTransaction) throw new Error('unavailable');
       return this.db.transaction(() => {
         if (this.envelope(scope)?.encoded !== captured.encoded || !isDeepStrictEqual(this.catalog(scope), initial.catalog)
-          || !this.current(proposal, observed)) throw new Error('unavailable');
+          || !this.current(proposal, observed)
+          || (guard && !LocalGoalDraft.prototype.matchesSnapshot.call(guard.drafts, guard.draftId, proposal))) throw new Error('unavailable');
         const ref = this.db.prepare('SELECT workspace_id,project_id,source_kind,binding_version,created_at FROM proposal_authority_refs WHERE proposal_version_id=?').get(scope.proposalVersionId) as Ref | undefined;
         const binding = this.db.prepare('SELECT source_kind,workspace_id,project_id,payload_record_id,key_ref,content_kind,binding_version,digest_profile FROM protected_proposal_bindings WHERE proposal_version_id=?').get(scope.proposalVersionId) as Binding | undefined;
         if (ref || binding) {
