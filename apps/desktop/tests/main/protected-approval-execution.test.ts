@@ -79,10 +79,10 @@ test('an accepted fake Turn with a lost reply quarantines the original Attempt i
     vi.mocked(presentProtectedConsent).mockResolvedValue(true);
     const original = await item.authority.confirmAndQueue(item.scope);
     const task = item.db.prepare('SELECT task_id FROM tasks').get() as { task_id: string };
-    const claimed = await item.authority.claimQueued(item.scope);
+    const claimed = await item.authority.claimQueuedContext(item.scope);
     expect(claimed.attemptId).toBe(original.attemptId);
-    const input = { projectId: 'p', taskId: task.task_id, projectPath: item.project,
-      worktreeRoot: join(item.folder, 'worktrees'), baselineCommit: item.head } as Parameters<GitWorktreeService['create']>[0];
+    const input = { projectId: 'p', taskId: task.task_id, projectPath: claimed.projectPath,
+      worktreeRoot: join(item.folder, 'worktrees'), baselineCommit: claimed.baselineCommit } as Parameters<GitWorktreeService['create']>[0];
     const isolated = new GitWorktreeService().create(input);
     expect(realpathSync(isolated.path)).not.toBe(realpathSync(item.project));
     expect(execFileSync('git', ['-C', isolated.path, 'rev-parse', 'HEAD'], { env: projectGitEnvironment(), encoding: 'utf8' }).trim()).toBe(item.head);
@@ -97,7 +97,7 @@ test('an accepted fake Turn with a lost reply quarantines the original Attempt i
       () => item.authority.quarantineClaim(item.scope, claimed.claimToken),
       () => { receiptCount += 1; return false; });
     await client.initialize();
-    await expect(client.start(isolated.path, item.proposal.objective)).rejects.toThrow();
+    await expect(client.start(isolated.path, claimed.objective)).rejects.toThrow();
     // The fixture exits successfully only after accepting the exact Turn request
     // in lost-turn mode; a protocol rejection leaves stdin open and does not exit.
     const serverExit = await Promise.race([closed, new Promise(resolve => setTimeout(() => resolve('timeout'), 3000))]);
@@ -111,7 +111,7 @@ test('an accepted fake Turn with a lost reply quarantines the original Attempt i
     expect(item.db.prepare('SELECT state,claim_token FROM outbox').get()).toEqual({ state: 'RECONCILING', claim_token: null });
     expect(item.db.prepare('SELECT state FROM resource_leases').get()).toEqual({ state: 'ACTIVE' });
     await expect(item.authority.claimQueued(item.scope)).rejects.toThrow('PROTECTED_AUTHORITY_UNAVAILABLE');
-    await expect(client.start(isolated.path, item.proposal.objective)).rejects.toThrow();
+    await expect(client.start(isolated.path, claimed.objective)).rejects.toThrow();
     expect(writes.mock.calls.filter(call => String(call[0]).includes('"turn/start"'))).toHaveLength(1);
     expect(execFileSync('git', ['-C', item.project, 'rev-parse', 'HEAD'], { env: projectGitEnvironment(), encoding: 'utf8' }).trim()).toBe(item.head);
     expect(execFileSync('git', ['-C', item.project, 'status', '--porcelain'], { env: projectGitEnvironment(), encoding: 'utf8' }).trim()).toBe('');
@@ -137,9 +137,9 @@ test('a fake acknowledged Turn persists encrypted receipt and quarantines the or
     vi.mocked(presentProtectedConsent).mockResolvedValue(true);
     const original = await item.authority.confirmAndQueue(item.scope);
     const task = item.db.prepare('SELECT task_id FROM tasks').get() as { task_id: string };
-    const claimed = await item.authority.claimQueued(item.scope);
-    const input = { projectId: 'p', taskId: task.task_id, projectPath: item.project,
-      worktreeRoot: join(item.folder, 'worktrees'), baselineCommit: item.head } as Parameters<GitWorktreeService['create']>[0];
+    const claimed = await item.authority.claimQueuedContext(item.scope);
+    const input = { projectId: 'p', taskId: task.task_id, projectPath: claimed.projectPath,
+      worktreeRoot: join(item.folder, 'worktrees'), baselineCommit: claimed.baselineCommit } as Parameters<GitWorktreeService['create']>[0];
     const isolated = new GitWorktreeService().create(input);
     const principalHash = createHash('sha256').update('codex-personal-v1:fixture@example.invalid:plus').digest('hex');
     const writer = await item.authority.prepareReceipt(item.scope, claimed.claimToken, { cwd: isolated.path, principalHash });
@@ -149,7 +149,7 @@ test('a fake acknowledged Turn persists encrypted receipt and quarantines the or
     client = new AppServerExecutionClient(child, '0.121.0', principalHash, async () => true,
       () => writer.markUnknown(), receipt => writer.record(receipt));
     await client.initialize();
-    const receipt = await client.start(isolated.path, item.proposal.objective);
+    const receipt = await client.start(isolated.path, claimed.objective);
     expect(item.db.prepare('SELECT state FROM execution_attempts').get()).toEqual({ state: 'RUNNING' });
     expect(await item.authority.readReceipt(item.scope)).toEqual({ attemptId: original.attemptId, ...receipt });
     vi.mocked(presentProtectedCancellation).mockResolvedValue(true);

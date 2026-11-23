@@ -517,3 +517,11 @@ and requires the local STOP write to finish before accepting a terminal frame.
 Its `UNVERIFIED_TERMINATION` result proves neither owner provenance nor process
 exit and cannot authorize a Lease release. Unexpected stream loss remains
 UNKNOWN. This client is not wired to production dispatch or cancellation.
+
+The TASK-826 fixture-stage claim context derives the objective, Git baseline
+and executable identity from the authenticated protected Proposal and context
+at the same transaction that claims the original Attempt. It is an ephemeral
+snapshot, not permission for a later launch: files, Lease and authority may
+change immediately afterward. Do not expose it to renderer, IPC, logs or
+production dispatch; trusted worktree custody, revalidation and process
+confinement remain required.

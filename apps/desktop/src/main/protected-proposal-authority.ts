@@ -20,7 +20,9 @@ type Envelope = {
   key_ref: string; nonce: Buffer; ciphertext: Buffer; auth_tag: Buffer; created_at: string;
   owner_hash: string; reservation_state: string; reservation_created: string; reservation_updated: string;
 };
-type ExistingResult = { attemptId: string; claimToken?: string } | { unavailable: true } | null;
+type ClaimContext = Readonly<{ attemptId: string; claimToken: string; objective: string; baselineCommit: string;
+  projectPath: string; executablePath: string; executableVersion: string; executableSha256: string }>;
+type ExistingResult = { attemptId: string; claimToken?: string; context?: ClaimContext } | { unavailable: true } | null;
 type ProofSnapshot = { fields: string[]; tag: string };
 type ProtectedReceipt = { threadId: string; turnId: string; cwd: string; principalHash: string };
 type ReceiptEnvelope = { nonce: Buffer; ciphertext: Buffer; auth_tag: Buffer };
@@ -116,6 +118,14 @@ export class ProtectedProposalAuthority {
     const result = await this.confirmAndQueueOnce({ ...input }, false, true);
     if (!result.claimToken) throw new Error('PROTECTED_AUTHORITY_UNAVAILABLE');
     return { attemptId: result.attemptId, claimToken: result.claimToken };
+  }
+
+  /** Fixture-stage snapshot only; no process, worktree or continued authority is attested. */
+  async claimQueuedContext(input: EncryptedProposalScope): Promise<ClaimContext> {
+    if (arguments.length !== 1 || !validScope(input)) throw new Error('PROTECTED_AUTHORITY_UNAVAILABLE');
+    const result = await this.confirmAndQueueOnce({ ...input }, false, true, true);
+    if (!result.context) throw new Error('PROTECTED_AUTHORITY_UNAVAILABLE');
+    return result.context;
   }
 
   /** Preserve uncertainty, never release the Lease or infer an external outcome. */
@@ -318,7 +328,7 @@ export class ProtectedProposalAuthority {
     finally { plain?.fill(0); aad?.fill(0); codec?.dispose(); }
   }
 
-  private async confirmAndQueueOnce(scope: EncryptedProposalScope, allowCreate: boolean, claim = false): Promise<{ attemptId: string; claimToken?: string }> {
+  private async confirmAndQueueOnce(scope: EncryptedProposalScope, allowCreate: boolean, claim = false, includeContext = false): Promise<{ attemptId: string; claimToken?: string; context?: ClaimContext }> {
     try {
       if (this.db.inTransaction) throw new Error('unavailable');
       const observed = instant(this.clock());
@@ -411,7 +421,12 @@ export class ProtectedProposalAuthority {
             WHERE message_id=? AND attempt_id=? AND state='PENDING' AND claim_token IS NULL`)
             .run(claimToken, 'outbox:' + checked.attemptId, checked.attemptId);
           if (updated.changes !== 1) return { unavailable: true } as const;
-          return { attemptId: checked.attemptId, claimToken };
+          const context = includeContext ? Object.freeze({
+            attemptId: checked.attemptId, claimToken, objective: proposal.objective, baselineCommit: proposal.baselineCommit,
+            projectPath: executionIdentity.projectPath, executablePath: executionIdentity.executablePath,
+            executableVersion: executionIdentity.executableVersion, executableSha256: executionIdentity.executableSha256
+          }) : undefined;
+          return { attemptId: checked.attemptId, claimToken, ...(context ? { context } : {}) };
         }).immediate(); } catch {
           await this.preserveObservedLease(scope, maxObserved);
           throw new Error('unavailable');

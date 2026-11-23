@@ -358,3 +358,10 @@ and lease validity, then renews every 10 seconds. A failed check or renewal
 stops the timer and emits one loss notification; stop and loss do not release,
 retry or reassign. The supervisor is not yet connected to real worker
 ownership or durable recovery transitions.
+
+Fixture-stage protected claims can return a frozen execution context sourced
+from the same authenticated Proposal, bound identity and original-Attempt
+claim. The fake App Server tests use its objective and baseline, not caller
+copies. The snapshot itself does not attest a worktree, prevent later Project
+or executable changes, authorize dispatch, stop a process or release a Lease.
+Production claim-to-launch composition remains disabled.

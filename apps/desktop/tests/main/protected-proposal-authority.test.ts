@@ -74,6 +74,90 @@ function bindProtected(db: Database.Database, proposal: ReturnType<typeof create
     FROM protected_payloads WHERE record_id=?`).run(scope.proposalVersionId, scope.workspaceId, scope.projectId, scope.proposalVersionId);
 }
 
+test('claim context derives the exact approved Proposal and execution identity without persisting plaintext', async () => {
+  const { db, authority, proposal } = await fixture();
+  try {
+    bindProtected(db, proposal);
+    const queued = await confirm(authority, scope, async () => true, async () => 'a'.repeat(40));
+    const claim = Reflect.get(authority, 'claimQueuedContext');
+    expect(typeof claim, 'claim-bound execution context is required').toBe('function');
+    const result = await claim.call(authority, scope) as Record<string, unknown>;
+    expect(result).toEqual({
+      attemptId: queued.attemptId, claimToken: expect.any(String), objective: 'confidential objective',
+      baselineCommit: 'a'.repeat(40), projectPath: 'E:/fixture', executablePath: 'E:/fixture/codex.exe',
+      executableVersion: '0.121.0', executableSha256: 'a'.repeat(64)
+    });
+    expect(Object.isFrozen(result)).toBe(true);
+    expect(db.prepare('SELECT state, claim_token FROM outbox').get()).toEqual({ state: 'DISPATCHING', claim_token: result.claimToken });
+    expect(db.serialize().includes(Buffer.from('confidential objective'))).toBe(false);
+  } finally { db.close(); }
+});
+
+test.each([
+  ['unavailable Agent', "UPDATE agents SET availability='PAUSED' WHERE agent_id='agent'"],
+  ['changed Project', "UPDATE projects SET row_version=row_version+1 WHERE project_id='p'"],
+  ['changed runtime', "UPDATE local_codex_registrations SET executable_path='E:/other/codex.exe' WHERE agent_id='agent'"],
+  ['tampered fence', 'DROP TRIGGER protected_lease_update; UPDATE resource_leases SET fencing_token=99'],
+  ['forged approval', "DROP TRIGGER protected_execution_context_no_update; UPDATE protected_execution_context SET approval_tag='hmac-sha256:' || printf('%064d',0)"]
+])('claim context rejects %s without dispatching', async (_name, sql) => {
+  const { db, authority, proposal } = await fixture();
+  try {
+    bindProtected(db, proposal);
+    await confirm(authority, scope, async () => true, async () => 'a'.repeat(40));
+    db.exec(sql);
+    await expect(authority.claimQueuedContext(scope)).rejects.toThrow('PROTECTED_AUTHORITY_UNAVAILABLE');
+    expect(db.prepare('SELECT state,claim_token FROM outbox').get()).toEqual({ state: 'PENDING', claim_token: null });
+    expect(db.prepare('SELECT state FROM resource_leases').get()).toEqual({ state: 'ACTIVE' });
+  } finally { db.close(); }
+});
+
+test('claim context rejects a Git baseline that advanced after approval', async () => {
+  const { db, authority, proposal } = await fixture();
+  try {
+    bindProtected(db, proposal);
+    await confirm(authority, scope, async () => true, async () => 'a'.repeat(40));
+    vi.mocked(readProjectHeadAsync).mockResolvedValue('b'.repeat(40));
+    await expect(authority.claimQueuedContext(scope)).rejects.toThrow('PROTECTED_AUTHORITY_UNAVAILABLE');
+    expect(db.prepare('SELECT state,claim_token FROM outbox').get()).toEqual({ state: 'PENDING', claim_token: null });
+  } finally { db.close(); }
+});
+
+test('claim context refuses an expired Lease without dispatching', async () => {
+  const { db, vault, authority, proposal } = await fixture();
+  try {
+    bindProtected(db, proposal);
+    await confirm(authority, scope, async () => true, async () => 'a'.repeat(40));
+    const later = new ProtectedProposalAuthority(db, vault, () => '2026-08-01T00:00:31.000Z');
+    await expect(later.claimQueuedContext(scope)).rejects.toThrow('PROTECTED_AUTHORITY_UNAVAILABLE');
+    expect(db.prepare('SELECT state,claim_token FROM outbox').get()).toEqual({ state: 'PENDING', claim_token: null });
+    expect(db.prepare('SELECT state FROM resource_leases').get()).toEqual({ state: 'ACTIVE' });
+  } finally { db.close(); }
+});
+
+test('claim context rejects injected execution fields before claiming', async () => {
+  const { db, authority, proposal } = await fixture();
+  try {
+    bindProtected(db, proposal);
+    await confirm(authority, scope, async () => true, async () => 'a'.repeat(40));
+    const forged = { ...scope, objective: 'attacker goal' };
+    await expect(authority.claimQueuedContext(forged)).rejects.toThrow('PROTECTED_AUTHORITY_UNAVAILABLE');
+    expect(db.prepare('SELECT state,claim_token FROM outbox').get()).toEqual({ state: 'PENDING', claim_token: null });
+  } finally { db.close(); }
+});
+
+test('concurrent claim context requests return only one claimed original Attempt', async () => {
+  const { db, authority, proposal } = await fixture();
+  try {
+    bindProtected(db, proposal);
+    const original = await confirm(authority, scope, async () => true, async () => 'a'.repeat(40));
+    const results = await Promise.allSettled([authority.claimQueuedContext(scope), authority.claimQueuedContext(scope)]);
+    const successes = results.filter(result => result.status === 'fulfilled');
+    expect(successes).toHaveLength(1);
+    expect(successes[0]?.value.attemptId).toBe(original.attemptId);
+    expect(db.prepare('SELECT count(*) AS n FROM execution_attempts').get()).toEqual({ n: 1 });
+  } finally { db.close(); }
+});
+
 test('checks the exact decrypted Proposal without exposing it or writing a Grant', async () => {
   const { db, authority } = await fixture();
   try {
