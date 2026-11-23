@@ -48,18 +48,19 @@ const quote = (name: string) => '"' + name.replaceAll('"', '""') + '"';
 export function hashMigrationBackup(path: string): string {
   const descriptor = openSync(path, 'r');
   try {
-    const before = fstatSync(descriptor);
-    if (!before.isFile() || before.size <= 0) throw new Error('MIGRATION_BACKUP_INVALID');
+    const before = fstatSync(descriptor, { bigint: true });
+    if (!before.isFile() || before.size <= 0n || before.size > BigInt(Number.MAX_SAFE_INTEGER)) throw new Error('MIGRATION_BACKUP_INVALID');
+    const size = Number(before.size);
     const hash = createHash('sha256'), buffer = Buffer.alloc(1024 * 1024);
     let offset = 0;
-    while (offset < before.size) {
-      const count = readSync(descriptor, buffer, 0, Math.min(buffer.length, before.size - offset), offset);
+    while (offset < size) {
+      const count = readSync(descriptor, buffer, 0, Math.min(buffer.length, size - offset), offset);
       if (count <= 0) throw new Error('MIGRATION_BACKUP_INVALID');
       hash.update(buffer.subarray(0, count)); offset += count;
     }
-    const after = fstatSync(descriptor);
+    const after = fstatSync(descriptor, { bigint: true });
     if (before.dev !== after.dev || before.ino !== after.ino || before.size !== after.size
-      || before.mtimeMs !== after.mtimeMs || before.ctimeMs !== after.ctimeMs) throw new Error('MIGRATION_BACKUP_CHANGED');
+      || before.mtimeNs !== after.mtimeNs || before.ctimeNs !== after.ctimeNs) throw new Error('MIGRATION_BACKUP_CHANGED');
     return hash.digest('hex');
   } finally { closeSync(descriptor); }
 }

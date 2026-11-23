@@ -11,7 +11,7 @@ import { createFoundationDatabase } from '../src/sqlite/database.js';
 
 vi.mock('node:fs', async (importOriginal) => {
   const original = await importOriginal<typeof import('node:fs')>();
-  return { ...original, statSync: vi.fn(original.statSync) };
+  return { ...original, statSync: vi.fn(original.statSync), fstatSync: vi.fn(original.fstatSync) };
 });
 
 const folders: string[] = [];
@@ -19,6 +19,23 @@ afterEach(() => folders.splice(0).forEach((folder) => rmSync(folder, { recursive
 function pathFor(name: string): string { const folder = mkdtempSync(join(tmpdir(), 'sa-migration-')); folders.push(folder); return join(folder, name); }
 
 describe('migration runner', () => {
+  test('rejects a backup changed during hashing when nanosecond timestamps round to the same millisecond number', async () => {
+    const file = pathFor('timestamp-precision.backup');
+    fs.writeFileSync(file, 'backup content');
+    const originalFstat = (await vi.importActual<typeof import('node:fs')>('node:fs')).fstatSync;
+    const fakeFstat = vi.mocked(fs.fstatSync);
+    let calls = 0;
+    fakeFstat.mockImplementation(((descriptor: number, options?: fs.StatOptions) => {
+      const actual = originalFstat(descriptor, options as never);
+      calls += 1;
+      if ('mtimeNs' in actual && typeof actual.mtimeNs === 'bigint') {
+        return Object.assign(actual, { mtimeNs: 1700000000000000000n + BigInt(calls - 1) });
+      }
+      return Object.assign(actual, { mtimeMs: 1700000000000 });
+    }) as typeof fs.fstatSync);
+    try { expect(() => migrationRunner.hashMigrationBackup(file)).toThrow('MIGRATION_BACKUP_CHANGED'); }
+    finally { fakeFstat.mockImplementation(originalFstat); }
+  });
   test('compares distinct filesystem identities exactly above the safe integer limit', () => {
     const compare = Reflect.get(migrationRunner, 'sameMigrationFileIdentity');
     expect(typeof compare).toBe('function');

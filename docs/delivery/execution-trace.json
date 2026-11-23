@@ -10918,4 +10918,16 @@
 {"tx_id":"task-823-write-201","action_type":"FILE_WRITE","normalized_path":"docs/delivery/tasks/TASK-823.md","intent_hash":"5fcaf84e4ad06fa1fb7a2b6cfba1800f9632a8550a3beea7cd041b0a143e6f56","iteration_index":1,"timestamp":"2026-11-23T04:55:25.013Z","result_status":"COMPLETED","ignored_candidates":[],"artifact_metadata":{"sha256":"696e716a503bb607ee711e1d518d3f3d2c8839402049ec7fb27804648aebe0b7"}}
 ,
 {"tx_id":"task-823-write-202","action_type":"FILE_WRITE","normalized_path":"apps/desktop/tests/main/protected-approval-execution.test.ts","intent_hash":"8f7fa5096ebdd385427687cea3705a284c7826551a5fce7c7766bd4edcc2a704","iteration_index":1,"timestamp":"2026-11-23T04:56:27.739Z","result_status":"COMPLETED","ignored_candidates":[],"artifact_metadata":{"sha256":"98185aadd13ed4fbeed09bf2fd1a7ce4dd022995efd315b5af920fcd0a6b2e09"}}
+,
+{"tx_id":"task-823-write-203","action_type":"FILE_WRITE","normalized_path":"docs/delivery/tasks/TASK-823.md","intent_hash":"67d6cdd83cdcfe38005b3ebcd265ed22c4b25a2216f5aba75c7f15d67b9999fd","iteration_index":1,"timestamp":"2026-11-23T05:00:12.901Z","result_status":"COMPLETED","ignored_candidates":[],"artifact_metadata":{"sha256":"3029c58919ff8a8628054812b9d360e04ba2f0574062bea56a1e5d7a9517ae85"}}
+,
+{"tx_id":"task-823-write-204","action_type":"FILE_WRITE","normalized_path":"packages/persistence/tests/migration-runner.test.ts","intent_hash":"685e1d2b194de5d4deaf417e482154cd3802e2a50a03e8505dd3e3dea18c5c48","iteration_index":1,"timestamp":"2026-11-23T05:00:58.817Z","result_status":"COMPLETED","ignored_candidates":[],"artifact_metadata":{"sha256":"4520a920d2dadba73cb65c6038cfb29ee406e84c153e098146fc82c9b5739c3a"}}
+,
+{"tx_id":"task-823-write-205","action_type":"FILE_WRITE","normalized_path":"packages/persistence/src/sqlite/migration-runner.ts","intent_hash":"c5f58ddf5eb67cf96b4993408895d7b0e5f75e99e498a8cb2d97608685a8606d","iteration_index":1,"timestamp":"2026-11-23T05:02:07.900Z","result_status":"COMPLETED","ignored_candidates":[],"artifact_metadata":{"sha256":"0d499fe0156db9f308e5e03545504ff0110868bee9ee1576bcca386a6a5b0afc"}}
+,
+{"tx_id":"task-823-write-206","action_type":"FILE_WRITE","normalized_path":"packages/persistence/tests/migration-runner.test.ts","intent_hash":"763e48b8c939379a46d21a714f3e4de0f1cc46d7acdae988db774e2912706c98","iteration_index":1,"timestamp":"2026-11-23T05:03:20.093Z","result_status":"COMPLETED","ignored_candidates":[],"artifact_metadata":{"sha256":"dd85db6fc29121febdce4862240d37b7d12292d8231823c0eddb11a1acab2844"}}
+,
+{"tx_id":"task-823-write-207","action_type":"FILE_WRITE","normalized_path":"apps/desktop/tests/main/protected-approval-execution.test.ts","intent_hash":"edd22873c2dc6630aedda4552e2733d0b1dd4624e63c5019e6ceb17593e05761","iteration_index":1,"timestamp":"2026-11-23T05:05:12.311Z","result_status":"COMPLETED","ignored_candidates":[],"artifact_metadata":{"sha256":"0f3263d40b4cb460652991ae91faf6a94229bb9476ba408f8e3c5775834b036e"}}
+,
+{"tx_id":"task-823-write-208","action_type":"FILE_WRITE","normalized_path":"docs/delivery/tasks/TASK-823.md","intent_hash":"59229e1ef63120f24c05efe7a054fd8db25617e4c2d90735ae015ab34468c005","iteration_index":1,"timestamp":"2026-11-23T05:13:27.323Z","result_status":"COMPLETED","ignored_candidates":[],"artifact_metadata":{"sha256":"6c99eea09fa67b3a7275ac25fe8c838edacfb4b22581ddb34be9f261a8049988"}}
 ]

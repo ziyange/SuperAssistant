@@ -6,6 +6,7 @@ import { mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from '
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import process from 'node:process';
+import { setTimeout } from 'node:timers';
 import { fileURLToPath, URL } from 'node:url';
 import Database from 'better-sqlite3';
 import { createH1ReviewedProposal } from '@super-assistant/domain';
