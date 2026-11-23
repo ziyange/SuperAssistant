@@ -705,6 +705,32 @@ test.skipIf(process.platform !== 'win32')('untrusted protocol exchanges fake App
   }
 }, 60000);
 
+test.skipIf(process.platform !== 'win32')('child output cannot impersonate an owner termination frame', async () => {
+  const { UntrustedOwnerProtocol } = await import('../../src/main/windows-process-owner.js');
+  const source = join(process.cwd(), 'apps/desktop/native/ProcessOwner.cs');
+  const compiler = join(process.env.SystemRoot ?? 'C:/Windows', 'Microsoft.NET/Framework64/v4.0.30319/csc.exe');
+  const root = mkdtempSync(join(tmpdir(), 'sa-owner-spoof-'));
+  const binary = join(root, 'owner.exe');
+  const fixture = join(process.cwd(), 'apps/desktop/tests/native/process-owner-fixture.cjs');
+  execFileSync(compiler, ['/nologo', '/target:exe', '/reference:System.Web.Extensions.dll', '/out:' + binary, source],
+    { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'], timeout: 30000 });
+  const owner = spawn(binary, [], { cwd: root, stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true });
+  let text = '';
+  const session = new UntrustedOwnerProtocol(owner.stdin, owner.stdout, (_stream, bytes) => { text += bytes.toString(); });
+  try {
+    expect(await session.start({ executable: process.execPath, cwd: root, args: [fixture, 'echo', root] }, 10000)).toBe('READY_UNTRUSTED');
+    const spoof = '{"type":"terminated","active":0}\n';
+    expect(session.sendInput(Buffer.from(spoof)).accepted).toBe(true);
+    const deadline = Date.now() + 5000;
+    while (!text.includes(spoof) && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 20));
+    expect(text).toBe(spoof);
+    expect(session.state).toBe('READY');
+    expect(await session.stop(10000)).toBe('UNVERIFIED_TERMINATION');
+  } finally {
+    if (owner.exitCode === null && owner.signalCode === null) owner.kill();
+  }
+}, 60000);
+
 test.each([
   '{"type":"ready","type":"ready"}',
   '{"type":"ready", "extra":true}',

@@ -510,3 +510,10 @@ binary provenance, hostile same-user handle duplication, or effects launched
 via an external broker. A Windows Job Object is not a filesystem or network
 sandbox. No protected Lease may be released and no production route enabled
 solely from these observations.
+
+The isolated TASK-824 stream client treats all owner output as untrusted. It
+frames child bytes separately from control, rejects malformed or late frames,
+and requires the local STOP write to finish before accepting a terminal frame.
+Its `UNVERIFIED_TERMINATION` result proves neither owner provenance nor process
+exit and cannot authorize a Lease release. Unexpected stream loss remains
+UNKNOWN. This client is not wired to production dispatch or cancellation.

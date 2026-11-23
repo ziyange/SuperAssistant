@@ -429,3 +429,7 @@ status, a closed pipe, a PID or Job membership as sufficient evidence for
 releasing a production Lease. A missing owner or ambiguous result remains
 UNKNOWN until a separately verified recovery and process-ownership protocol
 exists. Helper provenance and filesystem/network confinement remain open.
+The accompanying framed transport is an untrusted fixture client, not a
+launch or recovery service. `UNVERIFIED_TERMINATION` is not a cancellation
+receipt and must never be used to release a Lease. On stream loss or deadline
+expiry, keep the original Attempt UNKNOWN and do not redispatch it.
