@@ -480,6 +480,59 @@ test('only the matching protected claim can quarantine an uncertain original Att
   } finally { db.close(); }
 });
 
+test.each(['claimed', 'unknown'])('protected %s Attempt cannot lose its active Lease through a generic update', async phase => {
+  const { db, authority, proposal } = await fixture();
+  try {
+    bindProtected(db, proposal);
+    const original = await confirm(authority, scope, async () => true, async () => 'a'.repeat(40));
+    const claim = await authority.claimQueued(scope);
+    if (phase === 'unknown') expect(authority.quarantineClaim(scope, claim.claimToken)).toBe(true);
+    const lease = db.prepare('SELECT lease_id,fencing_token FROM resource_leases WHERE attempt_id=?').get(original.attemptId) as { lease_id: string; fencing_token: number };
+    expect(() => new SqliteResourceLeaseRepository(db).release(lease.lease_id, lease.fencing_token, '2026-08-01T00:00:01.000Z')).toThrow();
+    expect(() => db.prepare("UPDATE resource_leases SET state='RELEASED' WHERE attempt_id=?").run(original.attemptId)).toThrow();
+    expect(() => db.prepare("UPDATE resource_leases SET state='EXPIRED' WHERE attempt_id=?").run(original.attemptId)).toThrow();
+    expect(() => db.prepare("UPDATE resource_leases SET state='RELEASING' WHERE attempt_id=?").run(original.attemptId)).toThrow();
+    expect(db.prepare('SELECT state FROM resource_leases WHERE attempt_id=?').get(original.attemptId)).toEqual({ state: 'ACTIVE' });
+  } finally { db.close(); }
+});
+
+test('a missing protected start record cannot authorize Lease release', async () => {
+  const { db, authority, proposal } = await fixture();
+  try {
+    bindProtected(db, proposal);
+    const original = await confirm(authority, scope, async () => true, async () => 'a'.repeat(40));
+    db.prepare('DELETE FROM outbox WHERE attempt_id=?').run(original.attemptId);
+    expect(() => db.prepare("UPDATE resource_leases SET state='RELEASED' WHERE attempt_id=?").run(original.attemptId)).toThrow();
+    expect(db.prepare('SELECT state FROM resource_leases WHERE attempt_id=?').get(original.attemptId)).toEqual({ state: 'ACTIVE' });
+  } finally { db.close(); }
+});
+
+test('a pending protected start with a claim token cannot authorize Lease release', async () => {
+  const { db, authority, proposal } = await fixture();
+  try {
+    bindProtected(db, proposal);
+    const original = await confirm(authority, scope, async () => true, async () => 'a'.repeat(40));
+    db.prepare("UPDATE outbox SET claim_token='unexpected-claim' WHERE attempt_id=?").run(original.attemptId);
+    expect(() => db.prepare("UPDATE resource_leases SET state='RELEASED' WHERE attempt_id=?").run(original.attemptId)).toThrow();
+    expect(db.prepare('SELECT state FROM resource_leases WHERE attempt_id=?').get(original.attemptId)).toEqual({ state: 'ACTIVE' });
+  } finally { db.close(); }
+});
+
+test('a protected start cancelled before it was claimed can release its Lease', async () => {
+  const { db, authority, proposal } = await fixture();
+  try {
+    bindProtected(db, proposal);
+    const original = await confirm(authority, scope, async () => true, async () => 'a'.repeat(40));
+    db.transaction(() => {
+      db.prepare("UPDATE outbox SET state='CANCELLED' WHERE attempt_id=? AND state='PENDING'").run(original.attemptId);
+      db.prepare("UPDATE execution_attempts SET state='CANCELLED' WHERE attempt_id=? AND state='DISPATCH_PENDING'").run(original.attemptId);
+    }).immediate();
+    const lease = db.prepare('SELECT lease_id,fencing_token FROM resource_leases WHERE attempt_id=?').get(original.attemptId) as { lease_id: string; fencing_token: number };
+    expect(new SqliteResourceLeaseRepository(db).release(lease.lease_id, lease.fencing_token, '2026-08-01T00:00:01.000Z')).toBe(true);
+    expect(db.prepare('SELECT state FROM resource_leases WHERE attempt_id=?').get(original.attemptId)).toEqual({ state: 'RELEASED' });
+  } finally { db.close(); }
+});
+
 test('only one concurrent protected claimant obtains the original pending Attempt', async () => {
   const { db, authority, proposal } = await fixture();
   try {

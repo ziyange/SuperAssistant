@@ -164,6 +164,22 @@ WHEN EXISTS (SELECT 1 FROM protected_execution_bindings b WHERE b.lease_id=OLD.l
  AND OLD.state<>'ACTIVE' AND NEW.state='ACTIVE'
 BEGIN SELECT RAISE(ABORT, 'Protected Lease cannot be resurrected'); END;
 
+-- A claimed or uncertain execution may still own a process. Until a trusted
+-- termination/reconciliation transaction exists, generic release is unsafe.
+CREATE TRIGGER protected_lease_no_unverified_release BEFORE UPDATE OF state ON resource_leases
+WHEN OLD.state='ACTIVE' AND NEW.state<>'ACTIVE' AND EXISTS (
+  SELECT 1 FROM protected_execution_bindings b
+  WHERE b.lease_id=OLD.lease_id AND NOT EXISTS (
+    SELECT 1 FROM execution_attempts a JOIN outbox o
+      ON o.message_id='outbox:' || b.attempt_id AND o.attempt_id=b.attempt_id AND o.message_type='start'
+    WHERE a.attempt_id=b.attempt_id AND o.claim_token IS NULL AND (
+      (o.state='PENDING' AND a.state IN ('CREATED','DISPATCH_PENDING'))
+      OR (o.state='CANCELLED' AND a.state IN ('CANCELLED','NOT_STARTED'))
+    )
+  )
+)
+BEGIN SELECT RAISE(ABORT, 'Protected Lease requires termination evidence'); END;
+
 -- The stored observation is monotonic. Once an observer has reached expiry,
 -- the same Lease cannot be renewed into a new window.
 CREATE TRIGGER protected_lease_time_guard BEFORE UPDATE OF renewed_at,expires_at,last_observed_at ON resource_leases
