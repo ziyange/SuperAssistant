@@ -365,3 +365,12 @@ claim. The fake App Server tests use its objective and baseline, not caller
 copies. The snapshot itself does not attest a worktree, prevent later Project
 or executable changes, authorize dispatch, stop a process or release a Lease.
 Production claim-to-launch composition remains disabled.
+
+The TASK-827 fixture-only composition claims the authenticated Task identity,
+creates its worktree at the approved baseline, prepares the original Attempt's
+receipt and starts a supplied fake transport. A receipt must persist and match
+the returned value; an ambiguous result is quarantined without Lease release.
+If quarantine persistence fails the caller must observe `PERSISTENCE_FAILED`;
+this is not an automatic recovery notification. This fixture composition is
+not registered with the desktop, cannot establish process ownership or
+confinement, and cannot authorize production execution.

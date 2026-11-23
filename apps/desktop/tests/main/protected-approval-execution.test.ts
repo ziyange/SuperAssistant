@@ -19,7 +19,6 @@ import { EncryptedProposalStore } from '../../src/main/encrypted-proposal-store.
 import { ProtectedProposalAuthority } from '../../src/main/protected-proposal-authority.js';
 import { presentProtectedCancellation, presentProtectedConsent } from '../../src/main/protected-native-consent.js';
 import { projectGitEnvironment } from '../../src/main/project-git-baseline.js';
-import { GitWorktreeService } from '../../src/main/worktree-service.js';
 import { AppServerExecutionClient } from '../../../../packages/codex-adapter/src/app-server-execution-client.js';
 import { ReadOnlyAppServerClient } from '../../../../packages/codex-adapter/src/app-server-client.js';
 
@@ -78,41 +77,39 @@ test('an accepted fake Turn with a lost reply quarantines the original Attempt i
   try {
     vi.mocked(presentProtectedConsent).mockResolvedValue(true);
     const original = await item.authority.confirmAndQueue(item.scope);
-    const task = item.db.prepare('SELECT task_id FROM tasks').get() as { task_id: string };
-    const claimed = await item.authority.claimQueuedContext(item.scope);
-    expect(claimed.attemptId).toBe(original.attemptId);
-    const input = { projectId: 'p', taskId: task.task_id, projectPath: claimed.projectPath,
-      worktreeRoot: join(item.folder, 'worktrees'), baselineCommit: claimed.baselineCommit } as Parameters<GitWorktreeService['create']>[0];
-    const isolated = new GitWorktreeService().create(input);
-    expect(realpathSync(isolated.path)).not.toBe(realpathSync(item.project));
-    expect(execFileSync('git', ['-C', isolated.path, 'rev-parse', 'HEAD'], { env: projectGitEnvironment(), encoding: 'utf8' }).trim()).toBe(item.head);
     const path = fileURLToPath(new URL('../../../../packages/codex-adapter/tests/fixtures/execution-app-server.mjs', import.meta.url));
-    child = spawn(process.execPath, [path, 'lost-turn'], { stdio: ['pipe', 'pipe', 'ignore'], windowsHide: true });
-    closed = once(child, 'close');
-    if (!child.stdin) throw new Error('fixture stdin unavailable');
-    const writes = vi.spyOn(child.stdin, 'write');
     const principal = createHash('sha256').update('codex-personal-v1:fixture@example.invalid:plus').digest('hex');
     let receiptCount = 0;
-    client = new AppServerExecutionClient(child, '0.121.0', principal, async () => true,
-      () => item.authority.quarantineClaim(item.scope, claimed.claimToken),
-      () => { receiptCount += 1; return false; });
-    await client.initialize();
-    await expect(client.start(isolated.path, claimed.objective)).rejects.toThrow();
+    let isolatedPath = '';
+    let turnWrites = () => 0;
+    const { FixtureProtectedDispatch } = await import('../../src/main/fixture-protected-dispatch.js');
+    const dispatcher = new FixtureProtectedDispatch(item.authority, join(item.folder, 'worktrees'), principal, (version, onUnknown, record, cwd) => {
+      isolatedPath = cwd;
+      child = spawn(process.execPath, [path, 'lost-turn'], { stdio: ['pipe', 'pipe', 'ignore'], windowsHide: true });
+      closed = once(child, 'close');
+      if (!child.stdin) throw new Error('fixture stdin unavailable');
+      const writes = vi.spyOn(child.stdin, 'write');
+      turnWrites = () => writes.mock.calls.filter(call => String(call[0]).includes('"turn/start"')).length;
+      client = new AppServerExecutionClient(child, version, principal, async () => true, onUnknown,
+        receipt => { receiptCount += 1; return record(receipt); });
+      return client;
+    });
+    await expect(dispatcher.start(item.scope)).rejects.toThrow('FIXTURE_OUTCOME_UNKNOWN');
+    expect(realpathSync(isolatedPath)).not.toBe(realpathSync(item.project));
+    expect(execFileSync('git', ['-C', isolatedPath, 'rev-parse', 'HEAD'], { env: projectGitEnvironment(), encoding: 'utf8' }).trim()).toBe(item.head);
     // The fixture exits successfully only after accepting the exact Turn request
     // in lost-turn mode; a protocol rejection leaves stdin open and does not exit.
     const serverExit = await Promise.race([closed, new Promise(resolve => setTimeout(() => resolve('timeout'), 3000))]);
     expect(serverExit).toEqual([0, null]);
-    expect(client.status()).toBe('UNKNOWN');
-    expect(client.unknownNotificationFailed()).toBe(false);
     expect(receiptCount).toBe(0);
-    expect(writes.mock.calls.filter(call => String(call[0]).includes('"turn/start"'))).toHaveLength(1);
+    expect(turnWrites()).toBe(1);
     expect(item.db.prepare('SELECT attempt_id,state FROM execution_attempts').all())
       .toEqual([{ attempt_id: original.attemptId, state: 'UNKNOWN' }]);
     expect(item.db.prepare('SELECT state,claim_token FROM outbox').get()).toEqual({ state: 'RECONCILING', claim_token: null });
     expect(item.db.prepare('SELECT state FROM resource_leases').get()).toEqual({ state: 'ACTIVE' });
     await expect(item.authority.claimQueued(item.scope)).rejects.toThrow('PROTECTED_AUTHORITY_UNAVAILABLE');
-    await expect(client.start(isolated.path, claimed.objective)).rejects.toThrow();
-    expect(writes.mock.calls.filter(call => String(call[0]).includes('"turn/start"'))).toHaveLength(1);
+    await expect(dispatcher.start(item.scope)).rejects.toThrow();
+    expect(turnWrites()).toBe(1);
     expect(execFileSync('git', ['-C', item.project, 'rev-parse', 'HEAD'], { env: projectGitEnvironment(), encoding: 'utf8' }).trim()).toBe(item.head);
     expect(execFileSync('git', ['-C', item.project, 'status', '--porcelain'], { env: projectGitEnvironment(), encoding: 'utf8' }).trim()).toBe('');
   } finally {
@@ -136,33 +133,32 @@ test('a fake acknowledged Turn persists encrypted receipt and quarantines the or
   try {
     vi.mocked(presentProtectedConsent).mockResolvedValue(true);
     const original = await item.authority.confirmAndQueue(item.scope);
-    const task = item.db.prepare('SELECT task_id FROM tasks').get() as { task_id: string };
-    const claimed = await item.authority.claimQueuedContext(item.scope);
-    const input = { projectId: 'p', taskId: task.task_id, projectPath: claimed.projectPath,
-      worktreeRoot: join(item.folder, 'worktrees'), baselineCommit: claimed.baselineCommit } as Parameters<GitWorktreeService['create']>[0];
-    const isolated = new GitWorktreeService().create(input);
     const principalHash = createHash('sha256').update('codex-personal-v1:fixture@example.invalid:plus').digest('hex');
-    const writer = await item.authority.prepareReceipt(item.scope, claimed.claimToken, { cwd: isolated.path, principalHash });
     const path = fileURLToPath(new URL('../../../../packages/codex-adapter/tests/fixtures/execution-app-server.mjs', import.meta.url));
-    child = spawn(process.execPath, [path, 'normal'], { stdio: ['pipe', 'pipe', 'ignore'], windowsHide: true });
-    closed = once(child, 'close');
-    client = new AppServerExecutionClient(child, '0.121.0', principalHash, async () => true,
-      () => writer.markUnknown(), receipt => writer.record(receipt));
-    await client.initialize();
-    const receipt = await client.start(isolated.path, claimed.objective);
+    const { FixtureProtectedDispatch } = await import('../../src/main/fixture-protected-dispatch.js');
+    const dispatcher = new FixtureProtectedDispatch(item.authority, join(item.folder, 'worktrees'), principalHash, (version, onUnknown, recordStart) => {
+      child = spawn(process.execPath, [path, 'normal'], { stdio: ['pipe', 'pipe', 'ignore'], windowsHide: true });
+      closed = once(child, 'close');
+      client = new AppServerExecutionClient(child, version, principalHash, async () => true, onUnknown, recordStart);
+      return client;
+    });
+    const dispatched = await dispatcher.start(item.scope);
+    const isolated = { path: dispatched.cwd };
+    const receipt = dispatched.receipt;
+    expect(dispatched.attemptId).toBe(original.attemptId);
     expect(item.db.prepare('SELECT state FROM execution_attempts').get()).toEqual({ state: 'RUNNING' });
     expect(await item.authority.readReceipt(item.scope)).toEqual({ attemptId: original.attemptId, ...receipt });
     vi.mocked(presentProtectedCancellation).mockResolvedValue(true);
     expect(await item.authority.requestCancellation(item.scope)).toBe('STARTED');
     expect(await item.authority.requestCancellation(item.scope)).toBe('ALREADY_CANCELLING');
-    expect(await client.interrupt()).toBe(true);
+    expect(await client!.interrupt()).toBe(true);
     expect(item.db.prepare('SELECT state FROM execution_attempts').get()).toEqual({ state: 'CANCELLING' });
     expect(item.db.prepare('SELECT state FROM resource_leases').get()).toEqual({ state: 'ACTIVE' });
-    if (!child.stdin) throw new Error('fixture stdin unavailable');
-    child.stdin.end();
+    if (!child!.stdin) throw new Error('fixture stdin unavailable');
+    child!.stdin!.end();
     await closed;
-    expect(client.status()).toBe('UNKNOWN');
-    expect(client.unknownNotificationFailed()).toBe(false);
+    expect(client!.status()).toBe('UNKNOWN');
+    expect(client!.unknownNotificationFailed()).toBe(false);
     expect(item.db.prepare('SELECT attempt_id,state FROM execution_attempts').all())
       .toEqual([{ attempt_id: original.attemptId, state: 'UNKNOWN' }]);
     expect(item.db.prepare('SELECT state FROM outbox').get()).toEqual({ state: 'ACKNOWLEDGED' });
@@ -187,7 +183,6 @@ test('a fake acknowledged Turn persists encrypted receipt and quarantines the or
     expect(reopened.prepare('SELECT attempt_id,state FROM execution_attempts').all())
       .toEqual([{ attempt_id: original.attemptId, state: 'RECONCILING' }]);
     expect(reopened.prepare('SELECT state FROM resource_leases').get()).toEqual({ state: 'ACTIVE' });
-    writer.dispose();
   } finally {
     observer?.dispose();
     if (observerChild?.stdin && !observerChild.stdin.destroyed) observerChild.stdin.end();
@@ -210,6 +205,123 @@ test('a real Git baseline and synthetic native consent queue one protected Attem
     expect(item.db.prepare('SELECT count(*) AS n FROM execution_attempts').get()).toEqual({ n: 1 });
     expect(item.db.serialize().includes(Buffer.from('private integration goal'))).toBe(false);
     expect(execFileSync('git', ['-C', item.project, 'rev-parse', 'HEAD'], { env: projectGitEnvironment(), encoding: 'utf8' }).trim()).toBe(item.head);
+  } finally { item.db.close(); rmSync(item.folder, { recursive: true, force: true }); }
+}, 30000);
+
+test('a worktree failure after claim quarantines the original Attempt without releasing its Lease', async () => {
+  const item = await fixture();
+  try {
+    vi.mocked(presentProtectedConsent).mockResolvedValue(true);
+    const original = await item.authority.confirmAndQueue(item.scope);
+    const principal = createHash('sha256').update('codex-personal-v1:fixture@example.invalid:plus').digest('hex');
+    const { FixtureProtectedDispatch } = await import('../../src/main/fixture-protected-dispatch.js');
+    const dispatcher = new FixtureProtectedDispatch(item.authority, item.executable, principal, () => { throw new Error('fixture must not launch'); });
+    await expect(dispatcher.start(item.scope)).rejects.toThrow('FIXTURE_OUTCOME_UNKNOWN');
+    expect(item.db.prepare('SELECT attempt_id,state FROM execution_attempts').all()).toEqual([{ attempt_id: original.attemptId, state: 'UNKNOWN' }]);
+    expect(item.db.prepare('SELECT state,claim_token FROM outbox').get()).toEqual({ state: 'RECONCILING', claim_token: null });
+    expect(item.db.prepare('SELECT state FROM resource_leases').get()).toEqual({ state: 'ACTIVE' });
+  } finally { item.db.close(); rmSync(item.folder, { recursive: true, force: true }); }
+}, 30000);
+
+test('a fixture transport cannot report success without persisting its start receipt', async () => {
+  const item = await fixture();
+  try {
+    vi.mocked(presentProtectedConsent).mockResolvedValue(true);
+    const original = await item.authority.confirmAndQueue(item.scope);
+    const principal = createHash('sha256').update('codex-personal-v1:fixture@example.invalid:plus').digest('hex');
+    const { FixtureProtectedDispatch } = await import('../../src/main/fixture-protected-dispatch.js');
+    const dispatcher = new FixtureProtectedDispatch(item.authority, join(item.folder, 'worktrees'), principal, () => ({
+      async initialize() {},
+      async start(cwd) { return { threadId: 'thread', turnId: 'turn', cwd, principalHash: principal }; },
+      dispose() {}
+    }));
+    await expect(dispatcher.start(item.scope)).rejects.toThrow('FIXTURE_OUTCOME_UNKNOWN');
+    expect(item.db.prepare('SELECT attempt_id,state FROM execution_attempts').get()).toEqual({ attempt_id: original.attemptId, state: 'UNKNOWN' });
+    expect(item.db.prepare('SELECT count(*) AS n FROM protected_start_receipts').get()).toEqual({ n: 0 });
+    expect(item.db.prepare('SELECT state FROM resource_leases').get()).toEqual({ state: 'ACTIVE' });
+  } finally { item.db.close(); rmSync(item.folder, { recursive: true, force: true }); }
+}, 30000);
+
+test('an UNKNOWN notification during initialization prevents a later fake start', async () => {
+  const item = await fixture();
+  try {
+    vi.mocked(presentProtectedConsent).mockResolvedValue(true);
+    const original = await item.authority.confirmAndQueue(item.scope);
+    const principal = createHash('sha256').update('codex-personal-v1:fixture@example.invalid:plus').digest('hex');
+    let starts = 0;
+    const { FixtureProtectedDispatch } = await import('../../src/main/fixture-protected-dispatch.js');
+    const dispatcher = new FixtureProtectedDispatch(item.authority, join(item.folder, 'worktrees'), principal, (_version, onUnknown) => ({
+      async initialize() { onUnknown(); },
+      async start(cwd) { starts += 1; return { threadId: 'thread', turnId: 'turn', cwd, principalHash: principal }; },
+      dispose() {}
+    }));
+    await expect(dispatcher.start(item.scope)).rejects.toThrow('FIXTURE_OUTCOME_UNKNOWN');
+    expect(starts).toBe(0);
+    expect(item.db.prepare('SELECT attempt_id,state FROM execution_attempts').get()).toEqual({ attempt_id: original.attemptId, state: 'UNKNOWN' });
+    expect(item.db.prepare('SELECT state FROM resource_leases').get()).toEqual({ state: 'ACTIVE' });
+  } finally { item.db.close(); rmSync(item.folder, { recursive: true, force: true }); }
+}, 30000);
+
+test('a failure after receipt persistence quarantines the same running Attempt', async () => {
+  const item = await fixture();
+  try {
+    vi.mocked(presentProtectedConsent).mockResolvedValue(true);
+    const original = await item.authority.confirmAndQueue(item.scope);
+    const principal = createHash('sha256').update('codex-personal-v1:fixture@example.invalid:plus').digest('hex');
+    const { FixtureProtectedDispatch } = await import('../../src/main/fixture-protected-dispatch.js');
+    const dispatcher = new FixtureProtectedDispatch(item.authority, join(item.folder, 'worktrees'), principal, (_version, _onUnknown, record) => ({
+      async initialize() {},
+      async start(cwd) {
+        if (!record({ threadId: 'thread', turnId: 'turn', cwd, principalHash: principal })) throw new Error('record failed');
+        throw new Error('lost response after receipt');
+      },
+      dispose() {}
+    }));
+    await expect(dispatcher.start(item.scope)).rejects.toThrow('FIXTURE_OUTCOME_UNKNOWN');
+    expect(item.db.prepare('SELECT attempt_id,state FROM execution_attempts').get()).toEqual({ attempt_id: original.attemptId, state: 'UNKNOWN' });
+    expect(item.db.prepare('SELECT state FROM outbox').get()).toEqual({ state: 'ACKNOWLEDGED' });
+    expect(item.db.prepare('SELECT state FROM resource_leases').get()).toEqual({ state: 'ACTIVE' });
+    expect((await item.authority.readReceipt(item.scope))?.attemptId).toBe(original.attemptId);
+  } finally { item.db.close(); rmSync(item.folder, { recursive: true, force: true }); }
+}, 30000);
+
+test('a later UNKNOWN persistence failure remains observable after a saved receipt', async () => {
+  const item = await fixture();
+  try {
+    vi.mocked(presentProtectedConsent).mockResolvedValue(true);
+    await item.authority.confirmAndQueue(item.scope);
+    const principal = createHash('sha256').update('codex-personal-v1:fixture@example.invalid:plus').digest('hex');
+    let notifyUnknown = () => false;
+    const { FixtureProtectedDispatch } = await import('../../src/main/fixture-protected-dispatch.js');
+    const dispatcher = new FixtureProtectedDispatch(item.authority, join(item.folder, 'worktrees'), principal, (_version, onUnknown, record) => {
+      notifyUnknown = onUnknown;
+      return {
+        async initialize() {},
+        async start(cwd) { const receipt = { threadId: 'thread', turnId: 'turn', cwd, principalHash: principal }; if (!record(receipt)) throw new Error('record failed'); return receipt; },
+        dispose() {}
+      };
+    });
+    await dispatcher.start(item.scope);
+    item.db.exec('BEGIN IMMEDIATE');
+    try { expect(notifyUnknown()).toBe(false); expect(dispatcher.state).toBe('PERSISTENCE_FAILED'); }
+    finally { item.db.exec('ROLLBACK'); }
+    expect(item.db.prepare('SELECT state FROM execution_attempts').get()).toEqual({ state: 'RUNNING' });
+    expect(item.db.prepare('SELECT state FROM resource_leases').get()).toEqual({ state: 'ACTIVE' });
+  } finally { item.db.close(); rmSync(item.folder, { recursive: true, force: true }); }
+}, 30000);
+
+test('a failed quarantine after claim is reported rather than declared safe', async () => {
+  const item = await fixture();
+  try {
+    vi.mocked(presentProtectedConsent).mockResolvedValue(true);
+    await item.authority.confirmAndQueue(item.scope);
+    vi.spyOn(item.authority, 'quarantineClaim').mockReturnValue(false);
+    const principal = createHash('sha256').update('codex-personal-v1:fixture@example.invalid:plus').digest('hex');
+    const { FixtureProtectedDispatch } = await import('../../src/main/fixture-protected-dispatch.js');
+    const dispatcher = new FixtureProtectedDispatch(item.authority, item.executable, principal, () => { throw new Error('fixture must not launch'); });
+    await expect(dispatcher.start(item.scope)).rejects.toThrow('FIXTURE_QUARANTINE_FAILED');
+    expect(item.db.prepare('SELECT state FROM outbox').get()).toEqual({ state: 'DISPATCHING' });
+    expect(item.db.prepare('SELECT state FROM resource_leases').get()).toEqual({ state: 'ACTIVE' });
   } finally { item.db.close(); rmSync(item.folder, { recursive: true, force: true }); }
 }, 30000);
 

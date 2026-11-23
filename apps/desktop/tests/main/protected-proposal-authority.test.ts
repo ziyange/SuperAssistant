@@ -79,11 +79,12 @@ test('claim context derives the exact approved Proposal and execution identity w
   try {
     bindProtected(db, proposal);
     const queued = await confirm(authority, scope, async () => true, async () => 'a'.repeat(40));
+    const task = db.prepare('SELECT task_id FROM tasks').get() as { task_id: string };
     const claim = Reflect.get(authority, 'claimQueuedContext');
     expect(typeof claim, 'claim-bound execution context is required').toBe('function');
     const result = await claim.call(authority, scope) as Record<string, unknown>;
     expect(result).toEqual({
-      attemptId: queued.attemptId, claimToken: expect.any(String), objective: 'confidential objective',
+      attemptId: queued.attemptId, taskId: task.task_id, projectId: 'p', claimToken: expect.any(String), objective: 'confidential objective',
       baselineCommit: 'a'.repeat(40), projectPath: 'E:/fixture', executablePath: 'E:/fixture/codex.exe',
       executableVersion: '0.121.0', executableSha256: 'a'.repeat(64)
     });

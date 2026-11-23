@@ -525,3 +525,11 @@ snapshot, not permission for a later launch: files, Lease and authority may
 change immediately afterward. Do not expose it to renderer, IPC, logs or
 production dispatch; trusted worktree custody, revalidation and process
 confinement remain required.
+
+TASK-827 composes the protected claim and worktree with a fake transport only.
+Its success requires the same receipt to have been persisted; UNKNOWN before
+start prevents dispatch, and a failed UNKNOWN write remains observable as
+`PERSISTENCE_FAILED`. This state must be monitored by a fixture caller. The
+injected transport is not a trusted owner, and cleanup of a process launched
+by a fixture remains the fixture's responsibility. There is no production
+startup, Lease release or terminal cancellation from this composition.

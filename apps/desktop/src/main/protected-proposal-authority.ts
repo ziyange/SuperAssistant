@@ -20,7 +20,7 @@ type Envelope = {
   key_ref: string; nonce: Buffer; ciphertext: Buffer; auth_tag: Buffer; created_at: string;
   owner_hash: string; reservation_state: string; reservation_created: string; reservation_updated: string;
 };
-type ClaimContext = Readonly<{ attemptId: string; claimToken: string; objective: string; baselineCommit: string;
+type ClaimContext = Readonly<{ attemptId: string; taskId: string; projectId: string; claimToken: string; objective: string; baselineCommit: string;
   projectPath: string; executablePath: string; executableVersion: string; executableSha256: string }>;
 type ExistingResult = { attemptId: string; claimToken?: string; context?: ClaimContext } | { unavailable: true } | null;
 type ProofSnapshot = { fields: string[]; tag: string };
@@ -417,12 +417,14 @@ export class ProtectedProposalAuthority {
             .get('project:' + scope.projectId, 'worktree:' + scope.projectId) as { value: number | null };
           if (collision || highest.value !== lease.fencing_token) return { unavailable: true } as const;
           const claimToken = randomUUID();
+          const taskId = snapshot.fields[8];
+          if (includeContext && (!taskId || !/^[a-z0-9_-]{1,128}$/i.test(taskId))) throw new Error('unavailable');
           const updated = this.db.prepare(`UPDATE outbox SET state='DISPATCHING',claim_token=?
             WHERE message_id=? AND attempt_id=? AND state='PENDING' AND claim_token IS NULL`)
             .run(claimToken, 'outbox:' + checked.attemptId, checked.attemptId);
           if (updated.changes !== 1) return { unavailable: true } as const;
           const context = includeContext ? Object.freeze({
-            attemptId: checked.attemptId, claimToken, objective: proposal.objective, baselineCommit: proposal.baselineCommit,
+            attemptId: checked.attemptId, taskId: taskId!, projectId: scope.projectId, claimToken, objective: proposal.objective, baselineCommit: proposal.baselineCommit,
             projectPath: executionIdentity.projectPath, executablePath: executionIdentity.executablePath,
             executableVersion: executionIdentity.executableVersion, executableSha256: executionIdentity.executableSha256
           }) : undefined;
