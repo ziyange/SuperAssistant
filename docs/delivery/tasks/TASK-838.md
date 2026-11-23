@@ -1,7 +1,7 @@
 # TASK-838: Register authenticated protected Proposal authority
 
 ## Status
-IN_PROGRESS
+COMPLETED
 PHASE: PHASE-007
 MAX_ITERATIONS: 6
 user_confirmed: true
@@ -94,5 +94,8 @@ After the final input check, build, lint, typecheck, host unit (1131 passed,
 guard, the unchanged desktop routes also passed 2 real Electron tests and 9
 browser tests; these do not exercise this unconnected registry. Skips are not
 PASS evidence. Production intake, vault custody, native process ownership,
-side-effect fencing, cancellation and H1 acceptance remain unproven. GitHub CI
-for this change is pending.
+side-effect fencing, cancellation and H1 acceptance remain unproven. GitHub
+[application](https://github.com/ziyange/SuperAssistant/actions/runs/45249375898)
+and [documentation](https://github.com/ziyange/SuperAssistant/actions/runs/45249375882)
+workflows passed on `1be80b0cc0c84ca98d6ad13e8f00cd324fdc33ba`. TASK-839
+subsequently changes registry matching and must be verified independently.

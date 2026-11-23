@@ -541,6 +541,14 @@ observed clock rollback and incomplete existing bindings. This staging action
 does not authorize a side effect or prove future Agent health, Git state,
 trusted key custody, process ownership or continuous effect fencing.
 
+TASK-839 intake obtains a Proposal from the main-owned local draft rather than
+caller-supplied content. It compares that draft to the independently
+authenticated ciphertext before registration, checks the draft again after
+registration, and never treats the comparison as approval. An invalidated
+draft can leave an encrypted binding if invalidation races with registration;
+the failed result must remain unavailable to any production confirmation
+path. Missing, ambiguous or uncertain key reservations are never recreated.
+
 TASK-832 revalidates the authenticated original claim after worktree creation
 and after fixture transport initialization. Receipt persistence rechecks the
 authenticated Project snapshot, Grant and current Agent/Function, exact

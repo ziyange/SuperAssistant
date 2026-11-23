@@ -24,7 +24,22 @@ export class ProtectedProposalRegistry {
     this.store = new EncryptedProposalStore(new ReservedPayloadService(db, new ProtectedKeyReservations(db), vault));
   }
 
-  async register(input: EncryptedProposalScope): Promise<'REGISTERED' | 'EXISTING'> {
+  register(input: EncryptedProposalScope): Promise<'REGISTERED' | 'EXISTING'> {
+    return this.registerOnce(input);
+  }
+
+  /** Expected content can only reject an independently authenticated Proposal. */
+  registerMatching(input: EncryptedProposalScope, expected: ProposalVersion): Promise<'REGISTERED' | 'EXISTING'> {
+    try {
+      const text = JSON.stringify(expected);
+      if (typeof text !== 'string' || Buffer.byteLength(text, 'utf8') > 65536) throw new Error('unavailable');
+      const snapshot: unknown = JSON.parse(text);
+      if (!isDeepStrictEqual(snapshot, expected)) throw new Error('unavailable');
+      return this.registerOnce(input, snapshot);
+    } catch { return Promise.reject(new Error('PROTECTED_REGISTRY_UNAVAILABLE')); }
+  }
+
+  private async registerOnce(input: EncryptedProposalScope, expected?: unknown): Promise<'REGISTERED' | 'EXISTING'> {
     try {
       if (!input || typeof input !== 'object' || Array.isArray(input) || Object.keys(input).sort().join(',') !== 'projectId,proposalVersionId,workspaceId'
         || this.db.inTransaction) throw new Error('unavailable');
@@ -37,7 +52,7 @@ export class ProtectedProposalRegistry {
       const captured = initial.captured;
       if (!captured || !initial.catalog) throw new Error('unavailable');
       const proposal = await this.store.readBound(scope, captured.encoded);
-      if (!proposal || this.db.inTransaction) throw new Error('unavailable');
+      if (!proposal || (expected !== undefined && !isDeepStrictEqual(proposal, expected)) || this.db.inTransaction) throw new Error('unavailable');
       return this.db.transaction(() => {
         if (this.envelope(scope)?.encoded !== captured.encoded || !isDeepStrictEqual(this.catalog(scope), initial.catalog)
           || !this.current(proposal, observed)) throw new Error('unavailable');

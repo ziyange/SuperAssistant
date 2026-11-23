@@ -1,6 +1,6 @@
 import { Buffer } from 'node:buffer';
 import { execFileSync, spawn } from 'node:child_process';
-import { createHash, randomBytes } from 'node:crypto';
+import { createCipheriv, createHash, randomBytes } from 'node:crypto';
 import { once } from 'node:events';
 import { mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -18,6 +18,8 @@ import { ReservedPayloadService, type ReservedVault } from '../../src/main/reser
 import { EncryptedProposalStore } from '../../src/main/encrypted-proposal-store.js';
 import { ProtectedProposalAuthority } from '../../src/main/protected-proposal-authority.js';
 import { ProtectedProposalRegistry } from '../../src/main/protected-proposal-registry.js';
+import { ProtectedProposalIntake } from '../../src/main/protected-proposal-intake.js';
+import { LocalGoalDraft } from '../../src/main/local-goal-draft.js';
 import { presentProtectedCancellation, presentProtectedConsent } from '../../src/main/protected-native-consent.js';
 import { projectGitEnvironment } from '../../src/main/project-git-baseline.js';
 import { AppServerExecutionClient } from '../../../../packages/codex-adapter/src/app-server-execution-client.js';
@@ -66,6 +68,161 @@ async function fixture(objective = 'private integration goal') {
   const authority = new ProtectedProposalAuthority(db, vault, () => '2026-08-01T00:00:00.000Z');
   return { folder, db, vault, scope, authority, commit, head, project, executable, proposal };
 }
+
+test('a real local draft stages one protected Proposal and retains its original Attempt after a lost fake reply', async () => {
+  const item = await fixture();
+  let child: ReturnType<typeof spawn> | undefined;
+  let client: AppServerExecutionClient | undefined;
+  let closed: Promise<unknown> | undefined;
+  const drafts = new LocalGoalDraft(item.db, () => new Date('2026-08-01T00:00:00.000Z'));
+  let draftId = '';
+  try {
+    draftId = await drafts.create({ projectId: 'p', objective: 'Write the approved change', criterion: 'Document the fixture' });
+    const intake = new ProtectedProposalIntake(item.db, item.vault, drafts, () => '2026-08-01T00:00:00.000Z');
+    const [first, second] = await Promise.all([intake.stage(draftId), intake.stage(draftId)]);
+    expect(first).toEqual(second);
+    expect(await intake.stage(draftId)).toEqual(first);
+    expect(item.db.prepare('SELECT COUNT(*) AS n FROM protected_proposal_bindings WHERE proposal_version_id=?').get(first.proposalVersionId)).toEqual({ n: 1 });
+    expect(item.db.serialize().includes(Buffer.from('Write the approved change'))).toBe(false);
+    expect(item.db.serialize().includes(Buffer.from('Document the fixture'))).toBe(false);
+    vi.mocked(presentProtectedConsent).mockResolvedValue(true);
+    const original = await item.authority.confirmAndQueue(first);
+    const path = fileURLToPath(new URL('../../../../packages/codex-adapter/tests/fixtures/execution-app-server.mjs', import.meta.url));
+    const principal = createHash('sha256').update('codex-personal-v1:fixture@example.invalid:plus').digest('hex');
+    const { FixtureProtectedDispatch } = await import('../../src/main/fixture-protected-dispatch.js');
+    const dispatcher = new FixtureProtectedDispatch(item.authority, join(item.folder, 'worktrees'), principal, (version, onUnknown, record) => {
+      child = spawn(process.execPath, [path, 'lost-turn'], { stdio: ['pipe', 'pipe', 'ignore'], windowsHide: true });
+      closed = once(child, 'close');
+      client = new AppServerExecutionClient(child, version, principal, async () => true, onUnknown, record);
+      return client;
+    });
+    await expect(dispatcher.start(first)).rejects.toThrow('FIXTURE_OUTCOME_UNKNOWN');
+    expect(await Promise.race([closed, new Promise(resolve => setTimeout(() => resolve('timeout'), 3000))])).toEqual([0, null]);
+    expect(item.db.prepare('SELECT attempt_id,state FROM execution_attempts').all()).toEqual([{ attempt_id: original.attemptId, state: 'UNKNOWN' }]);
+    expect(item.db.prepare('SELECT state FROM resource_leases').get()).toEqual({ state: 'ACTIVE' });
+    expect(item.db.prepare('SELECT COUNT(*) AS n FROM tasks').get()).toEqual({ n: 1 });
+  } finally {
+    drafts.discard(draftId);
+    client?.dispose();
+    if (child?.stdin && !child.stdin.destroyed) child.stdin.end();
+    if (closed) await closed;
+    item.db.close();
+    rmSync(item.folder, { recursive: true, force: true });
+  }
+}, 60000);
+
+test('a draft made stale during vault creation is not registered or authorized', async () => {
+  const item = await fixture();
+  const drafts = new LocalGoalDraft(item.db, () => new Date('2026-08-01T00:00:00.000Z'));
+  let draftId = '';
+  try {
+    draftId = await drafts.create({ projectId: 'p', objective: 'Update fixture documentation', criterion: 'Document the fixture' });
+    const originalCreate = item.vault.create.bind(item.vault);
+    const create = vi.spyOn(item.vault, 'create').mockImplementation(async ref => {
+      const key = await originalCreate(ref);
+      item.db.prepare("UPDATE projects SET row_version=row_version+1 WHERE project_id='p'").run();
+      return key;
+    });
+    const intake = new ProtectedProposalIntake(item.db, item.vault, drafts, () => '2026-08-01T00:00:00.000Z');
+    await expect(intake.stage(draftId)).rejects.toThrow();
+    await expect(intake.stage(draftId)).rejects.toThrow();
+    expect(create).toHaveBeenCalledOnce();
+    expect(item.db.prepare("SELECT COUNT(*) AS n FROM proposal_authority_refs WHERE proposal_version_id LIKE 'goal-review-%'").get()).toEqual({ n: 0 });
+    expect(item.db.prepare('SELECT COUNT(*) AS n FROM authorization_grants').get()).toEqual({ n: 0 });
+  } finally { drafts.discard(draftId); item.db.close(); rmSync(item.folder, { recursive: true, force: true }); }
+}, 60000);
+
+test('an uncertain vault write is not automatically retried', async () => {
+  const item = await fixture();
+  const drafts = new LocalGoalDraft(item.db, () => new Date('2026-08-01T00:00:00.000Z'));
+  let draftId = '';
+  try {
+    draftId = await drafts.create({ projectId: 'p', objective: 'Update fixture documentation', criterion: 'Document the fixture' });
+    const originalCreate = item.vault.create.bind(item.vault);
+    const create = vi.spyOn(item.vault, 'create').mockImplementation(async ref => { await originalCreate(ref); throw new Error('ambiguous fixture'); });
+    const intake = new ProtectedProposalIntake(item.db, item.vault, drafts, () => '2026-08-01T00:00:00.000Z');
+    await expect(intake.stage(draftId)).rejects.toThrow();
+    await expect(intake.stage(draftId)).rejects.toThrow();
+    expect(create).toHaveBeenCalledOnce();
+    expect(item.db.prepare("SELECT state FROM protected_key_reservations WHERE record_id LIKE 'goal-review-%'").get()).toEqual({ state: 'UNCERTAIN' });
+    expect(item.db.prepare('SELECT COUNT(*) AS n FROM authorization_grants').get()).toEqual({ n: 0 });
+  } finally { drafts.discard(draftId); item.db.close(); rmSync(item.folder, { recursive: true, force: true }); }
+}, 60000);
+
+test('concurrent intake instances never create duplicate key material for one draft', async () => {
+  const item = await fixture();
+  const drafts = new LocalGoalDraft(item.db, () => new Date('2026-08-01T00:00:00.000Z'));
+  let draftId = '';
+  try {
+    draftId = await drafts.create({ projectId: 'p', objective: 'Write the approved change', criterion: 'Document the fixture' });
+    const create = vi.spyOn(item.vault, 'create');
+    const first = new ProtectedProposalIntake(item.db, item.vault, drafts, () => '2026-08-01T00:00:00.000Z');
+    const second = new ProtectedProposalIntake(item.db, item.vault, drafts, () => '2026-08-01T00:00:00.000Z');
+    const results = await Promise.allSettled([first.stage(draftId), second.stage(draftId)]);
+    expect(results.some(result => result.status === 'fulfilled')).toBe(true);
+    const scope = await second.stage(draftId);
+    expect(create).toHaveBeenCalledOnce();
+    expect(item.db.prepare('SELECT COUNT(*) AS n FROM protected_proposal_bindings WHERE proposal_version_id=?').get(scope.proposalVersionId)).toEqual({ n: 1 });
+    expect(item.db.prepare('SELECT COUNT(*) AS n FROM authorization_grants').get()).toEqual({ n: 0 });
+  } finally { drafts.discard(draftId); item.db.close(); rmSync(item.folder, { recursive: true, force: true }); }
+}, 60000);
+
+test('discarding a draft during registry authentication never reports a staged success or creates a Grant', async () => {
+  const item = await fixture();
+  const drafts = new LocalGoalDraft(item.db, () => new Date('2026-08-01T00:00:00.000Z'));
+  let draftId = '';
+  try {
+    draftId = await drafts.create({ projectId: 'p', objective: 'Write the approved change', criterion: 'Document the fixture' });
+    const read = item.vault.read.bind(item.vault);
+    let reads = 0;
+    vi.spyOn(item.vault, 'read').mockImplementation(async ref => {
+      const result = await read(ref);
+      // Two reads occur while saving; the third authenticates the registry envelope.
+      if (++reads === 3) drafts.discard(draftId);
+      return result;
+    });
+    const intake = new ProtectedProposalIntake(item.db, item.vault, drafts, () => '2026-08-01T00:00:00.000Z');
+    await expect(intake.stage(draftId)).rejects.toThrow();
+    expect(item.db.prepare('SELECT COUNT(*) AS n FROM authorization_grants').get()).toEqual({ n: 0 });
+    expect(item.db.prepare('SELECT COUNT(*) AS n FROM execution_attempts').get()).toEqual({ n: 0 });
+    expect(item.db.prepare("SELECT COUNT(*) AS n FROM protected_payloads WHERE record_id LIKE 'goal-review-%'").get()).toEqual({ n: 1 });
+    expect(item.db.prepare("SELECT COUNT(*) AS n FROM protected_proposal_bindings WHERE proposal_version_id LIKE 'goal-review-%'").get()).toEqual({ n: 1 });
+  } finally { drafts.discard(draftId); item.db.close(); rmSync(item.folder, { recursive: true, force: true }); }
+}, 60000);
+
+test('rejects a different valid encrypted Proposal swapped between draft recheck and registry authentication', async () => {
+  const item = await fixture();
+  const drafts = new LocalGoalDraft(item.db, () => new Date('2026-08-01T00:00:00.000Z'));
+  let draftId = '';
+  try {
+    draftId = await drafts.create({ projectId: 'p', objective: 'Write the approved change', criterion: 'Document the fixture' });
+    const prepare = drafts.prepare.bind(drafts);
+    let reads = 0;
+    vi.spyOn(drafts, 'prepare').mockImplementation(async id => {
+      const original = await prepare(id);
+      if (++reads === 2 && original.fullReview) {
+        const other = createH1ReviewedProposal(original.proposalVersionId, {
+          ...original.fullReview, objective: 'Different objective',
+          workItems: original.fullReview.workItems.map(work => ({ ...work, objective: 'Different objective' }))
+        });
+        const row = item.db.prepare('SELECT format_version,workspace_id,project_id,record_id,content_kind,key_ref,created_at FROM protected_payloads WHERE record_id=?')
+          .get(original.proposalVersionId) as { format_version: number; workspace_id: string; project_id: string; record_id: string; content_kind: string; key_ref: string; created_at: string };
+        const key = item.vault.values.get(row.key_ref);
+        if (!key) throw new Error('missing synthetic fixture key');
+        const nonce = randomBytes(12), cipher = createCipheriv('aes-256-gcm', key, nonce);
+        cipher.setAAD(Buffer.from(JSON.stringify([row.format_version, row.workspace_id, row.project_id, row.record_id, row.content_kind, row.key_ref, row.created_at])));
+        const ciphertext = Buffer.concat([cipher.update(JSON.stringify(other), 'utf8'), cipher.final()]);
+        item.db.exec('DROP TRIGGER protected_payloads_no_update');
+        item.db.prepare('UPDATE protected_payloads SET nonce=?,ciphertext=?,auth_tag=? WHERE record_id=?').run(nonce, ciphertext, cipher.getAuthTag(), row.record_id);
+      }
+      return original;
+    });
+    const intake = new ProtectedProposalIntake(item.db, item.vault, drafts, () => '2026-08-01T00:00:00.000Z');
+    await expect(intake.stage(draftId)).rejects.toThrow();
+    expect(item.db.prepare("SELECT COUNT(*) AS n FROM proposal_authority_refs WHERE proposal_version_id LIKE 'goal-review-%'").get()).toEqual({ n: 0 });
+    expect(item.db.prepare('SELECT COUNT(*) AS n FROM authorization_grants').get()).toEqual({ n: 0 });
+  } finally { drafts.discard(draftId); item.db.close(); rmSync(item.folder, { recursive: true, force: true }); }
+}, 60000);
 
 test('an accepted fake Turn with a lost reply quarantines the original Attempt in an isolated worktree', async () => {
   const item = await fixture('Write the approved change');
