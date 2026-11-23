@@ -11068,4 +11068,6 @@
 {"tx_id":"task-823-write-276","action_type":"FILE_WRITE","normalized_path":"apps/desktop/tests/main/protected-proposal-authority.test.ts","intent_hash":"c7db55df768c854cfd89f1b61301727781dda7a2552529214533bdc37a492c3c","iteration_index":1,"timestamp":"2026-11-23T09:16:18.867Z","result_status":"COMPLETED","ignored_candidates":[],"artifact_metadata":{"sha256":"372d15424822a08b39e34bc6019e131d90ce28d7f79e3455b6c49f864ba8e534"}}
 ,
 {"tx_id":"task-823-write-277","action_type":"FILE_WRITE","normalized_path":"docs/delivery/tasks/TASK-823.md","intent_hash":"da87e03ce2b569e2d0259d038e725e13d77b745650abfd7856c2b00ebb6baa86","iteration_index":1,"timestamp":"2026-11-23T10:59:11.061Z","result_status":"COMPLETED","ignored_candidates":[],"artifact_metadata":{"sha256":"1bddf2d6c6de7cf944d22ce059a07f584febc3f15719a4b04541072c8ee3ea1f"}}
+,
+{"tx_id":"task-823-write-278","action_type":"FILE_WRITE","normalized_path":"docs/delivery/tasks/TASK-823.md","intent_hash":"ef5d8d548f05a0ffef208679773c1f0e2e06a9fedc0a5ed66c55b3b5ea7e3da8","iteration_index":1,"timestamp":"2026-11-23T11:07:57.733Z","result_status":"COMPLETED","ignored_candidates":[],"artifact_metadata":{"sha256":"f3364345b673a373c4ee14c0b7f217fa08085c635e4b70c1859160144b0055d0"}}
 ]

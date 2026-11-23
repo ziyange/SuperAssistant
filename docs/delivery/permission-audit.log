@@ -9976,4 +9976,6 @@
 {"tx_id":"task-823-write-276","timestamp":"2026-11-23T09:16:06.322Z","action_type":"FILE_WRITE","normalized_path":"apps/desktop/tests/main/protected-proposal-authority.test.ts","prev_hash":"b05c066ae09fe77a3c9b2e898ba591144d229bb520d8756919407b6f6fcf7228","intent_hash":"c7db55df768c854cfd89f1b61301727781dda7a2552529214533bdc37a492c3c","status":"COMMITTED","artifact_metadata":{"sha256":"372d15424822a08b39e34bc6019e131d90ce28d7f79e3455b6c49f864ba8e534"}}
 ,
 {"tx_id":"task-823-write-277","timestamp":"2026-11-23T10:59:01.802Z","action_type":"FILE_WRITE","normalized_path":"docs/delivery/tasks/TASK-823.md","prev_hash":"c7db55df768c854cfd89f1b61301727781dda7a2552529214533bdc37a492c3c","intent_hash":"da87e03ce2b569e2d0259d038e725e13d77b745650abfd7856c2b00ebb6baa86","status":"COMMITTED","artifact_metadata":{"sha256":"1bddf2d6c6de7cf944d22ce059a07f584febc3f15719a4b04541072c8ee3ea1f"}}
+,
+{"tx_id":"task-823-write-278","timestamp":"2026-11-23T11:07:45.049Z","action_type":"FILE_WRITE","normalized_path":"docs/delivery/tasks/TASK-823.md","prev_hash":"da87e03ce2b569e2d0259d038e725e13d77b745650abfd7856c2b00ebb6baa86","intent_hash":"ef5d8d548f05a0ffef208679773c1f0e2e06a9fedc0a5ed66c55b3b5ea7e3da8","status":"COMMITTED","artifact_metadata":{"sha256":"f3364345b673a373c4ee14c0b7f217fa08085c635e4b70c1859160144b0055d0"}}
 ]

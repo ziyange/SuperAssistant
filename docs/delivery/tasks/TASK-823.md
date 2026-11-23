@@ -1,11 +1,13 @@
 # TASK-823: Protected native approval and transactional execution authority
 
 ## Status
-APPROVED
+COMPLETED
 PHASE: PHASE-007
 MAX_ITERATIONS: 6
 user_confirmed: true
 Authority: Standing user authorization to complete the encrypted Proposal, native confirmation, original Attempt and merge prerequisites.
+
+Acceptance is limited to the isolated, fail-closed implementation and synthetic-vault/native-boundary tests specified in this pack. It is not acceptance of native human consent, production dispatch, running cancellation, H1, PHASE-007 or merge. Migration 033 and the production route remain disabled. The independently required operating-system owner, confinement and trusted custody are not delivered by this pack.
 
 ## Requirement IDs
 REQ-020, REQ-021, REQ-023, REQ-024, REQ-027, REQ-031, REQ-033, REQ-038, REQ-049, REQ-090, REQ-092, REQ-094, REQ-095, REQ-098, REQ-099
