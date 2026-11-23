@@ -21,6 +21,7 @@ import { presentProtectedConsent } from '../../src/main/protected-native-consent
 import { projectGitEnvironment } from '../../src/main/project-git-baseline.js';
 import { GitWorktreeService } from '../../src/main/worktree-service.js';
 import { AppServerExecutionClient } from '../../../../packages/codex-adapter/src/app-server-execution-client.js';
+import { ReadOnlyAppServerClient } from '../../../../packages/codex-adapter/src/app-server-client.js';
 
 vi.mock('../../src/main/protected-native-consent.js', () => ({ presentProtectedConsent: vi.fn() }));
 
@@ -66,7 +67,7 @@ async function fixture(objective = 'private integration goal') {
     SELECT ?, 'PROTECTED', ?, ?, record_id, key_ref, 'PROPOSAL', 1, 'SAI_PROPOSAL_SHA256_V1'
     FROM protected_payloads WHERE record_id=?`).run(scope.proposalVersionId, 'w', 'p', scope.proposalVersionId);
   const authority = new ProtectedProposalAuthority(db, vault, () => '2026-08-01T00:00:00.000Z');
-  return { folder, db, scope, authority, commit, head, project, executable, proposal };
+  return { folder, db, vault, scope, authority, commit, head, project, executable, proposal };
 }
 
 test('an accepted fake Turn with a lost reply quarantines the original Attempt in an isolated worktree', async () => {
@@ -128,6 +129,10 @@ test('a fake acknowledged Turn persists encrypted receipt and quarantines the or
   let child: ReturnType<typeof spawn> | undefined;
   let client: AppServerExecutionClient | undefined;
   let closed: Promise<unknown> | undefined;
+  let reopened: Database.Database | undefined;
+  let observerChild: ReturnType<typeof spawn> | undefined;
+  let observerClosed: Promise<unknown> | undefined;
+  let observer: ReadOnlyAppServerClient | undefined;
   try {
     vi.mocked(presentProtectedConsent).mockResolvedValue(true);
     const original = await item.authority.confirmAndQueue(item.scope);
@@ -158,8 +163,30 @@ test('a fake acknowledged Turn persists encrypted receipt and quarantines the or
     expect(item.db.prepare('SELECT state FROM resource_leases').get()).toEqual({ state: 'ACTIVE' });
     expect(await item.authority.readReceipt(item.scope)).toEqual({ attemptId: original.attemptId, ...receipt });
     expect(execFileSync('git', ['-C', item.project, 'status', '--porcelain'], { env: projectGitEnvironment(), encoding: 'utf8' }).trim()).toBe('');
+    const backup = join(item.folder, 'recovery.sqlite');
+    await item.db.backup(backup);
+    reopened = new Database(backup, { fileMustExist: true });
+    const recovery = new ProtectedProposalAuthority(reopened, item.vault, () => '2026-08-01T00:00:00.000Z');
+    expect(await recovery.beginReconciliation(item.scope)).toBe(true);
+    const recovered = await recovery.readReceipt(item.scope);
+    expect(recovered).toEqual({ attemptId: original.attemptId, ...receipt });
+    if (!recovered) throw new Error('receipt unavailable');
+    observerChild = spawn(process.execPath, [path, 'reconcile'], { cwd: isolated.path, stdio: ['pipe', 'pipe', 'ignore'], windowsHide: true });
+    observerClosed = once(observerChild, 'close');
+    observer = new ReadOnlyAppServerClient(observerChild);
+    await observer.discover('0.121.0');
+    expect(observer.recoveryPrincipal()).toBe(recovered.principalHash);
+    expect(await observer.observeTurn(recovered.threadId, recovered.turnId, recovered.cwd)).toBe('COMPLETED');
+    expect(await observer.verifyRecoveryPrincipal()).toBe(true);
+    expect(reopened.prepare('SELECT attempt_id,state FROM execution_attempts').all())
+      .toEqual([{ attempt_id: original.attemptId, state: 'RECONCILING' }]);
+    expect(reopened.prepare('SELECT state FROM resource_leases').get()).toEqual({ state: 'ACTIVE' });
     writer.dispose();
   } finally {
+    observer?.dispose();
+    if (observerChild?.stdin && !observerChild.stdin.destroyed) observerChild.stdin.end();
+    if (observerClosed) await observerClosed;
+    reopened?.close();
     client?.dispose();
     if (child?.stdin && !child.stdin.destroyed) child.stdin.end();
     if (closed) await closed;

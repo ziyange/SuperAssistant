@@ -24,6 +24,7 @@ type ExistingResult = { attemptId: string; claimToken?: string } | { unavailable
 type ProofSnapshot = { fields: string[]; tag: string };
 type ProtectedReceipt = { threadId: string; turnId: string; cwd: string; principalHash: string };
 type ReceiptEnvelope = { nonce: Buffer; ciphertext: Buffer; auth_tag: Buffer };
+type AuthenticatedReceipt = { receipt: ProtectedReceipt & { attemptId: string }; snapshot: ProofSnapshot; captured: string; stored: ReceiptEnvelope };
 function validReceipt(value: unknown): value is ProtectedReceipt {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
   const row = value as Record<string, unknown>;
@@ -213,11 +214,47 @@ export class ProtectedProposalAuthority {
   /** Read encrypted receipt only; this does not infer or update execution state. */
   async readReceipt(input: EncryptedProposalScope): Promise<({ attemptId: string } & ProtectedReceipt) | null> {
     if (arguments.length !== 1 || !validScope(input) || this.db.inTransaction) return null;
-    const scope = { ...input }, snapshot = this.proofSnapshot(scope), captured = this.envelope(scope);
-    if (!snapshot || !captured) return null;
+    return (await this.authenticatedReceipt({ ...input }))?.receipt ?? null;
+  }
+
+  /** Begin read-only reconciliation; never infer a terminal outcome or release a Lease. */
+  async beginReconciliation(input: EncryptedProposalScope): Promise<boolean> {
+    if (arguments.length !== 1 || !validScope(input) || this.db.inTransaction) return false;
+    const scope = { ...input }, authenticated = await this.authenticatedReceipt(scope);
+    if (!authenticated || this.db.inTransaction) return false;
+    const { receipt, snapshot, captured, stored } = authenticated;
+    try {
+      return this.db.transaction(() => {
+        const currentReceipt = this.db.prepare('SELECT nonce,ciphertext,auth_tag FROM protected_start_receipts WHERE attempt_id=?').get(receipt.attemptId);
+        if (this.envelope(scope) !== captured || !isDeepStrictEqual(this.proofSnapshot(scope), snapshot) || !isDeepStrictEqual(currentReceipt, stored)) return false;
+        const row = this.db.prepare(`SELECT a.state FROM protected_execution_bindings b
+          JOIN execution_attempts a ON a.attempt_id=b.attempt_id AND a.work_item_id=b.work_item_id
+            AND a.request_id=b.request_id AND a.idempotency_key=b.proposal_version_id
+          JOIN work_items w ON w.work_item_id=b.work_item_id AND w.task_id=b.task_id AND w.agent_id=b.agent_id AND w.function_id=b.function_id
+          JOIN tasks t ON t.task_id=b.task_id AND t.workspace_id=b.workspace_id AND t.project_id=b.project_id
+            AND t.proposal_version_id=b.proposal_version_id AND t.authorization_grant_id=b.grant_id
+          JOIN authorization_grants g ON g.grant_id=b.grant_id AND g.proposal_version_id=b.proposal_version_id
+            AND g.proposal_digest=b.envelope_digest AND g.actor_id='local-owner' AND g.status='CONSUMED'
+          JOIN resource_leases l ON l.lease_id=b.lease_id AND l.attempt_id=a.attempt_id AND l.resource_key='project:'||b.project_id
+            AND l.state='ACTIVE' AND l.fencing_token=?
+          JOIN outbox o ON o.message_id='outbox:'||a.attempt_id AND o.attempt_id=a.attempt_id
+            AND o.request_id=a.request_id AND o.idempotency_key=a.idempotency_key AND o.message_type='start'
+            AND o.payload_json=json_object('attempt_id',a.attempt_id) AND o.state='ACKNOWLEDGED' AND o.claim_token IS NULL
+          WHERE b.workspace_id=? AND b.project_id=? AND b.proposal_version_id=? AND b.attempt_id=?`)
+          .get(Number(snapshot.fields[13]), scope.workspaceId, scope.projectId, scope.proposalVersionId, receipt.attemptId) as { state: string } | undefined;
+        if (row?.state === 'RECONCILING') return true;
+        if (row?.state !== 'UNKNOWN') return false;
+        return this.db.prepare("UPDATE execution_attempts SET state='RECONCILING' WHERE attempt_id=? AND state='UNKNOWN'").run(receipt.attemptId).changes === 1;
+      }).immediate();
+    } catch { return false; }
+  }
+
+  private async authenticatedReceipt(scope: EncryptedProposalScope): Promise<AuthenticatedReceipt | null> {
     let codec: Awaited<ReturnType<ReservedPayloadService['receiptCodec']>> | undefined;
     let plain: Buffer | undefined, aad: Buffer | undefined;
     try {
+      const snapshot = this.proofSnapshot(scope), captured = this.envelope(scope);
+      if (!snapshot || !captured) return null;
       const attemptId = snapshot.fields[10];
       const read = () => this.db.prepare('SELECT nonce,ciphertext,auth_tag FROM protected_start_receipts WHERE attempt_id=?').get(attemptId) as ReceiptEnvelope | undefined;
       const stored = read();
@@ -227,7 +264,7 @@ export class ProtectedProposalAuthority {
       aad = proofMessage(['receipt-v1', ...snapshot.fields, snapshot.tag]);
       plain = codec.open({ nonce: stored.nonce, ciphertext: stored.ciphertext, authTag: stored.auth_tag }, aad);
       const receipt: unknown = JSON.parse(plain.toString('utf8'));
-      return validReceipt(receipt) && attemptId ? { attemptId, ...receipt } : null;
+      return validReceipt(receipt) && attemptId ? { receipt: { attemptId, ...receipt }, snapshot, captured, stored } : null;
     } catch { return null; }
     finally { plain?.fill(0); aad?.fill(0); codec?.dispose(); }
   }

@@ -559,6 +559,103 @@ test('the private receipt owner quarantines a running original Attempt after con
   } finally { db.close(); }
 });
 
+test('authenticated receipt starts idempotent reconciliation of the same unknown Attempt', async () => {
+  const { db, authority, proposal } = await fixture();
+  try {
+    bindProtected(db, proposal);
+    const original = await confirm(authority, scope, async () => true, async () => 'a'.repeat(40));
+    const claim = await authority.claimQueued(scope);
+    const cwd = 'E:/private-worktrees/task-1', principalHash = 'b'.repeat(64);
+    const writer = await authority.prepareReceipt(scope, claim.claimToken, { cwd, principalHash });
+    expect(writer.record({ threadId: 'thread-1', turnId: 'turn-1', cwd, principalHash })).toBe(true);
+    expect(writer.markUnknown()).toBe(true);
+    const begin = Reflect.get(authority, 'beginReconciliation');
+    expect(typeof begin).toBe('function');
+    expect(await Reflect.apply(begin, authority, [scope])).toBe(true);
+    expect(await Reflect.apply(begin, authority, [scope])).toBe(true);
+    expect(db.prepare('SELECT attempt_id,state FROM execution_attempts').all()).toEqual([{ attempt_id: original.attemptId, state: 'RECONCILING' }]);
+    expect(db.prepare('SELECT state FROM outbox').get()).toEqual({ state: 'ACKNOWLEDGED' });
+    expect(db.prepare('SELECT state FROM resource_leases').get()).toEqual({ state: 'ACTIVE' });
+    await expect(authority.claimQueued(scope)).rejects.toThrow('PROTECTED_AUTHORITY_UNAVAILABLE');
+  } finally { db.close(); }
+});
+
+test.each(['missing receipt', 'released lease', 'foreign scope'])('reconciliation rejects %s without changing the Attempt', async condition => {
+  const { db, authority, proposal } = await fixture();
+  try {
+    bindProtected(db, proposal);
+    const original = await confirm(authority, scope, async () => true, async () => 'a'.repeat(40));
+    const claim = await authority.claimQueued(scope);
+    const cwd = 'E:/private-worktrees/task-1', principalHash = 'b'.repeat(64);
+    const writer = await authority.prepareReceipt(scope, claim.claimToken, { cwd, principalHash });
+    expect(writer.record({ threadId: 'thread-1', turnId: 'turn-1', cwd, principalHash })).toBe(true);
+    expect(writer.markUnknown()).toBe(true);
+    if (condition === 'missing receipt') db.exec('DROP TRIGGER protected_start_receipt_no_delete; DELETE FROM protected_start_receipts');
+    if (condition === 'released lease') db.exec("DROP TRIGGER protected_lease_no_unverified_release; UPDATE resource_leases SET state='RELEASED'");
+    expect(await authority.beginReconciliation(condition === 'foreign scope' ? { ...scope, projectId: 'other' } : scope)).toBe(false);
+    expect(db.prepare('SELECT attempt_id,state FROM execution_attempts').all()).toEqual([{ attempt_id: original.attemptId, state: 'UNKNOWN' }]);
+    expect(db.prepare('SELECT state FROM outbox').get()).toEqual({ state: 'ACKNOWLEDGED' });
+  } finally { db.close(); }
+});
+
+test('receipt replacement during asynchronous key access cannot start reconciliation', async () => {
+  const { db, vault, authority, proposal } = await fixture();
+  try {
+    bindProtected(db, proposal);
+    const original = await confirm(authority, scope, async () => true, async () => 'a'.repeat(40));
+    const claim = await authority.claimQueued(scope);
+    const cwd = 'E:/private-worktrees/task-1', principalHash = 'b'.repeat(64);
+    const writer = await authority.prepareReceipt(scope, claim.claimToken, { cwd, principalHash });
+    expect(writer.record({ threadId: 'thread-1', turnId: 'turn-1', cwd, principalHash })).toBe(true);
+    expect(writer.markUnknown()).toBe(true);
+    const originalRead = vault.read.bind(vault);
+    let changed = false;
+    vault.read = async ref => {
+      if (!changed) {
+        changed = true;
+        db.exec('DROP TRIGGER protected_start_receipt_no_update; UPDATE protected_start_receipts SET auth_tag=zeroblob(16)');
+      }
+      return originalRead(ref);
+    };
+    expect(await authority.beginReconciliation(scope)).toBe(false);
+    expect(changed).toBe(true);
+    expect(db.prepare('SELECT attempt_id,state FROM execution_attempts').get()).toEqual({ attempt_id: original.attemptId, state: 'UNKNOWN' });
+    expect(db.prepare('SELECT state FROM resource_leases').get()).toEqual({ state: 'ACTIVE' });
+  } finally { db.close(); }
+});
+
+test('a Lease moved to a different resource cannot authorize reconciliation', async () => {
+  const { db, authority, proposal } = await fixture();
+  try {
+    bindProtected(db, proposal);
+    const original = await confirm(authority, scope, async () => true, async () => 'a'.repeat(40));
+    const claim = await authority.claimQueued(scope);
+    const cwd = 'E:/private-worktrees/task-1', principalHash = 'b'.repeat(64);
+    const writer = await authority.prepareReceipt(scope, claim.claimToken, { cwd, principalHash });
+    expect(writer.record({ threadId: 'thread-1', turnId: 'turn-1', cwd, principalHash })).toBe(true);
+    expect(writer.markUnknown()).toBe(true);
+    db.exec("DROP TRIGGER protected_lease_update; UPDATE resource_leases SET resource_key='project:other'");
+    expect(await authority.beginReconciliation(scope)).toBe(false);
+    expect(db.prepare('SELECT attempt_id,state FROM execution_attempts').get()).toEqual({ attempt_id: original.attemptId, state: 'UNKNOWN' });
+  } finally { db.close(); }
+});
+
+test('a Grant with a different Proposal digest cannot authorize reconciliation', async () => {
+  const { db, authority, proposal } = await fixture();
+  try {
+    bindProtected(db, proposal);
+    const original = await confirm(authority, scope, async () => true, async () => 'a'.repeat(40));
+    const claim = await authority.claimQueued(scope);
+    const cwd = 'E:/private-worktrees/task-1', principalHash = 'b'.repeat(64);
+    const writer = await authority.prepareReceipt(scope, claim.claimToken, { cwd, principalHash });
+    expect(writer.record({ threadId: 'thread-1', turnId: 'turn-1', cwd, principalHash })).toBe(true);
+    expect(writer.markUnknown()).toBe(true);
+    db.exec("DROP TRIGGER protected_grant_immutable; DROP TRIGGER grants_authority_update; UPDATE authorization_grants SET proposal_digest='sha256:' || printf('%064d',0)");
+    expect(await authority.beginReconciliation(scope)).toBe(false);
+    expect(db.prepare('SELECT attempt_id,state FROM execution_attempts').get()).toEqual({ attempt_id: original.attemptId, state: 'UNKNOWN' });
+  } finally { db.close(); }
+});
+
 test('competing receipt writers cannot acknowledge or create a second receipt', async () => {
   const { db, authority, proposal } = await fixture();
   try {
