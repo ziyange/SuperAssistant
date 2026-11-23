@@ -374,3 +374,10 @@ If quarantine persistence fails the caller must observe `PERSISTENCE_FAILED`;
 this is not an automatic recovery notification. This fixture composition is
 not registered with the desktop, cannot establish process ownership or
 confinement, and cannot authorize production execution.
+
+TASK-832 adds original-claim revalidation before creating the fake transport
+and after its initialization. A stale claim is quarantined without starting
+or replacing the Attempt. Receipt recording independently rejects stale
+database authority and Lease state transactionally; rejection after an external
+start is an unknown outcome, not proof that no side effect occurred. The Lease
+remains active and no production transport is enabled.

@@ -94,6 +94,54 @@ test('claim context derives the exact approved Proposal and execution identity w
   } finally { db.close(); }
 });
 
+test('claimed context recheck requires the original live claim token without mutating it', async () => {
+  const { db, authority, proposal } = await fixture();
+  try {
+    bindProtected(db, proposal);
+    const original = await confirm(authority, scope, async () => true, async () => 'a'.repeat(40));
+    const claim = await authority.claimQueuedContext(scope);
+    expect(claim.attemptId).toBe(original.attemptId);
+    expect(await authority.verifyClaimedContext(scope, claim.claimToken)).toBe(true);
+    expect(await authority.verifyClaimedContext(scope, '00000000-0000-4000-8000-000000000000')).toBe(false);
+    expect(db.prepare('SELECT state,claim_token FROM outbox').get()).toEqual({ state: 'DISPATCHING', claim_token: claim.claimToken });
+    expect(db.prepare('SELECT count(*) AS n FROM execution_attempts').get()).toEqual({ n: 1 });
+  } finally { db.close(); }
+});
+
+test.each([
+  ['Agent', "UPDATE agents SET availability='PAUSED' WHERE agent_id='agent'"],
+  ['Project', "UPDATE projects SET row_version=row_version+1 WHERE project_id='p'"],
+  ['Function', "UPDATE functions SET function_version='2' WHERE agent_id='agent'"],
+  ['runtime', "UPDATE local_codex_registrations SET executable_path='E:/other/codex.exe' WHERE agent_id='agent'"],
+  ['fence', 'DROP TRIGGER protected_lease_update; UPDATE resource_leases SET fencing_token=99']
+])('claimed context recheck refuses a changed %s', async (_name, sql) => {
+  const { db, authority, proposal } = await fixture();
+  try {
+    bindProtected(db, proposal);
+    await confirm(authority, scope, async () => true, async () => 'a'.repeat(40));
+    const claim = await authority.claimQueuedContext(scope);
+    db.exec(sql);
+    expect(await authority.verifyClaimedContext(scope, claim.claimToken)).toBe(false);
+    expect(db.prepare('SELECT state,claim_token FROM outbox').get()).toEqual({ state: 'DISPATCHING', claim_token: claim.claimToken });
+    expect(db.prepare('SELECT state FROM resource_leases').get()).toEqual({ state: 'ACTIVE' });
+  } finally { db.close(); }
+});
+
+test('claimed context recheck refuses an advanced Git baseline and an expired Lease', async () => {
+  const { db, vault, authority, proposal } = await fixture();
+  try {
+    bindProtected(db, proposal);
+    await confirm(authority, scope, async () => true, async () => 'a'.repeat(40));
+    const claim = await authority.claimQueuedContext(scope);
+    vi.mocked(readProjectHeadAsync).mockResolvedValue('b'.repeat(40));
+    expect(await authority.verifyClaimedContext(scope, claim.claimToken)).toBe(false);
+    vi.mocked(readProjectHeadAsync).mockResolvedValue('a'.repeat(40));
+    const later = new ProtectedProposalAuthority(db, vault, () => '2026-08-01T00:00:31.000Z');
+    expect(await later.verifyClaimedContext(scope, claim.claimToken)).toBe(false);
+    expect(db.prepare('SELECT state FROM resource_leases').get()).toEqual({ state: 'ACTIVE' });
+  } finally { db.close(); }
+});
+
 test.each([
   ['unavailable Agent', "UPDATE agents SET availability='PAUSED' WHERE agent_id='agent'"],
   ['changed Project', "UPDATE projects SET row_version=row_version+1 WHERE project_id='p'"],
@@ -602,6 +650,47 @@ test('protected receipt preparation rejects a foreign claim without modifying th
     expect(db.prepare('SELECT attempt_id,state FROM execution_attempts').get()).toEqual({ attempt_id: original.attemptId, state: 'DISPATCH_PENDING' });
     expect(db.prepare('SELECT state,claim_token FROM outbox').get()).toEqual({ state: 'DISPATCHING', claim_token: claim.claimToken });
     expect(db.prepare('SELECT count(*) AS n FROM protected_start_receipts').get()).toEqual({ n: 0 });
+  } finally { db.close(); }
+});
+
+test('receipt preparation cannot adopt a Project row changed after authenticated claim verification', async () => {
+  const { db, authority, proposal } = await fixture();
+  try {
+    bindProtected(db, proposal);
+    await confirm(authority, scope, async () => true, async () => 'a'.repeat(40));
+    const claim = await authority.claimQueued(scope);
+    const original = EncryptedProposalStore.prototype.readBound;
+    let reads = 0;
+    const spy = vi.spyOn(EncryptedProposalStore.prototype, 'readBound').mockImplementation(async function (this: EncryptedProposalStore, ...args) {
+      const result = await original.apply(this, args);
+      if (++reads === 2) db.exec("UPDATE projects SET row_version=row_version+1 WHERE project_id='p'");
+      return result;
+    });
+    const cwd = 'E:/private-worktrees/task-1', principalHash = 'b'.repeat(64);
+    try {
+      let writer: Awaited<ReturnType<typeof authority.prepareReceipt>> | undefined;
+      try { writer = await authority.prepareReceipt(scope, claim.claimToken, { cwd, principalHash }); } catch { /* rejected as stale */ }
+      if (writer) expect(writer.record({ threadId: 'thread-1', turnId: 'turn-1', cwd, principalHash })).toBe(false);
+      expect(db.prepare('SELECT count(*) AS n FROM protected_start_receipts').get()).toEqual({ n: 0 });
+      expect(db.prepare('SELECT state FROM execution_attempts').get()).toEqual({ state: 'DISPATCH_PENDING' });
+    } finally { spy.mockRestore(); }
+  } finally { db.close(); }
+});
+
+test('receipt refuses a Lease moved to a different resource even if fencing maximum matches', async () => {
+  const { db, authority, proposal } = await fixture();
+  try {
+    bindProtected(db, proposal);
+    await confirm(authority, scope, async () => true, async () => 'a'.repeat(40));
+    const claim = await authority.claimQueued(scope);
+    const cwd = 'E:/private-worktrees/task-1', principalHash = 'b'.repeat(64);
+    const writer = await authority.prepareReceipt(scope, claim.claimToken, { cwd, principalHash });
+    const lease = db.prepare('SELECT fencing_token,attempt_id FROM resource_leases').get() as { fencing_token: number; attempt_id: string };
+    db.exec("DROP TRIGGER protected_lease_update; DROP TRIGGER protected_lease_insert; UPDATE resource_leases SET resource_key='project:other'");
+    db.prepare("INSERT INTO resource_leases (lease_id,resource_key,attempt_id,fencing_token,state,created_at) VALUES ('other','project:p',?,?,'RELEASED','2026')").run(lease.attempt_id, lease.fencing_token);
+    expect(writer.record({ threadId: 'thread-1', turnId: 'turn-1', cwd, principalHash })).toBe(false);
+    expect(db.prepare('SELECT count(*) AS n FROM protected_start_receipts').get()).toEqual({ n: 0 });
+    expect(db.prepare('SELECT state FROM execution_attempts').get()).toEqual({ state: 'DISPATCH_PENDING' });
   } finally { db.close(); }
 });
 

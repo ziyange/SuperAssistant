@@ -22,7 +22,8 @@ type Envelope = {
 };
 type ClaimContext = Readonly<{ attemptId: string; taskId: string; projectId: string; claimToken: string; objective: string; baselineCommit: string;
   projectPath: string; executablePath: string; executableVersion: string; executableSha256: string }>;
-type ExistingResult = { attemptId: string; claimToken?: string; context?: ClaimContext } | { unavailable: true } | null;
+type ProjectSnapshot = { canonical_path: string; row_version: number; agent_row_version: number; executable_path: string; observed_version: string; updated_at: string };
+type ExistingResult = { attemptId: string; claimToken?: string; context?: ClaimContext; verifiedProject?: ProjectSnapshot } | { unavailable: true } | null;
 type ProofSnapshot = { fields: string[]; tag: string };
 type ProtectedReceipt = { threadId: string; turnId: string; cwd: string; principalHash: string };
 type ReceiptEnvelope = { nonce: Buffer; ciphertext: Buffer; auth_tag: Buffer };
@@ -128,6 +129,14 @@ export class ProtectedProposalAuthority {
     return result.context;
   }
 
+  /** Fixture recheck only: not a continuing fence, process proof or launch authorization. */
+  async verifyClaimedContext(input: EncryptedProposalScope, claimToken: string): Promise<boolean> {
+    if (arguments.length !== 2 || !validScope(input) || typeof claimToken !== 'string' ||
+        !/^[a-f0-9-]{36}$/i.test(claimToken)) return false;
+    try { return !!(await this.confirmAndQueueOnce({ ...input }, false, false, false, claimToken)).attemptId; }
+    catch { return false; }
+  }
+
   /** Preserve uncertainty, never release the Lease or infer an external outcome. */
   quarantineClaim(input: EncryptedProposalScope, claimToken: string): boolean {
     if (arguments.length !== 2 || !validScope(input) || typeof claimToken !== 'string'
@@ -162,6 +171,12 @@ export class ProtectedProposalAuthority {
     const snapshot = this.proofSnapshot(scope), captured = this.envelope(scope);
     if (!snapshot || !captured || snapshot.fields[5] !== 'sha256:' + createHash('sha256').update(captured).digest('hex')
       || !sameTag(await this.tag(scope, snapshot.fields), snapshot.tag)) throw new Error('PROTECTED_RECEIPT_UNAVAILABLE');
+    const verified = await this.confirmAndQueueOnce(scope, false, false, false, claimToken);
+    const proposal = await this.store.readBound(scope, captured);
+    const preparedProject = verified.verifiedProject;
+    const observed = instant(this.clock());
+    if (!proposal?.fullReview || !isDeepStrictEqual(proposal, createH1ReviewedProposal(scope.proposalVersionId, proposal.fullReview)) ||
+        !preparedProject || observed === null) throw new Error('PROTECTED_RECEIPT_UNAVAILABLE');
     const attemptId = snapshot.fields[10];
     const aad = proofMessage(['receipt-v1', ...snapshot.fields, snapshot.tag]);
     let codec: Awaited<ReturnType<ReservedPayloadService['receiptCodec']>>;
@@ -171,14 +186,25 @@ export class ProtectedProposalAuthority {
     let persisted: ReceiptEnvelope | undefined;
     const eraseKey = () => { consumed = true; aad.fill(0); codec.dispose(); };
     const dispose = () => { closed = true; eraseKey(); };
-    const claimed = () => this.db.prepare(`SELECT 1 FROM execution_attempts a JOIN outbox o ON o.attempt_id=a.attempt_id
-      WHERE a.attempt_id=? AND a.work_item_id=? AND a.request_id=? AND a.idempotency_key=? AND a.state='DISPATCH_PENDING'
+    const claimed = () => this.db.prepare(`SELECT 1 FROM protected_execution_bindings b
+      JOIN authorization_grants g ON g.grant_id=b.grant_id AND g.proposal_version_id=b.proposal_version_id
+        AND g.proposal_digest=b.envelope_digest AND g.actor_id='local-owner' AND g.status='CONSUMED'
+        AND g.idempotency_key=b.proposal_version_id AND g.actions_json=? AND g.issued_at=b.created_at AND g.expires_at=?
+      JOIN tasks t ON t.task_id=b.task_id AND t.workspace_id=b.workspace_id AND t.project_id=b.project_id
+        AND t.authorization_grant_id=b.grant_id AND t.proposal_version_id=b.proposal_version_id AND t.state='QUEUED'
+      JOIN work_items w ON w.work_item_id=b.work_item_id AND w.task_id=t.task_id AND w.agent_id=b.agent_id AND w.function_id=b.function_id AND w.state='WAITING'
+      JOIN execution_attempts a ON a.attempt_id=b.attempt_id AND a.work_item_id=w.work_item_id
+      JOIN outbox o ON o.attempt_id=a.attempt_id
+      WHERE b.workspace_id=? AND b.project_id=? AND b.proposal_version_id=?
+        AND a.attempt_id=? AND a.work_item_id=? AND a.request_id=? AND a.idempotency_key=? AND a.state='DISPATCH_PENDING'
         AND o.message_id='outbox:'||a.attempt_id AND o.request_id=a.request_id AND o.idempotency_key=a.idempotency_key
         AND o.payload_json=json_object('attempt_id',a.attempt_id)
         AND o.message_type='start' AND o.state='DISPATCHING' AND o.claim_token=?`)
-      .get(attemptId, snapshot.fields[9], snapshot.fields[12], scope.proposalVersionId, claimToken);
+      .get(JSON.stringify(proposal.actions), proposal.expiresAt, scope.workspaceId, scope.projectId, scope.proposalVersionId,
+        attemptId, snapshot.fields[9], snapshot.fields[12], scope.proposalVersionId, claimToken);
     try {
-      if (this.db.inTransaction || this.envelope(scope) !== captured || !isDeepStrictEqual(this.proofSnapshot(scope), snapshot) || !claimed()) throw new Error('unavailable');
+      if (this.db.inTransaction || this.envelope(scope) !== captured || !isDeepStrictEqual(this.proofSnapshot(scope), snapshot) ||
+          !isDeepStrictEqual(this.project(scope), preparedProject) || !claimed()) throw new Error('unavailable');
     } catch { dispose(); throw new Error('PROTECTED_RECEIPT_UNAVAILABLE'); }
     return {
       record: receipt => {
@@ -189,7 +215,21 @@ export class ProtectedProposalAuthority {
           plain = Buffer.from(JSON.stringify(receipt), 'utf8');
           const sealed = codec.seal(plain, aad);
           const success = this.db.transaction(() => {
-            if (this.envelope(scope) !== captured || !isDeepStrictEqual(this.proofSnapshot(scope), snapshot) || !claimed()) throw new Error('unavailable');
+            if (this.envelope(scope) !== captured || !isDeepStrictEqual(this.proofSnapshot(scope), snapshot)) throw new Error('unavailable');
+            const actual = instant(this.clock());
+            const leaseId = snapshot.fields[11], token = Number(snapshot.fields[13]);
+            if (actual === null || !leaseId || !attemptId || !Number.isSafeInteger(token) || token <= 0) return false;
+            const matchingLease = this.db.prepare("SELECT 1 FROM resource_leases WHERE lease_id=? AND attempt_id=? AND fencing_token=? AND resource_key=? AND state='ACTIVE'")
+              .get(leaseId, attemptId, token, 'project:' + scope.projectId);
+            if (!matchingLease) return false;
+            const effective = new Date(Math.max(observed, actual)).toISOString();
+            const writable = new SqliteResourceLeaseRepository(this.db, () => effective).canWrite({ leaseId, attemptId, fencingToken: token });
+            if (!writable || actual < observed || !claimed() || !isDeepStrictEqual(this.project(scope), preparedProject) || !this.executable(proposal, effective)) return false;
+            const collision = this.db.prepare(`SELECT 1 FROM resource_leases WHERE resource_key IN (?, ?)
+              AND lease_id<>? AND state<>'RELEASED' LIMIT 1`).get('project:' + scope.projectId, 'worktree:' + scope.projectId, leaseId);
+            const highest = this.db.prepare('SELECT MAX(fencing_token) AS value FROM resource_leases WHERE resource_key IN (?, ?)')
+              .get('project:' + scope.projectId, 'worktree:' + scope.projectId) as { value: number | null };
+            if (collision || highest.value !== token) return false;
             this.db.prepare('INSERT INTO protected_start_receipts VALUES (?, ?, ?, ?)').run(attemptId, sealed.nonce, sealed.ciphertext, sealed.authTag);
             const ack = this.db.prepare("UPDATE outbox SET state='ACKNOWLEDGED',claim_token=NULL WHERE message_id=? AND state='DISPATCHING' AND claim_token=?")
               .run('outbox:' + attemptId, claimToken);
@@ -328,7 +368,7 @@ export class ProtectedProposalAuthority {
     finally { plain?.fill(0); aad?.fill(0); codec?.dispose(); }
   }
 
-  private async confirmAndQueueOnce(scope: EncryptedProposalScope, allowCreate: boolean, claim = false, includeContext = false): Promise<{ attemptId: string; claimToken?: string; context?: ClaimContext }> {
+  private async confirmAndQueueOnce(scope: EncryptedProposalScope, allowCreate: boolean, claim = false, includeContext = false, claimedToken?: string): Promise<{ attemptId: string; claimToken?: string; context?: ClaimContext; verifiedProject?: ProjectSnapshot }> {
     try {
       if (this.db.inTransaction) throw new Error('unavailable');
       const observed = instant(this.clock());
@@ -404,9 +444,9 @@ export class ProtectedProposalAuthority {
           const writable = new SqliteResourceLeaseRepository(this.db, () => effectiveTime).canWrite({ leaseId, attemptId, fencingToken: token });
           if (!writable || initial.rolledBack || time < initial.time || !this.executable(proposal, effectiveTime)) return { unavailable: true } as const;
           let checked: ExistingResult;
-          try { checked = this.existing(scope, fingerprint, contextDigest, proposal); }
+          try { checked = this.existing(scope, fingerprint, contextDigest, proposal, claimedToken); }
           catch { return { unavailable: true } as const; }
-          if (!claim || !checked || 'unavailable' in checked) return checked;
+          if ((!claim && !claimedToken) || !checked || 'unavailable' in checked) return checked;
           const lease = this.db.prepare(`SELECT l.lease_id,l.fencing_token FROM protected_execution_bindings b
             JOIN resource_leases l ON l.lease_id=b.lease_id WHERE b.attempt_id=?`).get(checked.attemptId) as { lease_id: string; fencing_token: number } | undefined;
           if (!lease) throw new Error('unavailable');
@@ -416,6 +456,7 @@ export class ProtectedProposalAuthority {
           const highest = this.db.prepare('SELECT MAX(fencing_token) AS value FROM resource_leases WHERE resource_key IN (?, ?)')
             .get('project:' + scope.projectId, 'worktree:' + scope.projectId) as { value: number | null };
           if (collision || highest.value !== lease.fencing_token) return { unavailable: true } as const;
+          if (claimedToken) return { ...checked, verifiedProject: Object.freeze({ ...project }) };
           const claimToken = randomUUID();
           const taskId = snapshot.fields[8];
           if (includeContext && (!taskId || !/^[a-z0-9_-]{1,128}$/i.test(taskId))) throw new Error('unavailable');
@@ -512,7 +553,7 @@ export class ProtectedProposalAuthority {
       && review.workItems.length === 1 && review.workItems[0]?.required === true && review.workItems[0].dependencies.length === 0;
   }
 
-  private project(scope: EncryptedProposalScope): { canonical_path: string; row_version: number; agent_row_version: number; executable_path: string; observed_version: string; updated_at: string } | undefined {
+  private project(scope: EncryptedProposalScope): ProjectSnapshot | undefined {
     return this.db.prepare(`SELECT p.canonical_path,p.row_version,a.row_version AS agent_row_version,
       r.executable_path,r.observed_version,r.updated_at
       FROM projects p JOIN agents a ON a.agent_id=p.default_agent_id AND a.workspace_id=p.workspace_id
@@ -544,7 +585,7 @@ export class ProtectedProposalAuthority {
     } finally { message.fill(0); }
   }
 
-  private existing(scope: EncryptedProposalScope, fingerprint: string, contextDigest: string, proposal: ProposalVersion): ExistingResult {
+  private existing(scope: EncryptedProposalScope, fingerprint: string, contextDigest: string, proposal: ProposalVersion, claimedToken?: string): ExistingResult {
     const rows = this.db.prepare(`SELECT b.attempt_id,l.lease_id,l.fencing_token FROM protected_execution_bindings b
       JOIN protected_execution_context c ON c.proposal_version_id=b.proposal_version_id AND c.context_digest=?
       JOIN authorization_grants g ON g.grant_id=b.grant_id AND g.proposal_version_id=b.proposal_version_id AND g.proposal_digest=b.envelope_digest AND g.status='CONSUMED'
@@ -555,8 +596,9 @@ export class ProtectedProposalAuthority {
       JOIN execution_attempts a ON a.attempt_id=b.attempt_id AND a.work_item_id=w.work_item_id AND a.request_id=b.request_id AND a.idempotency_key=b.proposal_version_id AND a.state='DISPATCH_PENDING'
       JOIN resource_leases l ON l.lease_id=b.lease_id AND l.attempt_id=a.attempt_id AND l.resource_key='project:' || b.project_id AND l.state='ACTIVE'
       JOIN outbox o ON o.attempt_id=a.attempt_id AND o.request_id=b.request_id AND o.message_id='outbox:' || a.attempt_id
-        AND o.idempotency_key=b.proposal_version_id AND o.message_type='start' AND o.state='PENDING' AND o.payload_json=json_object('attempt_id',a.attempt_id)
-      WHERE b.proposal_version_id=? AND b.workspace_id=? AND b.project_id=? AND b.envelope_digest=? AND b.agent_id=? AND b.function_id=?`).all(contextDigest, JSON.stringify(proposal.actions), proposal.expiresAt, scope.proposalVersionId, scope.workspaceId, scope.projectId, fingerprint, proposal.agentId, proposal.functionId) as { attempt_id: string; lease_id: string; fencing_token: number }[];
+        AND o.idempotency_key=b.proposal_version_id AND o.message_type='start' AND o.payload_json=json_object('attempt_id',a.attempt_id)
+        AND ((? IS NULL AND o.state='PENDING' AND o.claim_token IS NULL) OR (? IS NOT NULL AND o.state='DISPATCHING' AND o.claim_token=?))
+      WHERE b.proposal_version_id=? AND b.workspace_id=? AND b.project_id=? AND b.envelope_digest=? AND b.agent_id=? AND b.function_id=?`).all(contextDigest, JSON.stringify(proposal.actions), proposal.expiresAt, claimedToken ?? null, claimedToken ?? null, claimedToken ?? null, scope.proposalVersionId, scope.workspaceId, scope.projectId, fingerprint, proposal.agentId, proposal.functionId) as { attempt_id: string; lease_id: string; fencing_token: number }[];
     const binding = this.db.prepare('SELECT 1 FROM protected_execution_bindings WHERE proposal_version_id=?').get(scope.proposalVersionId);
     if (rows.length === 1 && rows[0]) {
       const row = rows[0];

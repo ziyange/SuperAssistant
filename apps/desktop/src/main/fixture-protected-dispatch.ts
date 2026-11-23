@@ -47,6 +47,7 @@ export class FixtureProtectedDispatch {
         worktreeRoot: this.worktreeRoot, baselineCommit: claimed.baselineCommit
       } as Parameters<GitWorktreeService['create']>[0]);
       writer = await this.authority.prepareReceipt(scope, claimed.claimToken, { cwd: worktree.path, principalHash: this.principalHash });
+      if (!await this.authority.verifyClaimedContext(scope, claimed.claimToken)) throw new Error('FIXTURE_OUTCOME_UNKNOWN');
       client = this.createFixtureClient(claimed.executableVersion, markUnknown, receipt => {
         if (!acceptingReceipt || quarantined || this.currentState !== 'STARTING' || !writer?.record(receipt)) return false;
         recordedReceipt = { ...receipt };
@@ -54,6 +55,9 @@ export class FixtureProtectedDispatch {
       }, worktree.path);
       await client.initialize();
       if (quarantined || this.currentState !== 'STARTING') throw new Error('FIXTURE_OUTCOME_UNKNOWN');
+      if (!await this.authority.verifyClaimedContext(scope, claimed.claimToken) || quarantined || this.currentState !== 'STARTING') {
+        throw new Error('FIXTURE_OUTCOME_UNKNOWN');
+      }
       acceptingReceipt = true;
       const receipt = await client.start(worktree.path, claimed.objective);
       acceptingReceipt = false;

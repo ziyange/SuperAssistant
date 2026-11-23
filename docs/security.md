@@ -533,3 +533,11 @@ start prevents dispatch, and a failed UNKNOWN write remains observable as
 injected transport is not a trusted owner, and cleanup of a process launched
 by a fixture remains the fixture's responsibility. There is no production
 startup, Lease release or terminal cancellation from this composition.
+
+TASK-832 revalidates the authenticated original claim after worktree creation
+and after fixture transport initialization. Receipt persistence rechecks the
+authenticated Project snapshot, Grant and current Agent/Function, exact
+resource-bound Lease, fencing and claim in one SQLite transaction. A rejected
+expired Lease preserves its authenticated observation watermark. These checks
+are point-in-time safeguards, not process attestation or a filesystem/OS fence;
+an external effect may already have happened before a receipt is rejected.

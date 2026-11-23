@@ -262,6 +262,111 @@ test('an UNKNOWN notification during initialization prevents a later fake start'
   } finally { item.db.close(); rmSync(item.folder, { recursive: true, force: true }); }
 }, 30000);
 
+test('Agent becoming unavailable during fixture initialization prevents fake start and preserves the original Attempt', async () => {
+  const item = await fixture();
+  try {
+    vi.mocked(presentProtectedConsent).mockResolvedValue(true);
+    const original = await item.authority.confirmAndQueue(item.scope);
+    const principal = createHash('sha256').update('codex-personal-v1:fixture@example.invalid:plus').digest('hex');
+    let starts = 0;
+    const { FixtureProtectedDispatch } = await import('../../src/main/fixture-protected-dispatch.js');
+    const dispatcher = new FixtureProtectedDispatch(item.authority, join(item.folder, 'worktrees'), principal, (_version, _onUnknown, record) => ({
+      async initialize() { item.db.exec("UPDATE agents SET availability='PAUSED' WHERE agent_id='agent'"); },
+      async start(cwd) {
+        starts += 1;
+        const receipt = { threadId: 'thread', turnId: 'turn', cwd, principalHash: principal };
+        if (!record(receipt)) throw new Error('record failed');
+        return receipt;
+      },
+      dispose() {}
+    }));
+    await expect(dispatcher.start(item.scope)).rejects.toThrow('FIXTURE_OUTCOME_UNKNOWN');
+    expect(starts).toBe(0);
+    expect(item.db.prepare('SELECT attempt_id,state FROM execution_attempts').get()).toEqual({ attempt_id: original.attemptId, state: 'UNKNOWN' });
+    expect(item.db.prepare('SELECT state FROM resource_leases').get()).toEqual({ state: 'ACTIVE' });
+  } finally { item.db.close(); rmSync(item.folder, { recursive: true, force: true }); }
+}, 30000);
+
+test('Agent becoming unavailable after worktree creation prevents even fake transport creation', async () => {
+  const item = await fixture();
+  try {
+    vi.mocked(presentProtectedConsent).mockResolvedValue(true);
+    const original = await item.authority.confirmAndQueue(item.scope);
+    const prepare = item.authority.prepareReceipt.bind(item.authority);
+    vi.spyOn(item.authority, 'prepareReceipt').mockImplementation(async (...args) => {
+      const writer = await prepare(...args);
+      item.db.exec("UPDATE agents SET availability='PAUSED' WHERE agent_id='agent'");
+      return writer;
+    });
+    const principal = createHash('sha256').update('codex-personal-v1:fixture@example.invalid:plus').digest('hex');
+    let factories = 0;
+    const { FixtureProtectedDispatch } = await import('../../src/main/fixture-protected-dispatch.js');
+    const dispatcher = new FixtureProtectedDispatch(item.authority, join(item.folder, 'worktrees'), principal, () => {
+      factories += 1;
+      throw new Error('fixture must not launch');
+    });
+    await expect(dispatcher.start(item.scope)).rejects.toThrow('FIXTURE_OUTCOME_UNKNOWN');
+    expect(factories).toBe(0);
+    expect(item.db.prepare('SELECT attempt_id,state FROM execution_attempts').get()).toEqual({ attempt_id: original.attemptId, state: 'UNKNOWN' });
+    expect(item.db.prepare('SELECT state FROM resource_leases').get()).toEqual({ state: 'ACTIVE' });
+  } finally { item.db.close(); rmSync(item.folder, { recursive: true, force: true }); }
+}, 30000);
+
+test.each([
+  ['Agent', "UPDATE agents SET availability='PAUSED' WHERE agent_id='agent'"],
+  ['Project', "UPDATE projects SET row_version=row_version+1 WHERE project_id='p'"],
+  ['Function', "UPDATE functions SET function_version='2' WHERE agent_id='agent'"],
+  ['Grant', "UPDATE authorization_grants SET status='REVOKED'"]
+])('%s change before fake receipt cannot mark the original Attempt RUNNING', async (_name, sql) => {
+  const item = await fixture();
+  try {
+    vi.mocked(presentProtectedConsent).mockResolvedValue(true);
+    const original = await item.authority.confirmAndQueue(item.scope);
+    const principal = createHash('sha256').update('codex-personal-v1:fixture@example.invalid:plus').digest('hex');
+    const { FixtureProtectedDispatch } = await import('../../src/main/fixture-protected-dispatch.js');
+    const dispatcher = new FixtureProtectedDispatch(item.authority, join(item.folder, 'worktrees'), principal, (_version, _onUnknown, record) => ({
+      async initialize() {},
+      async start(cwd) {
+        item.db.exec(sql);
+        const receipt = { threadId: 'thread', turnId: 'turn', cwd, principalHash: principal };
+        if (!record(receipt)) throw new Error('stale receipt');
+        return receipt;
+      },
+      dispose() {}
+    }));
+    await expect(dispatcher.start(item.scope)).rejects.toThrow('FIXTURE_OUTCOME_UNKNOWN');
+    expect(item.db.prepare('SELECT attempt_id,state FROM execution_attempts').get()).toEqual({ attempt_id: original.attemptId, state: 'UNKNOWN' });
+    expect(item.db.prepare('SELECT count(*) AS n FROM protected_start_receipts').get()).toEqual({ n: 0 });
+    expect(item.db.prepare('SELECT state FROM resource_leases').get()).toEqual({ state: 'ACTIVE' });
+  } finally { item.db.close(); rmSync(item.folder, { recursive: true, force: true }); }
+}, 30000);
+
+test('Lease expiry before a fake receipt records the observed deadline and preserves UNKNOWN', async () => {
+  const item = await fixture();
+  try {
+    vi.mocked(presentProtectedConsent).mockResolvedValue(true);
+    let now = '2026-08-01T00:00:00.000Z';
+    const authority = new ProtectedProposalAuthority(item.db, item.vault, () => now);
+    const original = await authority.confirmAndQueue(item.scope);
+    const principal = createHash('sha256').update('codex-personal-v1:fixture@example.invalid:plus').digest('hex');
+    const { FixtureProtectedDispatch } = await import('../../src/main/fixture-protected-dispatch.js');
+    const dispatcher = new FixtureProtectedDispatch(authority, join(item.folder, 'worktrees'), principal, (_version, _onUnknown, record) => ({
+      async initialize() {},
+      async start(cwd) {
+        now = '2026-08-01T00:00:31.000Z';
+        const receipt = { threadId: 'thread', turnId: 'turn', cwd, principalHash: principal };
+        if (!record(receipt)) throw new Error('expired receipt');
+        return receipt;
+      },
+      dispose() {}
+    }));
+    await expect(dispatcher.start(item.scope)).rejects.toThrow('FIXTURE_OUTCOME_UNKNOWN');
+    expect(item.db.prepare('SELECT attempt_id,state FROM execution_attempts').get()).toEqual({ attempt_id: original.attemptId, state: 'UNKNOWN' });
+    expect(item.db.prepare('SELECT state,last_observed_at FROM resource_leases').get()).toEqual({ state: 'ACTIVE', last_observed_at: '2026-08-01T00:00:31.000Z' });
+    expect(item.db.prepare('SELECT count(*) AS n FROM protected_start_receipts').get()).toEqual({ n: 0 });
+  } finally { item.db.close(); rmSync(item.folder, { recursive: true, force: true }); }
+}, 30000);
+
 test('a failure after receipt persistence quarantines the same running Attempt', async () => {
   const item = await fixture();
   try {
