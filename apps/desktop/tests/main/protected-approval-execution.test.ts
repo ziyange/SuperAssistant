@@ -1,10 +1,12 @@
 import { Buffer } from 'node:buffer';
-import { execFileSync } from 'node:child_process';
-import { randomBytes } from 'node:crypto';
+import { execFileSync, spawn } from 'node:child_process';
+import { createHash, randomBytes } from 'node:crypto';
+import { once } from 'node:events';
 import { mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { URL } from 'node:url';
+import process from 'node:process';
+import { fileURLToPath, URL } from 'node:url';
 import Database from 'better-sqlite3';
 import { createH1ReviewedProposal } from '@super-assistant/domain';
 import { expect, test, vi } from 'vitest';
@@ -16,6 +18,8 @@ import { EncryptedProposalStore } from '../../src/main/encrypted-proposal-store.
 import { ProtectedProposalAuthority } from '../../src/main/protected-proposal-authority.js';
 import { presentProtectedConsent } from '../../src/main/protected-native-consent.js';
 import { projectGitEnvironment } from '../../src/main/project-git-baseline.js';
+import { GitWorktreeService } from '../../src/main/worktree-service.js';
+import { AppServerExecutionClient } from '../../../../packages/codex-adapter/src/app-server-execution-client.js';
 
 vi.mock('../../src/main/protected-native-consent.js', () => ({ presentProtectedConsent: vi.fn() }));
 
@@ -25,7 +29,7 @@ class Vault implements ReservedVault {
   async read(ref: string) { const key = this.values.get(ref); return key ? Buffer.from(key) : null; }
 }
 
-async function fixture() {
+async function fixture(objective = 'private integration goal') {
   const folder = mkdtempSync(join(tmpdir(), 'sa-protected-git-'));
   const project = join(folder, 'project');
   const executable = join(folder, 'fake-codex.exe');
@@ -46,11 +50,11 @@ async function fixture() {
   const functionId = builtinCodexFunctionId('agent');
   const scope = { workspaceId: 'w', projectId: 'p', proposalVersionId: 'proposal-git' };
   const proposal = createH1ReviewedProposal(scope.proposalVersionId, {
-    objective: 'private integration goal', workspaceId: 'w', projectId: 'p', agentId: 'agent', functionId,
+    objective, workspaceId: 'w', projectId: 'p', agentId: 'agent', functionId,
     projectSnapshotVersion: '1', agentVersion: '0.121.0', functionVersion: '1', capabilityVersion: '1',
     baselineCommit: head, createdAt: '2026-01-01T00:00:00.000Z', expiresAt: '2027-01-01T00:00:00.000Z', deadlineAt: '2027-01-01T00:00:00.000Z',
     budget: { maxDurationMs: 5000, maxTokens: null, maxCost: null }, capabilities: [{ id: 'codex-file-write', version: '1' }],
-    workItems: [{ id: 'review-work', projectId: 'p', agentId: 'agent', functionId, objective: 'private integration goal', required: true, dependencies: [] }],
+    workItems: [{ id: 'review-work', projectId: 'p', agentId: 'agent', functionId, objective, required: true, dependencies: [] }],
     resources: [{ key: 'project:p', intent: 'WRITE' }], allowedActions: ['FILE_WRITE'], forbiddenActions: [],
     reconfirmationTriggers: ['change'], risk: 'HIGH', acceptanceCriteria: [{ criterion: 'private evidence', evidence: 'review' }]
   });
@@ -61,8 +65,62 @@ async function fixture() {
     SELECT ?, 'PROTECTED', ?, ?, record_id, key_ref, 'PROPOSAL', 1, 'SAI_PROPOSAL_SHA256_V1'
     FROM protected_payloads WHERE record_id=?`).run(scope.proposalVersionId, 'w', 'p', scope.proposalVersionId);
   const authority = new ProtectedProposalAuthority(db, vault, () => '2026-08-01T00:00:00.000Z');
-  return { folder, db, scope, authority, commit, head, project, executable };
+  return { folder, db, scope, authority, commit, head, project, executable, proposal };
 }
+
+test('an accepted fake Turn with a lost reply quarantines the original Attempt in an isolated worktree', async () => {
+  const item = await fixture('Write the approved change');
+  let child: ReturnType<typeof spawn> | undefined;
+  let client: AppServerExecutionClient | undefined;
+  let closed: Promise<unknown> | undefined;
+  try {
+    vi.mocked(presentProtectedConsent).mockResolvedValue(true);
+    const original = await item.authority.confirmAndQueue(item.scope);
+    const task = item.db.prepare('SELECT task_id FROM tasks').get() as { task_id: string };
+    const claimed = await item.authority.claimQueued(item.scope);
+    expect(claimed.attemptId).toBe(original.attemptId);
+    const input = { projectId: 'p', taskId: task.task_id, projectPath: item.project,
+      worktreeRoot: join(item.folder, 'worktrees'), baselineCommit: item.head } as Parameters<GitWorktreeService['create']>[0];
+    const isolated = new GitWorktreeService().create(input);
+    expect(realpathSync(isolated.path)).not.toBe(realpathSync(item.project));
+    expect(execFileSync('git', ['-C', isolated.path, 'rev-parse', 'HEAD'], { env: projectGitEnvironment(), encoding: 'utf8' }).trim()).toBe(item.head);
+    const path = fileURLToPath(new URL('../../../../packages/codex-adapter/tests/fixtures/execution-app-server.mjs', import.meta.url));
+    child = spawn(process.execPath, [path, 'lost-turn'], { stdio: ['pipe', 'pipe', 'ignore'], windowsHide: true });
+    closed = once(child, 'close');
+    if (!child.stdin) throw new Error('fixture stdin unavailable');
+    const writes = vi.spyOn(child.stdin, 'write');
+    const principal = createHash('sha256').update('codex-personal-v1:fixture@example.invalid:plus').digest('hex');
+    let receiptCount = 0;
+    client = new AppServerExecutionClient(child, '0.121.0', principal, async () => true,
+      () => item.authority.quarantineClaim(item.scope, claimed.claimToken),
+      () => { receiptCount += 1; return false; });
+    await client.initialize();
+    await expect(client.start(isolated.path, item.proposal.objective)).rejects.toThrow();
+    // The fixture exits successfully only after accepting the exact Turn request
+    // in lost-turn mode; a protocol rejection leaves stdin open and does not exit.
+    const serverExit = await Promise.race([closed, new Promise(resolve => setTimeout(() => resolve('timeout'), 3000))]);
+    expect(serverExit).toEqual([0, null]);
+    expect(client.status()).toBe('UNKNOWN');
+    expect(client.unknownNotificationFailed()).toBe(false);
+    expect(receiptCount).toBe(0);
+    expect(writes.mock.calls.filter(call => String(call[0]).includes('"turn/start"'))).toHaveLength(1);
+    expect(item.db.prepare('SELECT attempt_id,state FROM execution_attempts').all())
+      .toEqual([{ attempt_id: original.attemptId, state: 'UNKNOWN' }]);
+    expect(item.db.prepare('SELECT state,claim_token FROM outbox').get()).toEqual({ state: 'RECONCILING', claim_token: null });
+    expect(item.db.prepare('SELECT state FROM resource_leases').get()).toEqual({ state: 'ACTIVE' });
+    await expect(item.authority.claimQueued(item.scope)).rejects.toThrow('PROTECTED_AUTHORITY_UNAVAILABLE');
+    await expect(client.start(isolated.path, item.proposal.objective)).rejects.toThrow();
+    expect(writes.mock.calls.filter(call => String(call[0]).includes('"turn/start"'))).toHaveLength(1);
+    expect(execFileSync('git', ['-C', item.project, 'rev-parse', 'HEAD'], { env: projectGitEnvironment(), encoding: 'utf8' }).trim()).toBe(item.head);
+    expect(execFileSync('git', ['-C', item.project, 'status', '--porcelain'], { env: projectGitEnvironment(), encoding: 'utf8' }).trim()).toBe('');
+  } finally {
+    client?.dispose();
+    if (child?.stdin && !child.stdin.destroyed) child.stdin.end();
+    if (closed) await closed;
+    item.db.close();
+    rmSync(item.folder, { recursive: true, force: true });
+  }
+}, 45000);
 
 test('a real Git baseline and synthetic native consent queue one protected Attempt', async () => {
   const item = await fixture();
