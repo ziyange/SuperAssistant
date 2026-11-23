@@ -3,6 +3,14 @@
 # TASK-821 Proposal authority identity
 # TASK-822 controlled Proposal-parent transition
 
+TASK-823 in progress: protected authorization must bind the exact authenticated encrypted Proposal, main-owned native consent, current catalog and baseline to an atomic Grant/Task/Attempt/Lease/Outbox transaction. A ciphertext-envelope fingerprint, if used for persistent identity, is a versioned local verifier and must never be substituted for the Proposal SHA-256 on SAI. This is a design constraint, not a claim that protected execution is available.
+
+The protected-execution prototype maps the single H1 reviewed WorkItem to an independently generated opaque control-plane WorkItem ID; the original reviewed ID remains inside the encrypted Proposal. Any future dispatch or evidence reader must authenticate that encrypted Proposal and bind its sole required item to the opaque ID rather than assuming the two IDs match. The prototype and migration remain unavailable to the production route.
+
+The draft protected execution context records a SHA-256 fingerprint of the displayed Project and executable identity (including path, generation, file fingerprint and Git baseline), separately from the encrypted Proposal envelope fingerprint. These hashes are consistency markers, not keyed approval proofs or SAI Proposal digests. A future dispatcher must independently authenticate the Proposal, validate native approval provenance and recheck the current executable, Git baseline and Lease; a database binding alone never authorizes dispatch.
+
+TASK-823 is adding a domain-separated keyed authentication tag over the immutable protected approval record. Only the tag, not the vault key or raw Proposal content, is stored. The tag must be verified against freshly authenticated ciphertext and exact persisted fields before replay or dispatch. It is not a defense against a compromised main process, a malicious same-user principal with access to the key, or rollback to an earlier valid database snapshot.
+
 Migration 032 rebuilds the Grant and Task Proposal foreign keys to the shared authority identity while retaining legacy rows, rowids and dependent references. Unknown or altered target-table schema blocks migration. This is a local implementation pending integrated acceptance; until a later trusted issuer is implemented, protected identities cannot create or update Grants or Tasks.
 
 Migration 031 adds a common identity registry and protected encrypted-payload binding; migration 032 performs the later foreign-key rebuild with exclusive ownership, backup and integrity checks. Legacy Proposal rows are backfilled and future legacy inserts create a same-scope identity atomically. Protected bindings contain neither Proposal text nor raw digest and are not authorization.

@@ -24,7 +24,7 @@ export function validGoalText(value: unknown): value is string {
 }
 
 
-type FileFingerprint = { hash: string; dev: string; ino: string; size: string; modified: string; changed: string };
+export type FileFingerprint = { hash: string; dev: string; ino: string; size: string; modified: string; changed: string };
 type CatalogAuthority = { workspace: string; canonical_path: string; executable_path: string; snapshot_version: number; project_row_version: number; agent_id: string; agent_version: string; agent_row_version: number };
 type Authority = { catalog: CatalogAuthority; binary: FileFingerprint };
 type Entry = { proposal: ProposalVersion; authority: Authority; expires: number; timer: ReturnType<typeof setTimeout> };
@@ -62,7 +62,7 @@ try {
 `;
 
 let activeFingerprintWorkers = 0;
-function fingerprintExecutable(path: string): Promise<FileFingerprint> {
+export function fingerprintExecutable(path: string): Promise<FileFingerprint> {
   if (!isAbsolute(path) || path.startsWith('\\\\') || path.startsWith('//')
     || (process.platform === 'win32' && !/^[a-z]:[\\/]/i.test(path)) || activeFingerprintWorkers >= 2) {
     return Promise.reject(new Error('GOAL_UNAVAILABLE'));

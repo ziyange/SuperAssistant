@@ -1,9 +1,9 @@
 /* eslint-disable no-unused-vars -- port arguments and constructor properties define the main-process boundary. */
 import { Buffer } from 'node:buffer';
-import { timingSafeEqual } from 'node:crypto';
+import { createHmac, hkdfSync, timingSafeEqual } from 'node:crypto';
 import type Database from 'better-sqlite3';
 import { ProtectedKeyReservations } from './protected-key-reservations.js';
-import { ProtectedPayloadStore, type ProtectedKeyProvider, type ProtectedPayloadScope } from './protected-payload-store.js';
+import { authenticatePayloadForRecovery, ProtectedPayloadStore, type ProtectedKeyProvider, type ProtectedPayloadScope } from './protected-payload-store.js';
 
 const vaultDeadlineMs = 10_000;
 const maxOutstandingVaultCalls = 4;
@@ -116,6 +116,31 @@ export class ReservedPayloadService {
       read: async ref => this.readCopy(ref)
     };
     return new ProtectedPayloadStore(this.db, provider).read(scope);
+  }
+
+  /** A tag is an integrity check, not proof that a user approved an operation. */
+  async approvalTag(input: ProtectedPayloadScope, message: Buffer): Promise<string> {
+    const scope = { ...input };
+    if (scope.kind !== 'PROPOSAL' || !Buffer.isBuffer(message) || message.length < 1 || message.length > 8192 || this.db.inTransaction) {
+      throw new Error('Protected approval unavailable');
+    }
+    const capturedMessage = Buffer.from(message);
+    let key: Buffer | null = null;
+    let derived: Buffer | undefined;
+    try {
+      if (this.journal.inspect(scope) !== 'LINKED') throw new Error('unavailable');
+      const reference = this.journal.recoveryReference(scope);
+      if (!reference) throw new Error('unavailable');
+      key = await this.readCopy(reference);
+      if (!key || this.db.inTransaction) throw new Error('unavailable');
+      this.db.transaction(() => {
+        if (this.journal.inspect(scope) !== 'LINKED' || this.journal.recoveryReference(scope) !== reference) throw new Error('unavailable');
+        authenticatePayloadForRecovery(this.db, scope, reference, key!);
+      }).immediate();
+      derived = Buffer.from(hkdfSync('sha256', key, Buffer.from('super-assistant-approval-v1', 'utf8'), Buffer.from('protected-approval-mac', 'utf8'), 32));
+      return 'hmac-sha256:' + createHmac('sha256', derived).update(capturedMessage).digest('hex');
+    } catch { throw new Error('Protected approval unavailable'); }
+    finally { key?.fill(0); derived?.fill(0); capturedMessage.fill(0); }
   }
 
   /** Authenticate the existing envelope and link it without any vault write or key creation. */

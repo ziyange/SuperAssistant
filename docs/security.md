@@ -7,6 +7,10 @@
 
 Grant and Task parent tables may be rebuilt only with verified backup context, exclusive ownership, exact row preservation and foreign-key/integrity checks. Protected identities remain fail-closed until native approval, authenticated decryption and transactional issuer checks are implemented.
 
+The unregistered TASK-823 draft records a monotonic Lease observation and rejects a renewal at or after its preceding expiry. This protects against rollback of an observed expiration, not a malicious same-user database writer falsifying an earlier time; SQLite cannot prove a trusted clock or process ownership. UNKNOWN/RECONCILING remains quarantined until a separate evidence-backed recovery transaction exists. None of this draft authorizes production dispatch.
+
+The generic Outbox claimant checks migration-031 Proposal authority identity at selection and conditional mutation, and will not claim protected or unknown identities. A missing registry fails closed until migration. The isolated protected claimant separately verifies its keyed binding and Lease before a single atomic claim; its uncertainty transition retains the Lease. This does not establish OS process termination, trusted key custody, or evidence-backed recovery for a running Attempt.
+
 The registry stores identity, source and encrypted-payload linkage only. A protected binding is not proof of an authenticated Proposal or user approval; consumers must decrypt, reconstruct and revalidate it at the eventual authorization boundary. No protected Grant, Task or execution is enabled by the registry.
 
 Protected Proposal decryption is followed by byte-exact envelope and reservation revalidation in a main-owned SQLite transaction. The informational check accepts no callback and provides no authorization for later actions. Its wall-clock check has no persistent anti-rollback watermark. Production key provenance, credential handling, Git baseline and process containment remain separate gates.

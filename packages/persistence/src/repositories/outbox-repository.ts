@@ -116,13 +116,19 @@ export class SqliteOutboxRepository {
   }
   enqueue(input: { messageId: string; attemptId: string; requestId: string; idempotencyKey: string; messageType: string; payload: string; createdAt: string }): void { this.database.prepare('INSERT INTO outbox (message_id, attempt_id, request_id, idempotency_key, message_type, payload_json, state, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run(input.messageId, input.attemptId, input.requestId, input.idempotencyKey, input.messageType, input.payload, 'PENDING', input.createdAt); }
   claimNext(): ClaimedMessage | null {
-    const row = this.database.prepare("SELECT message_id FROM outbox WHERE state = 'PENDING' ORDER BY created_at LIMIT 1").get() as { message_id: string } | undefined;
+    // Registry 031 is required at runtime; missing identity is never legacy authority.
+    // Repeat this predicate on mutation so a concurrent scope change cannot bypass it.
+    const legacy = `SELECT 1 FROM execution_attempts a JOIN work_items w ON w.work_item_id=a.work_item_id
+      JOIN tasks t ON t.task_id=w.task_id JOIN proposal_authority_refs p ON p.proposal_version_id=t.proposal_version_id
+        AND p.workspace_id=t.workspace_id AND p.project_id=t.project_id AND p.source_kind='LEGACY'
+      WHERE a.attempt_id=outbox.attempt_id`;
+    const row = this.database.prepare(`SELECT message_id FROM outbox WHERE state = 'PENDING' AND EXISTS (${legacy}) ORDER BY created_at LIMIT 1`).get() as { message_id: string } | undefined;
     if (!row) return null;
     const claimToken = randomUUID();
     const eligible = "SELECT 1 FROM execution_attempts a WHERE a.attempt_id = outbox.attempt_id AND a.state NOT IN ('UNKNOWN', 'RECONCILING') AND (outbox.message_type NOT IN ('start', 'resume') OR (outbox.message_type = 'start' AND a.state = 'DISPATCH_PENDING') OR (outbox.message_type = 'resume' AND a.state IN ('WAITING_USER', 'WAITING_INPUT')))";
-    const claim = this.database.prepare(`UPDATE outbox SET state = 'DISPATCHING', claim_token = ? WHERE message_id = ? AND state = 'PENDING' AND EXISTS (${eligible})`).run(claimToken, row.message_id);
+    const claim = this.database.prepare(`UPDATE outbox SET state = 'DISPATCHING', claim_token = ? WHERE message_id = ? AND state = 'PENDING' AND EXISTS (${legacy}) AND EXISTS (${eligible})`).run(claimToken, row.message_id);
     if (claim.changes !== 1) {
-      this.database.prepare(`UPDATE outbox SET state = 'RECONCILING', claim_token = NULL WHERE message_id = ? AND state = 'PENDING' AND NOT EXISTS (${eligible})`).run(row.message_id);
+      this.database.prepare(`UPDATE outbox SET state = 'RECONCILING', claim_token = NULL WHERE message_id = ? AND state = 'PENDING' AND EXISTS (${legacy}) AND NOT EXISTS (${eligible})`).run(row.message_id);
       return null;
     }
     const claimed = this.database.prepare("SELECT attempt_id, message_type, payload_json FROM outbox WHERE message_id = ? AND state = 'DISPATCHING' AND claim_token = ?").get(row.message_id, claimToken) as { attempt_id: string; message_type: string; payload_json: string } | undefined;

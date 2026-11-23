@@ -24,7 +24,8 @@ import { LocalGoalDraft } from './local-goal-draft.js';
 import { ImmutableProposalConfirmation } from './immutable-proposal-confirmation.js';
 import { presentReview } from './review-window.js';
 import { NativeDecisionResolution } from './native-decision-resolution.js';
-import { ExclusivePromptGate } from './prompt-gate.js';
+import { sharedPromptGate } from './prompt-gate.js';
+import { bindProtectedConsentWindow } from './protected-native-consent.js';
 
 const moduleDirectory = dirname(fileURLToPath(import.meta.url));
 let database: Database.Database | undefined;
@@ -37,6 +38,7 @@ const rendererUrl = pathToFileURL(rendererPath).href;
 async function createWindow(): Promise<void> {
   const window = new BrowserWindow(createWindowOptions(join(moduleDirectory, '../preload/index.cjs')));
   applicationWindow = window;
+  bindProtectedConsentWindow(window);
   window.webContents.on('will-navigate', (event, target) => { if (!isAllowedNavigation(target, rendererUrl)) event.preventDefault(); });
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   window.webContents.on('will-attach-webview', (event) => event.preventDefault());
@@ -162,7 +164,7 @@ if (isPrimaryInstance) void app.whenReady().then(async () => {
       return await confirmation.confirm(review.proposalVersionId, review.digest);
     } catch { return false; }
   };
-  const promptGate = new ExclusivePromptGate();
+  const promptGate = sharedPromptGate;
   const guardedCancellation = { cancel: (taskId: string) => promptGate.run(() => queuedCancellation.cancel(taskId), 'NOT_CANCELLABLE' as const) };
   const guardedDecision = { review: (decisionId: string) => promptGate.run(() => decisionReview.review(decisionId), 'UNAVAILABLE' as const) };
   const guardedReview = (draftId: string) => promptGate.run(() => reviewDraft(draftId), false);
