@@ -43,6 +43,17 @@ implementation must establish owned process-tree termination and fence-bound
 release before reporting completion. This limitation does not disable the
 brokered Shell, filesystem, network or plugin capabilities described below.
 
+The legacy in-memory DSH process host also cannot prove whole-tree custody.
+Its cancellation methods therefore do not signal a root process or report
+completed cancellation. A registered Attempt identity stays reserved within
+that host after root exit or spawn failure, rather than being immediately
+reused. This reservation is not durable across restart and does not replace
+platform-database reconciliation; it cannot justify releasing a Lease.
+The legacy synchronous `started: true` return can precede an asynchronous
+spawn error and is not a runtime-ready or successful-execution receipt. The
+host has no external UNKNOWN notification; a future production owner must
+provide one and reconcile the original Attempt.
+
 ## Brokered capabilities
 
 DSH Shell, filesystem, network, and plugin capabilities are intentionally not
