@@ -1,7 +1,7 @@
 # TASK-837: Real desktop fake App Server discovery and Proposal review
 
 ## Status
-IN_PROGRESS
+COMPLETED
 PHASE: PHASE-007
 MAX_ITERATIONS: 5
 user_confirmed: true
@@ -95,6 +95,9 @@ the check after independently confirming no fake process remained.
 
 Build, lint, typecheck, 9 browser E2E tests, 1115 host unit tests and 50
 contract tests passed; 9 unit cases were skipped and are not PASS evidence.
-The existing Windows CI invokes this real Electron suite, but the new fake
-discovery case has not yet run remotely. No real Codex, sandbox-security,
-task execution, H1 acceptance or merge is implied.
+The [Windows and PostgreSQL workflow](https://github.com/ziyange/SuperAssistant/actions/runs/45239803200)
+and [documentation workflow](https://github.com/ziyange/SuperAssistant/actions/runs/45239803189)
+passed for `9f07efd618ddc607910b02763cb55830887758df`; the Windows job ran the
+real Electron suite, including fake discovery and review. This evidence is
+bound to that commit. No real Codex, sandbox-security, task execution, H1
+acceptance or merge is implied.
