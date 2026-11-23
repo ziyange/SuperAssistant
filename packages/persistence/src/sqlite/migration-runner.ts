@@ -109,9 +109,14 @@ function validateRebuildSchema(database: Database.Database): void {
   } finally { reference.close(); }
 }
 
+/** Compare full-width filesystem identifiers; Windows file IDs can exceed 2^53. */
+export function sameMigrationFileIdentity(left: { dev: bigint; ino: bigint }, right: { dev: bigint; ino: bigint }): boolean {
+  return left.dev === right.dev && left.ino === right.ino;
+}
+
 function verifyBackup(database: Database.Database, path: string, expectedDigest: string, sourcePath: string): void {
-  const source = statSync(sourcePath), backupStat = statSync(path);
-  if (realpathSync(sourcePath) === realpathSync(path) || (source.dev === backupStat.dev && source.ino === backupStat.ino)
+  const source = statSync(sourcePath, { bigint: true }), backupStat = statSync(path, { bigint: true });
+  if (realpathSync(sourcePath) === realpathSync(path) || sameMigrationFileIdentity(source, backupStat)
     || !/^[a-f0-9]{64}$/.test(expectedDigest) || hashMigrationBackup(path) !== expectedDigest) throw new Error('MIGRATION_BACKUP_INVALID');
   const backup = new Database(path, { readonly: true, fileMustExist: true });
   try {

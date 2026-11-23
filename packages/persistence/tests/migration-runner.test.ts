@@ -1,17 +1,69 @@
-import { afterEach, describe, expect, test } from 'vitest';
-import { copyFileSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
+import { afterEach, describe, expect, test, vi } from 'vitest';
+import { copyFileSync, linkSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
+import * as fs from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import Database from 'better-sqlite3';
 import { Worker } from 'node:worker_threads';
 import { applyMigrations, foundationMigrations } from '../src/sqlite/migration-runner.js';
+import * as migrationRunner from '../src/sqlite/migration-runner.js';
 import { createFoundationDatabase } from '../src/sqlite/database.js';
+
+vi.mock('node:fs', async (importOriginal) => {
+  const original = await importOriginal<typeof import('node:fs')>();
+  return { ...original, statSync: vi.fn(original.statSync) };
+});
 
 const folders: string[] = [];
 afterEach(() => folders.splice(0).forEach((folder) => rmSync(folder, { recursive: true, force: true })));
 function pathFor(name: string): string { const folder = mkdtempSync(join(tmpdir(), 'sa-migration-')); folders.push(folder); return join(folder, name); }
 
 describe('migration runner', () => {
+  test('compares distinct filesystem identities exactly above the safe integer limit', () => {
+    const compare = Reflect.get(migrationRunner, 'sameMigrationFileIdentity');
+    expect(typeof compare).toBe('function');
+    const first = { dev: 42n, ino: 9007199254740992n };
+    const second = { dev: 42n, ino: 9007199254740993n };
+    expect(Number(first.ino)).toBe(Number(second.ino));
+    expect(compare(first, second)).toBe(false);
+    expect(compare(first, { ...first })).toBe(true);
+    expect(compare(first, { dev: 43n, ino: first.ino })).toBe(false);
+  });
+  test('migration accepts a distinct backup when numeric file identifiers would round together', async () => {
+    const file = pathFor('rounded-identifiers.sqlite');
+    const originalStat = (await vi.importActual<typeof import('node:fs')>('node:fs')).statSync;
+    let backupPath = '';
+    const fakeStat = vi.mocked(fs.statSync);
+    fakeStat.mockImplementation(((target: fs.PathLike, options?: fs.StatOptions) => {
+      const actual = originalStat(target, options as never);
+      if (typeof target !== 'string' || (target !== file && target !== backupPath)) return actual;
+      const isBigInt = typeof actual.ino === 'bigint';
+      return Object.assign(actual, {
+        dev: isBigInt ? 42n : 42,
+        ino: isBigInt ? (target === file ? 9007199254740992n : 9007199254740993n) : 9007199254740992
+      });
+    }) as typeof fs.statSync);
+    let opened: Database.Database | undefined;
+    try {
+      opened = createFoundationDatabase(file, { backup(source, destination) {
+        backupPath = destination;
+        source.prepare('VACUUM INTO ?').run(destination);
+      } });
+      expect(opened.prepare('SELECT max(version) AS version FROM schema_migrations').get()).toEqual({ version: 32 });
+    } finally { opened?.close(); fakeStat.mockImplementation(originalStat); }
+  });
+  test('rejects a hard link as a migration backup without changing the source', () => {
+    const file = pathFor('source.sqlite');
+    const source = new Database(file);
+    applyMigrations(source, foundationMigrations.filter(migration => migration.version <= 31));
+    source.close();
+    const alias = join(dirname(file), 'hard-link.sqlite');
+    linkSync(file, alias);
+    expect(() => createFoundationDatabase(file, { preparedBackupPath: alias })).toThrow('MIGRATION_BACKUP_INVALID');
+    const check = new Database(file, { readonly: true, fileMustExist: true });
+    try { expect(check.prepare('SELECT max(version) AS version FROM schema_migrations').get()).toEqual({ version: 31 }); }
+    finally { check.close(); }
+  });
   test('migration 030 preserves existing encrypted payload without inventing a reservation', () => {
     const db = new Database(':memory:');
     try {

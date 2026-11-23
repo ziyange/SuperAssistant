@@ -168,14 +168,18 @@ export class SqliteOutboxRepository {
   }
   /** Caller must establish that prior worker ownership has ended. */
   recoverInterrupted(workspaceId?: string): number {
+    const legacy = `SELECT 1 FROM execution_attempts a JOIN work_items w ON w.work_item_id=a.work_item_id
+      JOIN tasks t ON t.task_id=w.task_id JOIN proposal_authority_refs p ON p.proposal_version_id=t.proposal_version_id
+        AND p.workspace_id=t.workspace_id AND p.project_id=t.project_id AND p.source_kind='LEGACY'
+      WHERE a.attempt_id=outbox.attempt_id`;
     const scope = workspaceId === undefined ? '' : ` AND attempt_id IN (
       SELECT a.attempt_id FROM execution_attempts a JOIN work_items w ON a.work_item_id = w.work_item_id
       JOIN tasks t ON w.task_id = t.task_id WHERE t.workspace_id = ?
     )`;
     const scopeParams = workspaceId === undefined ? [] : [workspaceId];
     return this.database.transaction(() => {
-      this.database.prepare(`UPDATE execution_attempts SET state = 'UNKNOWN' WHERE attempt_id IN (SELECT attempt_id FROM outbox WHERE state = 'DISPATCHING'${scope}) AND state NOT IN ('SUCCEEDED', 'FAILED', 'CANCELLED', 'NOT_STARTED')`).run(...scopeParams);
-      return this.database.prepare(`UPDATE outbox SET state = 'RECONCILING', claim_token = NULL WHERE state = 'DISPATCHING'${scope}`).run(...scopeParams).changes;
+      this.database.prepare(`UPDATE execution_attempts SET state = 'UNKNOWN' WHERE attempt_id IN (SELECT attempt_id FROM outbox WHERE state = 'DISPATCHING' AND EXISTS (${legacy})${scope}) AND state NOT IN ('SUCCEEDED', 'FAILED', 'CANCELLED', 'NOT_STARTED')`).run(...scopeParams);
+      return this.database.prepare(`UPDATE outbox SET state = 'RECONCILING', claim_token = NULL WHERE state = 'DISPATCHING' AND EXISTS (${legacy})${scope}`).run(...scopeParams).changes;
     }).immediate();
   }
 }

@@ -416,6 +416,38 @@ test('a protected queue head does not starve a later legacy message', async () =
     expect(new SqliteOutboxRepository(db).claimNext()).toMatchObject({ attemptId: 'legacy-attempt' });
     expect(db.prepare('SELECT state,claim_token FROM outbox WHERE attempt_id=?').get(protectedAttempt.attemptId))
       .toEqual({ state: 'PENDING', claim_token: null });
+    const protectedClaim = await authority.claimQueued(scope);
+    db.exec(`CREATE TRIGGER fixture_recovery_abort BEFORE UPDATE OF state ON outbox
+      WHEN OLD.attempt_id='legacy-attempt' AND NEW.state='RECONCILING'
+      BEGIN SELECT RAISE(ABORT, 'fixture recovery failure'); END`);
+    expect(() => new SqliteOutboxRepository(db).recoverInterrupted('w')).toThrow('fixture recovery failure');
+    expect(db.prepare("SELECT state FROM execution_attempts WHERE attempt_id='legacy-attempt'").get())
+      .toEqual({ state: 'DISPATCH_PENDING' });
+    expect(db.prepare("SELECT state FROM outbox WHERE attempt_id='legacy-attempt'").get())
+      .toEqual({ state: 'DISPATCHING' });
+    db.exec('DROP TRIGGER fixture_recovery_abort');
+    expect(new SqliteOutboxRepository(db).recoverInterrupted('w')).toBe(1);
+    expect(db.prepare("SELECT state FROM execution_attempts WHERE attempt_id='legacy-attempt'").get()).toEqual({ state: 'UNKNOWN' });
+    expect(db.prepare('SELECT state,claim_token FROM outbox WHERE attempt_id=?').get(protectedAttempt.attemptId))
+      .toEqual({ state: 'DISPATCHING', claim_token: protectedClaim.claimToken });
+    expect(db.prepare('SELECT state FROM resource_leases WHERE attempt_id=?').get(protectedAttempt.attemptId))
+      .toEqual({ state: 'ACTIVE' });
+  } finally { db.close(); }
+});
+
+test.each([undefined, 'w'])('generic startup recovery with scope %s leaves a protected claim and lease untouched', async workspace => {
+  const { db, authority, proposal } = await fixture();
+  try {
+    bindProtected(db, proposal);
+    const original = await confirm(authority, scope, async () => true, async () => 'a'.repeat(40));
+    const claimed = await authority.claimQueued(scope);
+    expect(new SqliteOutboxRepository(db).recoverInterrupted(workspace)).toBe(0);
+    expect(db.prepare('SELECT state,claim_token FROM outbox WHERE attempt_id=?').get(original.attemptId))
+      .toEqual({ state: 'DISPATCHING', claim_token: claimed.claimToken });
+    expect(db.prepare('SELECT state FROM execution_attempts WHERE attempt_id=?').get(original.attemptId))
+      .toEqual({ state: 'DISPATCH_PENDING' });
+    expect(db.prepare('SELECT state FROM resource_leases WHERE attempt_id=?').get(original.attemptId))
+      .toEqual({ state: 'ACTIVE' });
   } finally { db.close(); }
 });
 
