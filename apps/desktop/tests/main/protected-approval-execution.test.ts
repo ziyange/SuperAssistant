@@ -17,6 +17,7 @@ import { ProtectedKeyReservations } from '../../src/main/protected-key-reservati
 import { ReservedPayloadService, type ReservedVault } from '../../src/main/reserved-payload-service.js';
 import { EncryptedProposalStore } from '../../src/main/encrypted-proposal-store.js';
 import { ProtectedProposalAuthority } from '../../src/main/protected-proposal-authority.js';
+import { ProtectedProposalRegistry } from '../../src/main/protected-proposal-registry.js';
 import { presentProtectedCancellation, presentProtectedConsent } from '../../src/main/protected-native-consent.js';
 import { projectGitEnvironment } from '../../src/main/project-git-baseline.js';
 import { AppServerExecutionClient } from '../../../../packages/codex-adapter/src/app-server-execution-client.js';
@@ -61,10 +62,7 @@ async function fixture(objective = 'private integration goal') {
   });
   const vault = new Vault();
   await new EncryptedProposalStore(new ReservedPayloadService(db, new ProtectedKeyReservations(db), vault)).save(scope, proposal);
-  db.prepare("INSERT INTO proposal_authority_refs VALUES (?, ?, ?, 'PROTECTED', 1, ?)").run(scope.proposalVersionId, 'w', 'p', proposal.createdAt);
-  db.prepare(`INSERT INTO protected_proposal_bindings
-    SELECT ?, 'PROTECTED', ?, ?, record_id, key_ref, 'PROPOSAL', 1, 'SAI_PROPOSAL_SHA256_V1'
-    FROM protected_payloads WHERE record_id=?`).run(scope.proposalVersionId, 'w', 'p', scope.proposalVersionId);
+  await new ProtectedProposalRegistry(db, vault, () => '2026-08-01T00:00:00.000Z').register(scope);
   const authority = new ProtectedProposalAuthority(db, vault, () => '2026-08-01T00:00:00.000Z');
   return { folder, db, vault, scope, authority, commit, head, project, executable, proposal };
 }

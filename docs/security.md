@@ -534,6 +534,13 @@ injected transport is not a trusted owner, and cleanup of a process launched
 by a fixture remains the fixture's responsibility. There is no production
 startup, Lease release or terminal cancellation from this composition.
 
+The TASK-838 protected registry authenticates the captured encrypted envelope
+before atomically linking its identity, and rechecks the envelope, scoped
+catalog snapshot and observed time in the transaction. It rejects mismatches,
+observed clock rollback and incomplete existing bindings. This staging action
+does not authorize a side effect or prove future Agent health, Git state,
+trusted key custody, process ownership or continuous effect fencing.
+
 TASK-832 revalidates the authenticated original claim after worktree creation
 and after fixture transport initialization. Receipt persistence rechecks the
 authenticated Project snapshot, Grant and current Agent/Function, exact

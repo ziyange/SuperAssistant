@@ -11,6 +11,13 @@ The draft protected execution context records a SHA-256 fingerprint of the displ
 
 TASK-823 is adding a domain-separated keyed authentication tag over the immutable protected approval record. Only the tag, not the vault key or raw Proposal content, is stored. The tag must be verified against freshly authenticated ciphertext and exact persisted fields before replay or dispatch. It is not a defense against a compromised main process, a malicious same-user principal with access to the key, or rollback to an earlier valid database snapshot.
 
+TASK-838 adds a main-process protected Proposal registry: after authenticating
+the exact encrypted envelope, it inserts `proposal_authority_refs` and
+`protected_proposal_bindings` together or accepts the exact existing pair.
+Partial or conflicting pairs fail closed and are not silently repaired. This
+operation persists identity metadata only; it creates no Grant, Task or Attempt
+and does not yet connect the production review or execution route.
+
 Migration 032 rebuilds the Grant and Task Proposal foreign keys to the shared authority identity while retaining legacy rows, rowids and dependent references. Unknown or altered target-table schema blocks migration. This is a local implementation pending integrated acceptance; until a later trusted issuer is implemented, protected identities cannot create or update Grants or Tasks.
 
 Migration 031 adds a common identity registry and protected encrypted-payload binding; migration 032 performs the later foreign-key rebuild with exclusive ownership, backup and integrity checks. Legacy Proposal rows are backfilled and future legacy inserts create a same-scope identity atomically. Protected bindings contain neither Proposal text nor raw digest and are not authorization.

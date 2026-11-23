@@ -386,3 +386,9 @@ TASK-833 snapshots the fixture request identity before asynchronous claim and
 uses that same immutable scope for subsequent receipt checks and quarantine.
 Changing the caller's object cannot redirect recovery to another Proposal; this
 does not provide process ownership or make the fixture production-safe.
+
+TASK-838 supplies a reusable registry between encrypted Proposal storage and
+protected authorization. It authenticates the exact stored envelope and
+atomically links its identity; a later confirmation must still independently
+check current authority and obtain native consent. Its current scope is the H1
+built-in Codex Function, and it is not yet wired to desktop production intake.
