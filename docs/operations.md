@@ -410,6 +410,11 @@ Empty temporary and in-memory databases do not use adjacent backup files.
 This does not establish single-instance ownership or protect against
 out-of-band filesystem replacement.
 
+The asynchronous backup reservation compares filesystem device and file IDs
+as exact bigint values before and after the SQLite backup. A changed identity
+blocks migration; this comparison does not, by itself, prevent replacement
+between checks or establish that the containing directory is trusted.
+
 Migration 020 adds lease renewal and expiry timestamps without fabricating a
 deadline for legacy leases. Back up before migration and reconcile any legacy
 or expired active lease; do not automatically release it. The database clock

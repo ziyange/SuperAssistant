@@ -92,14 +92,14 @@ export async function createFoundationDatabaseAsync(path: string): Promise<Datab
       const equalPath = (left: string, right: string) => process.platform === 'win32' ? left.toLowerCase() === right.toLowerCase() : left === right;
       if (lstatSync(directory).isSymbolicLink() || !equalPath(dirname(actualDirectory), parent)) throw new Error('MIGRATION_BACKUP_INVALID');
       destination = reserveMigrationBackup(actualDirectory);
-      const reserved = statSync(destination);
+      const reserved = statSync(destination, { bigint: true });
       const deadline = globalThis.performance.now() + 30_000;
       await source.backup(destination, { progress: () => {
         if (globalThis.performance.now() >= deadline) throw new Error('MIGRATION_BACKUP_TIMEOUT');
         return 256;
       } });
       if (globalThis.performance.now() >= deadline) throw new Error('MIGRATION_BACKUP_TIMEOUT');
-      const actual = statSync(destination);
+      const actual = statSync(destination, { bigint: true });
       if (lstatSync(destination).isSymbolicLink() || reserved.dev !== actual.dev || reserved.ino !== actual.ino
         || !equalPath(dirname(realpathSync(destination)), actualDirectory)) throw new Error('MIGRATION_BACKUP_INVALID');
       if (source.pragma('data_version', { simple: true }) !== baseline) throw new Error('MIGRATION_DATABASE_CHANGED');

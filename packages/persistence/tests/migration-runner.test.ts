@@ -7,7 +7,7 @@ import Database from 'better-sqlite3';
 import { Worker } from 'node:worker_threads';
 import { applyMigrations, foundationMigrations } from '../src/sqlite/migration-runner.js';
 import * as migrationRunner from '../src/sqlite/migration-runner.js';
-import { createFoundationDatabase } from '../src/sqlite/database.js';
+import { createFoundationDatabase, createFoundationDatabaseAsync } from '../src/sqlite/database.js';
 
 vi.mock('node:fs', async (importOriginal) => {
   const original = await importOriginal<typeof import('node:fs')>();
@@ -19,6 +19,51 @@ afterEach(() => folders.splice(0).forEach((folder) => rmSync(folder, { recursive
 function pathFor(name: string): string { const folder = mkdtempSync(join(tmpdir(), 'sa-migration-')); folders.push(folder); return join(folder, name); }
 
 describe('migration runner', () => {
+  test('async backup accepts the same exact large identity across reservation and backup', async () => {
+    const file = pathFor('async-large-identity.sqlite');
+    const originalStat = (await vi.importActual<typeof import('node:fs')>('node:fs')).statSync;
+    const fakeStat = vi.mocked(fs.statSync);
+    let backupStats = 0;
+    let opened: Database.Database | undefined;
+    fakeStat.mockImplementation(((target: fs.PathLike, options?: fs.StatOptions) => {
+      const actual = originalStat(target, options as never);
+      if (typeof target !== 'string' || !target.endsWith('backup.sqlite') || backupStats >= 2) return actual;
+      backupStats += 1;
+      if (typeof actual.ino !== 'bigint') throw new Error('EXACT_IDENTITY_REQUIRED');
+      return Object.assign(actual, { dev: 42n, ino: 9007199254740993n });
+    }) as typeof fs.statSync);
+    try {
+      opened = await createFoundationDatabaseAsync(file);
+      expect(backupStats).toBe(2);
+      expect(opened.prepare('SELECT max(version) AS version FROM schema_migrations').get()).toEqual({ version: 32 });
+    } finally { opened?.close(); fakeStat.mockImplementation(originalStat); }
+  });
+
+  test('async backup rejects a replaced file whose numeric identity rounds to the reservation identity', async () => {
+    const file = pathFor('async-rounded-replacement.sqlite');
+    const originalStat = (await vi.importActual<typeof import('node:fs')>('node:fs')).statSync;
+    const fakeStat = vi.mocked(fs.statSync);
+    let backupStats = 0;
+    let opened: Database.Database | undefined;
+    fakeStat.mockImplementation(((target: fs.PathLike, options?: fs.StatOptions) => {
+      const actual = originalStat(target, options as never);
+      if (typeof target !== 'string' || !target.endsWith('backup.sqlite')) return actual;
+      backupStats += 1;
+      if (backupStats > 2) return actual;
+      const isBigInt = typeof actual.ino === 'bigint';
+      return Object.assign(actual, { dev: isBigInt ? 42n : 42,
+        ino: isBigInt ? 9007199254740991n + BigInt(backupStats) : 9007199254740992 });
+    }) as typeof fs.statSync);
+    try {
+      await expect(createFoundationDatabaseAsync(file).then(database => { opened = database; return database; }))
+        .rejects.toThrow('MIGRATION_BACKUP_INVALID');
+      expect(backupStats).toBe(2);
+      const inspection = new Database(file, { readonly: true, fileMustExist: true });
+      try {
+        expect(inspection.prepare("SELECT 1 FROM sqlite_master WHERE name = 'schema_migrations'").get()).toBeUndefined();
+      } finally { inspection.close(); }
+    } finally { opened?.close(); fakeStat.mockImplementation(originalStat); }
+  });
   test('rejects a backup changed during hashing when nanosecond timestamps round to the same millisecond number', async () => {
     const file = pathFor('timestamp-precision.backup');
     fs.writeFileSync(file, 'backup content');
