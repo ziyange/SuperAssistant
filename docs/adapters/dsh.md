@@ -34,6 +34,15 @@ issued.
 An unreadable record, process loss, event gap, or uncertain interval is
 `UNKNOWN/RECONCILING`; it never creates a replacement Attempt.
 
+The legacy DSH reconciliation function receives only a liveness boolean and
+an in-memory coverage flag; neither authenticates process custody or durable
+history, so it reports RECONCILING even when both appear positive. The
+in-memory event journal rejects malformed or oversized JSON evidence and marks
+conflicting uses of one sequence AMBIGUOUS, including conflicting redacted
+fields. Its per-instance keyed fingerprints are not durable or an identity
+proof. Key-name redaction is not sufficient for secrets embedded in free text;
+production collection requires a separately verified redaction boundary.
+
 The disconnected legacy desktop cancellation service has no trustworthy
 whole-tree termination evidence or atomic fenced Lease release. It therefore
 returns not-cancelled without invoking a caller-provided termination callback,
