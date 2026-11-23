@@ -1,6 +1,6 @@
 /* eslint-disable no-unused-vars -- callback parameter names document test boundary types. */
 import { Buffer } from 'node:buffer';
-import { createHash, randomBytes } from 'node:crypto';
+import { createCipheriv, createHash, randomBytes } from 'node:crypto';
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -15,12 +15,12 @@ import { ReservedPayloadService, type ReservedVault } from '../../src/main/reser
 import { EncryptedProposalStore } from '../../src/main/encrypted-proposal-store.js';
 import { ProtectedProposalAuthority } from '../../src/main/protected-proposal-authority.js';
 import { builtinCodexFunctionId, provisionBuiltinCodexFunction } from '../../src/main/local-codex-function.js';
-import { presentProtectedConsent } from '../../src/main/protected-native-consent.js';
+import { presentProtectedCancellation, presentProtectedConsent } from '../../src/main/protected-native-consent.js';
 import { readProjectHeadAsync } from '../../src/main/async-project-baseline.js';
 import { sharedPromptGate } from '../../src/main/prompt-gate.js';
 import { fingerprintExecutable } from '../../src/main/local-goal-draft.js';
 
-vi.mock('../../src/main/protected-native-consent.js', () => ({ presentProtectedConsent: vi.fn() }));
+vi.mock('../../src/main/protected-native-consent.js', () => ({ presentProtectedConsent: vi.fn(), presentProtectedCancellation: vi.fn() }));
 vi.mock('../../src/main/async-project-baseline.js', () => ({ readProjectHeadAsync: vi.fn() }));
 vi.mock('../../src/main/local-goal-draft.js', () => ({ fingerprintExecutable: vi.fn() }));
 
@@ -557,6 +557,227 @@ test('the private receipt owner quarantines a running original Attempt after con
     expect(await authority.readReceipt(scope)).toEqual({ attemptId: original.attemptId, ...receipt });
     expect(Reflect.apply(markUnknown, writer, [])).toBe(false);
   } finally { db.close(); }
+});
+
+test('native confirmed running cancellation keeps the original Attempt and Lease until termination is proven', async () => {
+  const { db, authority, proposal } = await fixture();
+  try {
+    bindProtected(db, proposal);
+    const original = await confirm(authority, scope, async () => true, async () => 'a'.repeat(40));
+    const claim = await authority.claimQueued(scope);
+    const cwd = 'E:/private-worktrees/task-1', principalHash = 'b'.repeat(64);
+    const writer = await authority.prepareReceipt(scope, claim.claimToken, { cwd, principalHash });
+    expect(writer.record({ threadId: 'thread-1', turnId: 'turn-1', cwd, principalHash })).toBe(true);
+    vi.mocked(presentProtectedCancellation).mockResolvedValue(true);
+    const cancel = Reflect.get(authority, 'requestCancellation');
+    expect(typeof cancel).toBe('function');
+    expect(await Reflect.apply(cancel, authority, [scope])).toBe('STARTED');
+    expect(await Reflect.apply(cancel, authority, [scope])).toBe('ALREADY_CANCELLING');
+    expect(presentProtectedCancellation).toHaveBeenCalledOnce();
+    const shown = JSON.parse(vi.mocked(presentProtectedCancellation).mock.calls[0]![0]) as { taskId: string; proposal: { objective: string } };
+    expect(shown.proposal.objective).toBe(candidate.objective);
+    expect(shown.taskId).toBe((db.prepare('SELECT task_id FROM tasks').get() as { task_id: string }).task_id);
+    expect(db.prepare('SELECT attempt_id,state FROM execution_attempts').all()).toEqual([{ attempt_id: original.attemptId, state: 'CANCELLING' }]);
+    expect(db.prepare('SELECT state FROM resource_leases').get()).toEqual({ state: 'ACTIVE' });
+    expect(writer.markUnknown()).toBe(true);
+    expect(db.prepare('SELECT attempt_id,state FROM execution_attempts').get()).toEqual({ attempt_id: original.attemptId, state: 'UNKNOWN' });
+    expect(db.prepare('SELECT state FROM resource_leases').get()).toEqual({ state: 'ACTIVE' });
+  } finally { db.close(); }
+});
+
+test('dismissing running cancellation leaves the original Attempt running', async () => {
+  const { db, authority, proposal } = await fixture();
+  try {
+    bindProtected(db, proposal);
+    const original = await confirm(authority, scope, async () => true, async () => 'a'.repeat(40));
+    const claim = await authority.claimQueued(scope);
+    const cwd = 'E:/private-worktrees/task-1', principalHash = 'b'.repeat(64);
+    const writer = await authority.prepareReceipt(scope, claim.claimToken, { cwd, principalHash });
+    expect(writer.record({ threadId: 'thread-1', turnId: 'turn-1', cwd, principalHash })).toBe(true);
+    vi.mocked(presentProtectedCancellation).mockResolvedValue(false);
+    expect(await authority.requestCancellation(scope)).toBe('DISMISSED');
+    expect(db.prepare('SELECT attempt_id,state FROM execution_attempts').get()).toEqual({ attempt_id: original.attemptId, state: 'RUNNING' });
+    expect(db.prepare('SELECT state FROM resource_leases').get()).toEqual({ state: 'ACTIVE' });
+    writer.dispose();
+  } finally { db.close(); }
+});
+
+test('overlapping running cancellation requests show one prompt and start only once', async () => {
+  const { db, authority, proposal } = await fixture();
+  let release: (() => void) | undefined;
+  try {
+    bindProtected(db, proposal);
+    const original = await confirm(authority, scope, async () => true, async () => 'a'.repeat(40));
+    const claim = await authority.claimQueued(scope);
+    const cwd = 'E:/private-worktrees/task-1', principalHash = 'b'.repeat(64);
+    const writer = await authority.prepareReceipt(scope, claim.claimToken, { cwd, principalHash });
+    expect(writer.record({ threadId: 'thread-1', turnId: 'turn-1', cwd, principalHash })).toBe(true);
+    let shown!: () => void;
+    const promptShown = new Promise<void>(resolve => { shown = resolve; });
+    const answer = new Promise<boolean>(resolve => { release = () => resolve(true); });
+    vi.mocked(presentProtectedCancellation).mockClear();
+    vi.mocked(presentProtectedCancellation).mockImplementation(async () => { shown(); return answer; });
+    const first = authority.requestCancellation(scope);
+    await promptShown;
+    expect(await authority.requestCancellation(scope)).toBe('UNAVAILABLE');
+    release!();
+    expect(await first).toBe('STARTED');
+    expect(await authority.requestCancellation(scope)).toBe('ALREADY_CANCELLING');
+    expect(presentProtectedCancellation).toHaveBeenCalledOnce();
+    expect(db.prepare('SELECT attempt_id,state FROM execution_attempts').all()).toEqual([{ attempt_id: original.attemptId, state: 'CANCELLING' }]);
+    expect(db.prepare('SELECT state FROM resource_leases').get()).toEqual({ state: 'ACTIVE' });
+    writer.dispose();
+  } finally { release?.(); db.close(); }
+});
+
+test('connection loss during cancellation review cannot authorize a stale interrupt', async () => {
+  const { db, authority, proposal } = await fixture();
+  try {
+    bindProtected(db, proposal);
+    const original = await confirm(authority, scope, async () => true, async () => 'a'.repeat(40));
+    const claim = await authority.claimQueued(scope);
+    const cwd = 'E:/private-worktrees/task-1', principalHash = 'b'.repeat(64);
+    const writer = await authority.prepareReceipt(scope, claim.claimToken, { cwd, principalHash });
+    expect(writer.record({ threadId: 'thread-1', turnId: 'turn-1', cwd, principalHash })).toBe(true);
+    vi.mocked(presentProtectedCancellation).mockImplementation(async () => { expect(writer.markUnknown()).toBe(true); return true; });
+    expect(await authority.requestCancellation(scope)).toBe('UNAVAILABLE');
+    expect(db.prepare('SELECT attempt_id,state FROM execution_attempts').get()).toEqual({ attempt_id: original.attemptId, state: 'UNKNOWN' });
+    expect(db.prepare('SELECT state FROM resource_leases').get()).toEqual({ state: 'ACTIVE' });
+  } finally { db.close(); }
+});
+
+test('workspace locked during cancellation review cannot authorize an interrupt', async () => {
+  const { db, authority, proposal } = await fixture();
+  try {
+    bindProtected(db, proposal);
+    const original = await confirm(authority, scope, async () => true, async () => 'a'.repeat(40));
+    const claim = await authority.claimQueued(scope);
+    const cwd = 'E:/private-worktrees/task-1', principalHash = 'b'.repeat(64);
+    const writer = await authority.prepareReceipt(scope, claim.claimToken, { cwd, principalHash });
+    expect(writer.record({ threadId: 'thread-1', turnId: 'turn-1', cwd, principalHash })).toBe(true);
+    vi.mocked(presentProtectedCancellation).mockImplementation(async () => { db.exec("UPDATE workspaces SET status='LOCKED'"); return true; });
+    expect(await authority.requestCancellation(scope)).toBe('UNAVAILABLE');
+    expect(db.prepare('SELECT attempt_id,state FROM execution_attempts').get()).toEqual({ attempt_id: original.attemptId, state: 'RUNNING' });
+    expect(db.prepare('SELECT state FROM resource_leases').get()).toEqual({ state: 'ACTIVE' });
+    writer.dispose();
+  } finally { db.close(); }
+});
+
+test('vault key removed during cancellation review cannot authorize an interrupt', async () => {
+  const { db, vault, authority, proposal } = await fixture();
+  try {
+    bindProtected(db, proposal);
+    const original = await confirm(authority, scope, async () => true, async () => 'a'.repeat(40));
+    const claim = await authority.claimQueued(scope);
+    const cwd = 'E:/private-worktrees/task-1', principalHash = 'b'.repeat(64);
+    const writer = await authority.prepareReceipt(scope, claim.claimToken, { cwd, principalHash });
+    expect(writer.record({ threadId: 'thread-1', turnId: 'turn-1', cwd, principalHash })).toBe(true);
+    vi.mocked(presentProtectedCancellation).mockImplementation(async () => { vault.values.clear(); return true; });
+    expect(await authority.requestCancellation(scope)).toBe('UNAVAILABLE');
+    expect(db.prepare('SELECT attempt_id,state FROM execution_attempts').get()).toEqual({ attempt_id: original.attemptId, state: 'RUNNING' });
+    expect(db.prepare('SELECT state FROM resource_leases').get()).toEqual({ state: 'ACTIVE' });
+    writer.dispose();
+  } finally { db.close(); }
+});
+
+test('bound Proposal read refuses an envelope changed while its vault key is pending', async () => {
+  const { db, vault, authority } = await fixture();
+  try {
+    const envelope = Reflect.get(authority, 'envelope');
+    const captured = Reflect.apply(envelope, authority, [scope]) as string;
+    const store = new EncryptedProposalStore(new ReservedPayloadService(db, new ProtectedKeyReservations(db), vault));
+    const readBound = Reflect.get(store, 'readBound');
+    expect(typeof readBound).toBe('function');
+    const originalRead = vault.read.bind(vault);
+    let swapped = false;
+    vault.read = async ref => {
+      if (!swapped) {
+        swapped = true;
+        db.exec('DROP TRIGGER protected_payloads_no_update; UPDATE protected_payloads SET auth_tag=zeroblob(16)');
+      }
+      return originalRead(ref);
+    };
+    expect(await Reflect.apply(readBound, store, [scope, captured])).toBeNull();
+    expect(swapped).toBe(true);
+  } finally { db.close(); }
+});
+
+test('bound Proposal read rejects a different valid ciphertext even with the same synthetic key', async () => {
+  const { db, vault, authority, proposal } = await fixture();
+  let key: Buffer | null = null;
+  try {
+    const captured = Reflect.apply(Reflect.get(authority, 'envelope'), authority, [scope]) as string;
+    const store = new EncryptedProposalStore(new ReservedPayloadService(db, new ProtectedKeyReservations(db), vault));
+    const row = db.prepare('SELECT * FROM protected_payloads').get() as {
+      record_id: string; workspace_id: string; project_id: string; content_kind: string; format_version: number;
+      key_ref: string; nonce: Buffer; ciphertext: Buffer; auth_tag: Buffer; created_at: string;
+    };
+    key = await vault.read(row.key_ref);
+    if (!key) throw new Error('synthetic key unavailable');
+    const altered = createH1ReviewedProposal(scope.proposalVersionId, { ...candidate, objective: 'forged goal',
+      workItems: candidate.workItems.map(item => ({ ...item, objective: 'forged goal' })) });
+    const nonce = randomBytes(12), cipher = createCipheriv('aes-256-gcm', key, nonce);
+    cipher.setAAD(Buffer.from(JSON.stringify([row.format_version, row.workspace_id, row.project_id,
+      row.record_id, row.content_kind, row.key_ref, row.created_at])));
+    const ciphertext = Buffer.concat([cipher.update(JSON.stringify(altered), 'utf8'), cipher.final()]);
+    db.exec('DROP TRIGGER protected_payloads_no_update');
+    const replace = db.prepare('UPDATE protected_payloads SET nonce=?,ciphertext=?,auth_tag=? WHERE record_id=?');
+    replace.run(nonce, ciphertext, cipher.getAuthTag(), row.record_id);
+    expect(await store.read(scope)).toEqual(altered);
+    expect(await store.readBound(scope, captured)).toBeNull();
+    replace.run(row.nonce, row.ciphertext, row.auth_tag, row.record_id);
+    expect(await store.readBound(scope, captured)).toEqual(proposal);
+    const originalRead = vault.read.bind(vault);
+    let temporarilyReplaced = false;
+    vault.read = async ref => {
+      replace.run(nonce, ciphertext, cipher.getAuthTag(), row.record_id);
+      temporarilyReplaced = true;
+      replace.run(row.nonce, row.ciphertext, row.auth_tag, row.record_id);
+      return originalRead(ref);
+    };
+    expect(await store.readBound(scope, captured)).toEqual(proposal);
+    expect(temporarilyReplaced).toBe(true);
+  } finally { key?.fill(0); db.close(); }
+});
+
+test.each(['prepare', 'cancel'])('a replaced valid Proposal cannot pass the original signed binding during %s', async operation => {
+  const { db, vault, authority, proposal } = await fixture();
+  let key: Buffer | null = null;
+  try {
+    bindProtected(db, proposal);
+    const original = await confirm(authority, scope, async () => true, async () => 'a'.repeat(40));
+    const claim = await authority.claimQueued(scope);
+    const cwd = 'E:/private-worktrees/task-1', principalHash = 'b'.repeat(64);
+    if (operation === 'cancel') {
+      const writer = await authority.prepareReceipt(scope, claim.claimToken, { cwd, principalHash });
+      expect(writer.record({ threadId: 'thread-1', turnId: 'turn-1', cwd, principalHash })).toBe(true);
+    }
+    const row = db.prepare('SELECT * FROM protected_payloads').get() as {
+      record_id: string; workspace_id: string; project_id: string; content_kind: string; format_version: number;
+      key_ref: string; created_at: string;
+    };
+    key = await vault.read(row.key_ref);
+    if (!key) throw new Error('synthetic key unavailable');
+    const altered = createH1ReviewedProposal(scope.proposalVersionId, { ...candidate, objective: 'forged goal',
+      workItems: candidate.workItems.map(item => ({ ...item, objective: 'forged goal' })) });
+    const nonce = randomBytes(12), cipher = createCipheriv('aes-256-gcm', key, nonce);
+    cipher.setAAD(Buffer.from(JSON.stringify([row.format_version, row.workspace_id, row.project_id,
+      row.record_id, row.content_kind, row.key_ref, row.created_at])));
+    const ciphertext = Buffer.concat([cipher.update(JSON.stringify(altered), 'utf8'), cipher.final()]);
+    db.exec('DROP TRIGGER protected_payloads_no_update');
+    db.prepare('UPDATE protected_payloads SET nonce=?,ciphertext=?,auth_tag=? WHERE record_id=?')
+      .run(nonce, ciphertext, cipher.getAuthTag(), row.record_id);
+    if (operation === 'prepare') {
+      await expect(authority.prepareReceipt(scope, claim.claimToken, { cwd, principalHash })).rejects.toThrow();
+      expect(db.prepare('SELECT attempt_id,state FROM execution_attempts').get()).toEqual({ attempt_id: original.attemptId, state: 'DISPATCH_PENDING' });
+    } else {
+      vi.mocked(presentProtectedCancellation).mockClear().mockResolvedValue(true);
+      expect(await authority.requestCancellation(scope)).toBe('UNAVAILABLE');
+      expect(presentProtectedCancellation).not.toHaveBeenCalled();
+      expect(db.prepare('SELECT attempt_id,state FROM execution_attempts').get()).toEqual({ attempt_id: original.attemptId, state: 'RUNNING' });
+    }
+    expect(db.prepare('SELECT state FROM resource_leases').get()).toEqual({ state: 'ACTIVE' });
+  } finally { key?.fill(0); db.close(); }
 });
 
 test('authenticated receipt starts idempotent reconciliation of the same unknown Attempt', async () => {

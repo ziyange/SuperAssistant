@@ -34,6 +34,11 @@ export interface ReservedVault {
 }
 
 type ReceiptEnvelope = { nonce: Buffer; ciphertext: Buffer; authTag: Buffer };
+type BoundEnvelope = {
+  record_id: string; workspace_id: string; project_id: string; content_kind: string; format_version: number;
+  key_ref: string; nonce: Buffer; ciphertext: Buffer; auth_tag: Buffer; created_at: string;
+  owner_hash: string; reservation_state: string; reservation_created: string; reservation_updated: string;
+};
 
 /** Isolated orchestration only: never selected by the renderer or production desktop. */
 export class ReservedPayloadService {
@@ -118,6 +123,49 @@ export class ReservedPayloadService {
       read: async ref => this.readCopy(ref)
     };
     return new ProtectedPayloadStore(this.db, provider).read(scope);
+  }
+
+  /** Read only the exact captured Proposal envelope, including across vault awaits. */
+  async readBound(input: ProtectedPayloadScope, expected: string): Promise<string> {
+    const scope = { ...input };
+    if (scope.kind !== 'PROPOSAL' || typeof expected !== 'string' || expected.length < 1 || expected.length > 100000
+      || this.db.inTransaction) throw new Error('Protected content unavailable');
+    const load = (): { row: BoundEnvelope; encoded: string } | null => {
+      const row = this.db.prepare(`SELECT p.record_id,p.workspace_id,p.project_id,p.content_kind,p.format_version,p.key_ref,p.nonce,p.ciphertext,p.auth_tag,p.created_at,
+        r.owner_hash,r.state AS reservation_state,r.created_at AS reservation_created,r.updated_at AS reservation_updated
+        FROM protected_payloads p JOIN protected_key_reservations r ON r.record_id=p.record_id AND r.workspace_id=p.workspace_id
+          AND r.project_id=p.project_id AND r.key_ref=p.key_ref
+        WHERE p.record_id=? AND p.workspace_id=? AND p.project_id=? AND p.content_kind='PROPOSAL' AND r.state='LINKED'`)
+        .get(scope.recordId, scope.workspaceId, scope.projectId) as BoundEnvelope | undefined;
+      if (!row || row.format_version !== 1 || !Buffer.isBuffer(row.nonce) || row.nonce.length !== 12
+        || !Buffer.isBuffer(row.auth_tag) || row.auth_tag.length !== 16 || !Buffer.isBuffer(row.ciphertext)
+        || row.ciphertext.length < 1 || row.ciphertext.length > 65536 || !/^[a-f0-9]{64}$/.test(row.owner_hash)
+        || !/^pkey-[a-f0-9]{64}$/.test(row.key_ref)) return null;
+      return { row, encoded: JSON.stringify([row.record_id, row.workspace_id, row.project_id, row.content_kind, row.format_version, row.key_ref,
+        row.nonce.toString('base64'), row.ciphertext.toString('base64'), row.auth_tag.toString('base64'), row.created_at,
+        row.owner_hash, row.reservation_state, row.reservation_created, row.reservation_updated]) };
+    };
+    let key: Buffer | null = null, first: Buffer | undefined, last: Buffer | undefined, plain: Buffer | undefined;
+    try {
+      const captured = load();
+      if (!captured || captured.encoded !== expected || this.journal.inspect(scope) !== 'LINKED'
+        || this.journal.recoveryReference(scope) !== captured.row.key_ref) throw new Error('unavailable');
+      key = await this.readCopy(captured.row.key_ref);
+      if (!key || this.db.inTransaction) throw new Error('unavailable');
+      return this.db.transaction(() => {
+        if (load()?.encoded !== expected || this.journal.inspect(scope) !== 'LINKED'
+          || this.journal.recoveryReference(scope) !== captured.row.key_ref) throw new Error('unavailable');
+        authenticatePayloadForRecovery(this.db, scope, captured.row.key_ref, key!);
+        const row = captured.row;
+        const cipher = createDecipheriv('aes-256-gcm', key!, row.nonce, { authTagLength: 16 });
+        cipher.setAAD(Buffer.from(JSON.stringify([row.format_version, row.workspace_id, row.project_id,
+          row.record_id, row.content_kind, row.key_ref, row.created_at]), 'utf8'));
+        cipher.setAuthTag(row.auth_tag);
+        first = cipher.update(row.ciphertext); last = cipher.final(); plain = Buffer.concat([first, last]);
+        return plain.toString('utf8');
+      }).immediate();
+    } catch { throw new Error('Protected content unavailable'); }
+    finally { key?.fill(0); first?.fill(0); last?.fill(0); plain?.fill(0); }
   }
 
   /** A tag is an integrity check, not proof that a user approved an operation. */

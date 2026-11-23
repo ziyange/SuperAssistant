@@ -17,13 +17,13 @@ import { ProtectedKeyReservations } from '../../src/main/protected-key-reservati
 import { ReservedPayloadService, type ReservedVault } from '../../src/main/reserved-payload-service.js';
 import { EncryptedProposalStore } from '../../src/main/encrypted-proposal-store.js';
 import { ProtectedProposalAuthority } from '../../src/main/protected-proposal-authority.js';
-import { presentProtectedConsent } from '../../src/main/protected-native-consent.js';
+import { presentProtectedCancellation, presentProtectedConsent } from '../../src/main/protected-native-consent.js';
 import { projectGitEnvironment } from '../../src/main/project-git-baseline.js';
 import { GitWorktreeService } from '../../src/main/worktree-service.js';
 import { AppServerExecutionClient } from '../../../../packages/codex-adapter/src/app-server-execution-client.js';
 import { ReadOnlyAppServerClient } from '../../../../packages/codex-adapter/src/app-server-client.js';
 
-vi.mock('../../src/main/protected-native-consent.js', () => ({ presentProtectedConsent: vi.fn() }));
+vi.mock('../../src/main/protected-native-consent.js', () => ({ presentProtectedConsent: vi.fn(), presentProtectedCancellation: vi.fn() }));
 
 class Vault implements ReservedVault {
   values = new Map<string, Buffer>();
@@ -152,6 +152,12 @@ test('a fake acknowledged Turn persists encrypted receipt and quarantines the or
     const receipt = await client.start(isolated.path, item.proposal.objective);
     expect(item.db.prepare('SELECT state FROM execution_attempts').get()).toEqual({ state: 'RUNNING' });
     expect(await item.authority.readReceipt(item.scope)).toEqual({ attemptId: original.attemptId, ...receipt });
+    vi.mocked(presentProtectedCancellation).mockResolvedValue(true);
+    expect(await item.authority.requestCancellation(item.scope)).toBe('STARTED');
+    expect(await item.authority.requestCancellation(item.scope)).toBe('ALREADY_CANCELLING');
+    expect(await client.interrupt()).toBe(true);
+    expect(item.db.prepare('SELECT state FROM execution_attempts').get()).toEqual({ state: 'CANCELLING' });
+    expect(item.db.prepare('SELECT state FROM resource_leases').get()).toEqual({ state: 'ACTIVE' });
     if (!child.stdin) throw new Error('fixture stdin unavailable');
     child.stdin.end();
     await closed;

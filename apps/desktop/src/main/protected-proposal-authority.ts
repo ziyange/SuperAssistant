@@ -11,7 +11,7 @@ import { ProtectedKeyReservations } from './protected-key-reservations.js';
 import { ReservedPayloadService, type ReservedVault } from './reserved-payload-service.js';
 import { isBuiltinCodexFunction } from './local-codex-function.js';
 import { readProjectHeadAsync } from './async-project-baseline.js';
-import { presentProtectedConsent } from './protected-native-consent.js';
+import { presentProtectedCancellation, presentProtectedConsent } from './protected-native-consent.js';
 import { sharedPromptGate } from './prompt-gate.js';
 import { fingerprintExecutable } from './local-goal-draft.js';
 
@@ -150,7 +150,8 @@ export class ProtectedProposalAuthority {
       || !validReceipt({ ...expected, threadId: 'fixture', turnId: 'fixture' }) || this.db.inTransaction) throw new Error('PROTECTED_RECEIPT_UNAVAILABLE');
     const scope = { ...input }, expectedCwd = expected.cwd, expectedPrincipal = expected.principalHash;
     const snapshot = this.proofSnapshot(scope), captured = this.envelope(scope);
-    if (!snapshot || !captured || !sameTag(await this.tag(scope, snapshot.fields), snapshot.tag)) throw new Error('PROTECTED_RECEIPT_UNAVAILABLE');
+    if (!snapshot || !captured || snapshot.fields[5] !== 'sha256:' + createHash('sha256').update(captured).digest('hex')
+      || !sameTag(await this.tag(scope, snapshot.fields), snapshot.tag)) throw new Error('PROTECTED_RECEIPT_UNAVAILABLE');
     const attemptId = snapshot.fields[10];
     const aad = proofMessage(['receipt-v1', ...snapshot.fields, snapshot.tag]);
     let codec: Awaited<ReturnType<ReservedPayloadService['receiptCodec']>>;
@@ -203,7 +204,7 @@ export class ProtectedProposalAuthority {
             const ack = this.db.prepare("SELECT 1 FROM outbox WHERE message_id=? AND attempt_id=? AND state='ACKNOWLEDGED' AND claim_token IS NULL")
               .get('outbox:' + attemptId, attemptId);
             if (!ack) return false;
-            return this.db.prepare("UPDATE execution_attempts SET state='UNKNOWN' WHERE attempt_id=? AND state='RUNNING'").run(attemptId).changes === 1;
+            return this.db.prepare("UPDATE execution_attempts SET state='UNKNOWN' WHERE attempt_id=? AND state IN ('RUNNING','CANCELLING')").run(attemptId).changes === 1;
           }).immediate();
         } catch { return false; }
         finally { dispose(); }
@@ -222,26 +223,10 @@ export class ProtectedProposalAuthority {
     if (arguments.length !== 1 || !validScope(input) || this.db.inTransaction) return false;
     const scope = { ...input }, authenticated = await this.authenticatedReceipt(scope);
     if (!authenticated || this.db.inTransaction) return false;
-    const { receipt, snapshot, captured, stored } = authenticated;
+    const { receipt } = authenticated;
     try {
       return this.db.transaction(() => {
-        const currentReceipt = this.db.prepare('SELECT nonce,ciphertext,auth_tag FROM protected_start_receipts WHERE attempt_id=?').get(receipt.attemptId);
-        if (this.envelope(scope) !== captured || !isDeepStrictEqual(this.proofSnapshot(scope), snapshot) || !isDeepStrictEqual(currentReceipt, stored)) return false;
-        const row = this.db.prepare(`SELECT a.state FROM protected_execution_bindings b
-          JOIN execution_attempts a ON a.attempt_id=b.attempt_id AND a.work_item_id=b.work_item_id
-            AND a.request_id=b.request_id AND a.idempotency_key=b.proposal_version_id
-          JOIN work_items w ON w.work_item_id=b.work_item_id AND w.task_id=b.task_id AND w.agent_id=b.agent_id AND w.function_id=b.function_id
-          JOIN tasks t ON t.task_id=b.task_id AND t.workspace_id=b.workspace_id AND t.project_id=b.project_id
-            AND t.proposal_version_id=b.proposal_version_id AND t.authorization_grant_id=b.grant_id
-          JOIN authorization_grants g ON g.grant_id=b.grant_id AND g.proposal_version_id=b.proposal_version_id
-            AND g.proposal_digest=b.envelope_digest AND g.actor_id='local-owner' AND g.status='CONSUMED'
-          JOIN resource_leases l ON l.lease_id=b.lease_id AND l.attempt_id=a.attempt_id AND l.resource_key='project:'||b.project_id
-            AND l.state='ACTIVE' AND l.fencing_token=?
-          JOIN outbox o ON o.message_id='outbox:'||a.attempt_id AND o.attempt_id=a.attempt_id
-            AND o.request_id=a.request_id AND o.idempotency_key=a.idempotency_key AND o.message_type='start'
-            AND o.payload_json=json_object('attempt_id',a.attempt_id) AND o.state='ACKNOWLEDGED' AND o.claim_token IS NULL
-          WHERE b.workspace_id=? AND b.project_id=? AND b.proposal_version_id=? AND b.attempt_id=?`)
-          .get(Number(snapshot.fields[13]), scope.workspaceId, scope.projectId, scope.proposalVersionId, receipt.attemptId) as { state: string } | undefined;
+        const row = this.receiptState(scope, authenticated);
         if (row?.state === 'RECONCILING') return true;
         if (row?.state !== 'UNKNOWN') return false;
         return this.db.prepare("UPDATE execution_attempts SET state='RECONCILING' WHERE attempt_id=? AND state='UNKNOWN'").run(receipt.attemptId).changes === 1;
@@ -249,12 +234,66 @@ export class ProtectedProposalAuthority {
     } catch { return false; }
   }
 
+  /** Fixture-only cancellation intent; interruption and process termination remain separate. */
+  async requestCancellation(input: EncryptedProposalScope): Promise<'STARTED' | 'ALREADY_CANCELLING' | 'DISMISSED' | 'UNAVAILABLE'> {
+    if (arguments.length !== 1 || !validScope(input) || this.db.inTransaction) return 'UNAVAILABLE';
+    const scope = { ...input };
+    return sharedPromptGate.run(async () => {
+      try {
+        const authenticated = await this.authenticatedReceipt(scope);
+        if (!authenticated || this.db.inTransaction) return 'UNAVAILABLE' as const;
+        const initial = this.db.transaction(() => this.receiptState(scope, authenticated)).immediate();
+        if (initial?.state === 'CANCELLING') return 'ALREADY_CANCELLING' as const;
+        if (initial?.state !== 'RUNNING') return 'UNAVAILABLE' as const;
+        const proposal = await this.store.readBound(scope, authenticated.captured);
+        if (!proposal?.fullReview || !isDeepStrictEqual(proposal, createH1ReviewedProposal(scope.proposalVersionId, proposal.fullReview))) return 'UNAVAILABLE' as const;
+        const taskId = authenticated.snapshot.fields[8];
+        if (!taskId) return 'UNAVAILABLE' as const;
+        const review = JSON.stringify({ taskId, proposal: proposal.fullReview });
+        if (review.length > 8192 || /[\p{Cc}\p{Cf}]/u.test(review)) return 'UNAVAILABLE' as const;
+        if (!await presentProtectedCancellation(review, taskId)) return 'DISMISSED' as const;
+        const confirmed = await this.authenticatedReceipt(scope);
+        if (!confirmed || !isDeepStrictEqual(confirmed, authenticated)) return 'UNAVAILABLE' as const;
+        if (this.db.inTransaction) return 'UNAVAILABLE' as const;
+        return this.db.transaction(() => {
+          if (this.receiptState(scope, authenticated)?.state !== 'RUNNING') return 'UNAVAILABLE' as const;
+          const changed = this.db.prepare("UPDATE execution_attempts SET state='CANCELLING' WHERE attempt_id=? AND state='RUNNING'")
+            .run(authenticated.receipt.attemptId);
+          return changed.changes === 1 ? 'STARTED' as const : 'UNAVAILABLE' as const;
+        }).immediate();
+      } catch { return 'UNAVAILABLE' as const; }
+    }, 'UNAVAILABLE' as const);
+  }
+
+  private receiptState(scope: EncryptedProposalScope, authenticated: AuthenticatedReceipt): { state: string } | undefined {
+    const { receipt, snapshot, captured, stored } = authenticated;
+    const currentReceipt = this.db.prepare('SELECT nonce,ciphertext,auth_tag FROM protected_start_receipts WHERE attempt_id=?').get(receipt.attemptId);
+    if (this.envelope(scope) !== captured || !isDeepStrictEqual(this.proofSnapshot(scope), snapshot) || !isDeepStrictEqual(currentReceipt, stored)) return undefined;
+    return this.db.prepare(`SELECT a.state FROM protected_execution_bindings b
+      JOIN workspaces ws ON ws.workspace_id=b.workspace_id AND ws.owner_id='local-owner' AND ws.status='ACTIVE'
+      JOIN projects p ON p.workspace_id=b.workspace_id AND p.project_id=b.project_id AND p.status='ACTIVE'
+      JOIN execution_attempts a ON a.attempt_id=b.attempt_id AND a.work_item_id=b.work_item_id
+        AND a.request_id=b.request_id AND a.idempotency_key=b.proposal_version_id
+      JOIN work_items w ON w.work_item_id=b.work_item_id AND w.task_id=b.task_id AND w.agent_id=b.agent_id AND w.function_id=b.function_id
+      JOIN tasks t ON t.task_id=b.task_id AND t.workspace_id=b.workspace_id AND t.project_id=b.project_id
+        AND t.proposal_version_id=b.proposal_version_id AND t.authorization_grant_id=b.grant_id
+      JOIN authorization_grants g ON g.grant_id=b.grant_id AND g.proposal_version_id=b.proposal_version_id
+        AND g.proposal_digest=b.envelope_digest AND g.actor_id='local-owner' AND g.status='CONSUMED'
+      JOIN resource_leases l ON l.lease_id=b.lease_id AND l.attempt_id=a.attempt_id AND l.resource_key='project:'||b.project_id
+        AND l.state='ACTIVE' AND l.fencing_token=?
+      JOIN outbox o ON o.message_id='outbox:'||a.attempt_id AND o.attempt_id=a.attempt_id
+        AND o.request_id=a.request_id AND o.idempotency_key=a.idempotency_key AND o.message_type='start'
+        AND o.payload_json=json_object('attempt_id',a.attempt_id) AND o.state='ACKNOWLEDGED' AND o.claim_token IS NULL
+      WHERE b.workspace_id=? AND b.project_id=? AND b.proposal_version_id=? AND b.attempt_id=?`)
+      .get(Number(snapshot.fields[13]), scope.workspaceId, scope.projectId, scope.proposalVersionId, receipt.attemptId) as { state: string } | undefined;
+  }
+
   private async authenticatedReceipt(scope: EncryptedProposalScope): Promise<AuthenticatedReceipt | null> {
     let codec: Awaited<ReturnType<ReservedPayloadService['receiptCodec']>> | undefined;
     let plain: Buffer | undefined, aad: Buffer | undefined;
     try {
       const snapshot = this.proofSnapshot(scope), captured = this.envelope(scope);
-      if (!snapshot || !captured) return null;
+      if (!snapshot || !captured || snapshot.fields[5] !== 'sha256:' + createHash('sha256').update(captured).digest('hex')) return null;
       const attemptId = snapshot.fields[10];
       const read = () => this.db.prepare('SELECT nonce,ciphertext,auth_tag FROM protected_start_receipts WHERE attempt_id=?').get(attemptId) as ReceiptEnvelope | undefined;
       const stored = read();

@@ -18,6 +18,7 @@ vi.mock('electron', () => ({
 }));
 vi.mock('../../src/main/review-window.js', () => ({ presentReview: native.review }));
 import { bindProtectedConsentWindow, presentProtectedConsent } from '../../src/main/protected-native-consent.js';
+import * as protectedConsent from '../../src/main/protected-native-consent.js';
 
 const rendererUrl = pathToFileURL(join(dirname(fileURLToPath(import.meta.url)), '../../src/renderer/index.html')).href;
 
@@ -73,4 +74,31 @@ test('navigation away while the confirmation is open invalidates consent', async
     return { response: 0 };
   });
   expect(await presentProtectedConsent('complete review')).toBe(false);
+});
+
+test('running cancellation requires review and an explicit choice in the bound main window', async () => {
+  const cancel = Reflect.get(protectedConsent, 'presentProtectedCancellation');
+  expect(typeof cancel).toBe('function');
+  expect(await Reflect.apply(cancel, undefined, ['full reviewed task', 'task-1'])).toBe(true);
+  expect(native.review).toHaveBeenCalledOnce();
+  expect(native.showMessageBox).toHaveBeenCalledOnce();
+  expect(native.showMessageBox.mock.calls[0]?.[1]).toMatchObject({ message: 'Cancel this running task?', defaultId: 1, cancelId: 1 });
+  native.focused.mockReturnValue({ isDestroyed: () => false, webContents: { getURL: () => rendererUrl } });
+  expect(await Reflect.apply(cancel, undefined, ['full reviewed task', 'task-1'])).toBe(false);
+});
+
+test('closing cancellation review cannot open the confirmation or authorize cancellation', async () => {
+  const cancel = Reflect.get(protectedConsent, 'presentProtectedCancellation');
+  native.review.mockResolvedValue(false);
+  expect(await Reflect.apply(cancel, undefined, ['full reviewed task', 'task-1'])).toBe(false);
+  expect(native.showMessageBox).not.toHaveBeenCalled();
+});
+
+test('navigation away during cancellation confirmation invalidates the choice', async () => {
+  const cancel = Reflect.get(protectedConsent, 'presentProtectedCancellation');
+  native.showMessageBox.mockImplementation(async () => {
+    native.parent.webContents.getURL.mockReturnValue('file:///other.html');
+    return { response: 0 };
+  });
+  expect(await Reflect.apply(cancel, undefined, ['full reviewed task', 'task-1'])).toBe(false);
 });

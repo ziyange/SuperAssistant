@@ -55,6 +55,15 @@ export class EncryptedProposalStore {
     } catch { return null; }
   }
 
+  async readBound(input: EncryptedProposalScope, expectedEnvelope: string): Promise<ProposalVersion | null> {
+    try {
+      const scope = { ...input };
+      const text = await this.protectedPayloads.readBound(scopeFor(scope), expectedEnvelope);
+      if (Buffer.byteLength(text, 'utf8') > 65536) return null;
+      return verify(JSON.parse(text) as unknown, scope);
+    } catch { return null; }
+  }
+
   async reconcile(input: EncryptedProposalScope): Promise<'LINKED' | 'UNRESOLVED'> {
     try {
       const scope = { ...input };
