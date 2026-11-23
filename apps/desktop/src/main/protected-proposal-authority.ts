@@ -1,6 +1,7 @@
 /* eslint-disable no-unused-vars -- callback parameter names describe the trusted internal boundary. */
 import { Buffer } from 'node:buffer';
 import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
+import { isAbsolute } from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
 import type Database from 'better-sqlite3';
 import { createH1ReviewedProposal, type ProposalVersion } from '@super-assistant/domain';
@@ -21,6 +22,16 @@ type Envelope = {
 };
 type ExistingResult = { attemptId: string; claimToken?: string } | { unavailable: true } | null;
 type ProofSnapshot = { fields: string[]; tag: string };
+type ProtectedReceipt = { threadId: string; turnId: string; cwd: string; principalHash: string };
+type ReceiptEnvelope = { nonce: Buffer; ciphertext: Buffer; auth_tag: Buffer };
+function validReceipt(value: unknown): value is ProtectedReceipt {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const row = value as Record<string, unknown>;
+  return Object.keys(row).sort().join(',') === 'cwd,principalHash,threadId,turnId'
+    && [row.threadId, row.turnId].every(id => typeof id === 'string' && /^[a-z0-9_-]{1,128}$/i.test(id))
+    && typeof row.cwd === 'string' && row.cwd.length <= 4096 && isAbsolute(row.cwd) && !/[\p{Cc}\p{Cf}]/u.test(row.cwd)
+    && typeof row.principalHash === 'string' && /^[a-f0-9]{64}$/.test(row.principalHash);
+}
 function proofMessage(fields: readonly string[]): Buffer {
   const chunks: Buffer[] = [];
   for (const field of ['super-assistant:protected-approval:v1', ...fields]) {
@@ -127,6 +138,98 @@ export class ProtectedProposalAuthority {
         return true;
       }).immediate();
     } catch { return false; }
+  }
+
+  /** Fixture-only building block: it does not authorize or attest a process launch. */
+  async prepareReceipt(input: EncryptedProposalScope, claimToken: string, expected: { cwd: string; principalHash: string }): Promise<{
+    record: (receipt: ProtectedReceipt) => boolean; markUnknown: () => boolean; dispose: () => void;
+  }> {
+    if (arguments.length !== 3 || !validScope(input) || typeof claimToken !== 'string'
+      || !/^[a-f0-9-]{36}$/i.test(claimToken) || !expected || Object.keys(expected).sort().join(',') !== 'cwd,principalHash'
+      || !validReceipt({ ...expected, threadId: 'fixture', turnId: 'fixture' }) || this.db.inTransaction) throw new Error('PROTECTED_RECEIPT_UNAVAILABLE');
+    const scope = { ...input }, expectedCwd = expected.cwd, expectedPrincipal = expected.principalHash;
+    const snapshot = this.proofSnapshot(scope), captured = this.envelope(scope);
+    if (!snapshot || !captured || !sameTag(await this.tag(scope, snapshot.fields), snapshot.tag)) throw new Error('PROTECTED_RECEIPT_UNAVAILABLE');
+    const attemptId = snapshot.fields[10];
+    const aad = proofMessage(['receipt-v1', ...snapshot.fields, snapshot.tag]);
+    let codec: Awaited<ReturnType<ReservedPayloadService['receiptCodec']>>;
+    try { codec = await this.payloads.receiptCodec({ workspaceId: scope.workspaceId, projectId: scope.projectId, recordId: scope.proposalVersionId, kind: 'PROPOSAL' }); }
+    catch { aad.fill(0); throw new Error('PROTECTED_RECEIPT_UNAVAILABLE'); }
+    let consumed = false, closed = false;
+    let persisted: ReceiptEnvelope | undefined;
+    const eraseKey = () => { consumed = true; aad.fill(0); codec.dispose(); };
+    const dispose = () => { closed = true; eraseKey(); };
+    const claimed = () => this.db.prepare(`SELECT 1 FROM execution_attempts a JOIN outbox o ON o.attempt_id=a.attempt_id
+      WHERE a.attempt_id=? AND a.work_item_id=? AND a.request_id=? AND a.idempotency_key=? AND a.state='DISPATCH_PENDING'
+        AND o.message_id='outbox:'||a.attempt_id AND o.request_id=a.request_id AND o.idempotency_key=a.idempotency_key
+        AND o.payload_json=json_object('attempt_id',a.attempt_id)
+        AND o.message_type='start' AND o.state='DISPATCHING' AND o.claim_token=?`)
+      .get(attemptId, snapshot.fields[9], snapshot.fields[12], scope.proposalVersionId, claimToken);
+    try {
+      if (this.db.inTransaction || this.envelope(scope) !== captured || !isDeepStrictEqual(this.proofSnapshot(scope), snapshot) || !claimed()) throw new Error('unavailable');
+    } catch { dispose(); throw new Error('PROTECTED_RECEIPT_UNAVAILABLE'); }
+    return {
+      record: receipt => {
+        if (consumed || closed) return false;
+        let plain: Buffer | undefined;
+        try {
+          if (!validReceipt(receipt) || receipt.cwd !== expectedCwd || receipt.principalHash !== expectedPrincipal || this.db.inTransaction) return false;
+          plain = Buffer.from(JSON.stringify(receipt), 'utf8');
+          const sealed = codec.seal(plain, aad);
+          const success = this.db.transaction(() => {
+            if (this.envelope(scope) !== captured || !isDeepStrictEqual(this.proofSnapshot(scope), snapshot) || !claimed()) throw new Error('unavailable');
+            this.db.prepare('INSERT INTO protected_start_receipts VALUES (?, ?, ?, ?)').run(attemptId, sealed.nonce, sealed.ciphertext, sealed.authTag);
+            const ack = this.db.prepare("UPDATE outbox SET state='ACKNOWLEDGED',claim_token=NULL WHERE message_id=? AND state='DISPATCHING' AND claim_token=?")
+              .run('outbox:' + attemptId, claimToken);
+            const running = this.db.prepare("UPDATE execution_attempts SET state='RUNNING' WHERE attempt_id=? AND state='DISPATCH_PENDING'").run(attemptId);
+            if (ack.changes !== 1 || running.changes !== 1) throw new Error('unavailable');
+            return true;
+          }).immediate();
+          if (success) persisted = { nonce: sealed.nonce, ciphertext: sealed.ciphertext, auth_tag: sealed.authTag };
+          return success;
+        } catch { return false; }
+        finally { plain?.fill(0); eraseKey(); }
+      },
+      markUnknown: () => {
+        if (closed) return false;
+        try {
+          if (this.db.inTransaction) return false;
+          if (!persisted) return this.quarantineClaim(scope, claimToken);
+          return this.db.transaction(() => {
+            const stored = this.db.prepare('SELECT nonce,ciphertext,auth_tag FROM protected_start_receipts WHERE attempt_id=?').get(attemptId);
+            if (this.envelope(scope) !== captured || !isDeepStrictEqual(this.proofSnapshot(scope), snapshot)
+              || !isDeepStrictEqual(stored, persisted)) return false;
+            const ack = this.db.prepare("SELECT 1 FROM outbox WHERE message_id=? AND attempt_id=? AND state='ACKNOWLEDGED' AND claim_token IS NULL")
+              .get('outbox:' + attemptId, attemptId);
+            if (!ack) return false;
+            return this.db.prepare("UPDATE execution_attempts SET state='UNKNOWN' WHERE attempt_id=? AND state='RUNNING'").run(attemptId).changes === 1;
+          }).immediate();
+        } catch { return false; }
+        finally { dispose(); }
+      }, dispose
+    };
+  }
+
+  /** Read encrypted receipt only; this does not infer or update execution state. */
+  async readReceipt(input: EncryptedProposalScope): Promise<({ attemptId: string } & ProtectedReceipt) | null> {
+    if (arguments.length !== 1 || !validScope(input) || this.db.inTransaction) return null;
+    const scope = { ...input }, snapshot = this.proofSnapshot(scope), captured = this.envelope(scope);
+    if (!snapshot || !captured) return null;
+    let codec: Awaited<ReturnType<ReservedPayloadService['receiptCodec']>> | undefined;
+    let plain: Buffer | undefined, aad: Buffer | undefined;
+    try {
+      const attemptId = snapshot.fields[10];
+      const read = () => this.db.prepare('SELECT nonce,ciphertext,auth_tag FROM protected_start_receipts WHERE attempt_id=?').get(attemptId) as ReceiptEnvelope | undefined;
+      const stored = read();
+      if (!stored || !sameTag(await this.tag(scope, snapshot.fields), snapshot.tag)) return null;
+      codec = await this.payloads.receiptCodec({ workspaceId: scope.workspaceId, projectId: scope.projectId, recordId: scope.proposalVersionId, kind: 'PROPOSAL' });
+      if (this.db.inTransaction || this.envelope(scope) !== captured || !isDeepStrictEqual(this.proofSnapshot(scope), snapshot) || !isDeepStrictEqual(read(), stored)) return null;
+      aad = proofMessage(['receipt-v1', ...snapshot.fields, snapshot.tag]);
+      plain = codec.open({ nonce: stored.nonce, ciphertext: stored.ciphertext, authTag: stored.auth_tag }, aad);
+      const receipt: unknown = JSON.parse(plain.toString('utf8'));
+      return validReceipt(receipt) && attemptId ? { attemptId, ...receipt } : null;
+    } catch { return null; }
+    finally { plain?.fill(0); aad?.fill(0); codec?.dispose(); }
   }
 
   private async confirmAndQueueOnce(scope: EncryptedProposalScope, allowCreate: boolean, claim = false): Promise<{ attemptId: string; claimToken?: string }> {

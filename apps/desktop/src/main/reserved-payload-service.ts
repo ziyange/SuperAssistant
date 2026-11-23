@@ -1,6 +1,6 @@
 /* eslint-disable no-unused-vars -- port arguments and constructor properties define the main-process boundary. */
 import { Buffer } from 'node:buffer';
-import { createHmac, hkdfSync, timingSafeEqual } from 'node:crypto';
+import { createCipheriv, createDecipheriv, createHmac, hkdfSync, randomBytes, timingSafeEqual } from 'node:crypto';
 import type Database from 'better-sqlite3';
 import { ProtectedKeyReservations } from './protected-key-reservations.js';
 import { authenticatePayloadForRecovery, ProtectedPayloadStore, type ProtectedKeyProvider, type ProtectedPayloadScope } from './protected-payload-store.js';
@@ -32,6 +32,8 @@ export interface ReservedVault {
   read(keyRef: string): Promise<Buffer | null>;
   release?(value: Buffer): void;
 }
+
+type ReceiptEnvelope = { nonce: Buffer; ciphertext: Buffer; authTag: Buffer };
 
 /** Isolated orchestration only: never selected by the renderer or production desktop. */
 export class ReservedPayloadService {
@@ -141,6 +143,59 @@ export class ReservedPayloadService {
       return 'hmac-sha256:' + createHmac('sha256', derived).update(capturedMessage).digest('hex');
     } catch { throw new Error('Protected approval unavailable'); }
     finally { key?.fill(0); derived?.fill(0); capturedMessage.fill(0); }
+  }
+
+  /** Internal prototype only: the caller owns and must dispose the derived key. */
+  async receiptCodec(input: ProtectedPayloadScope): Promise<{
+    seal: (plain: Buffer, aad: Buffer) => ReceiptEnvelope;
+    open: (envelope: ReceiptEnvelope, aad: Buffer) => Buffer;
+    dispose: () => void;
+  }> {
+    const scope = { ...input };
+    if (scope.kind !== 'PROPOSAL' || this.db.inTransaction) throw new Error('Protected receipt unavailable');
+    let key: Buffer | null = null;
+    let derived: Buffer | undefined;
+    try {
+      if (this.journal.inspect(scope) !== 'LINKED') throw new Error('unavailable');
+      const reference = this.journal.recoveryReference(scope);
+      if (!reference) throw new Error('unavailable');
+      key = await this.readCopy(reference);
+      if (!key || this.db.inTransaction) throw new Error('unavailable');
+      this.db.transaction(() => {
+        if (this.journal.inspect(scope) !== 'LINKED' || this.journal.recoveryReference(scope) !== reference) throw new Error('unavailable');
+        authenticatePayloadForRecovery(this.db, scope, reference, key!);
+      }).immediate();
+      derived = Buffer.from(hkdfSync('sha256', key, Buffer.from('super-assistant-receipt-v1'), Buffer.from('protected-receipt-aes-gcm'), 32));
+      const receiptKey = derived;
+      derived = undefined;
+      let disposed = false;
+      const check = (aad: Buffer) => {
+        if (disposed || !Buffer.isBuffer(aad) || aad.length < 1 || aad.length > 8192) throw new Error('unavailable');
+      };
+      return {
+        seal: (plain, aad) => {
+          check(aad);
+          if (!Buffer.isBuffer(plain) || plain.length < 1 || plain.length > 8192) throw new Error('unavailable');
+          const nonce = randomBytes(12);
+          const cipher = createCipheriv('aes-256-gcm', receiptKey, nonce, { authTagLength: 16 });
+          cipher.setAAD(aad);
+          const ciphertext = Buffer.concat([cipher.update(plain), cipher.final()]);
+          return { nonce, ciphertext, authTag: cipher.getAuthTag() };
+        },
+        open: (envelope, aad) => {
+          check(aad);
+          if (!envelope || !Buffer.isBuffer(envelope.nonce) || envelope.nonce.length !== 12
+            || !Buffer.isBuffer(envelope.authTag) || envelope.authTag.length !== 16
+            || !Buffer.isBuffer(envelope.ciphertext) || envelope.ciphertext.length < 1 || envelope.ciphertext.length > 8192) throw new Error('unavailable');
+          const cipher = createDecipheriv('aes-256-gcm', receiptKey, envelope.nonce, { authTagLength: 16 });
+          cipher.setAAD(aad); cipher.setAuthTag(envelope.authTag);
+          const first = cipher.update(envelope.ciphertext);
+          try { return Buffer.concat([first, cipher.final()]); } finally { first.fill(0); }
+        },
+        dispose: () => { disposed = true; receiptKey.fill(0); }
+      };
+    } catch { throw new Error('Protected receipt unavailable'); }
+    finally { key?.fill(0); derived?.fill(0); }
   }
 
   /** Authenticate the existing envelope and link it without any vault write or key creation. */

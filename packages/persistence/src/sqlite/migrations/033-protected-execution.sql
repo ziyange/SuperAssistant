@@ -43,6 +43,22 @@ BEGIN SELECT RAISE(ABORT, 'Protected execution context is immutable'); END;
 CREATE TRIGGER protected_execution_context_no_delete BEFORE DELETE ON protected_execution_context
 BEGIN SELECT RAISE(ABORT, 'Protected execution context is immutable'); END;
 
+-- Opaque receipt content is encrypted with a domain-separated Proposal key.
+-- This record alone is not evidence of process ownership or termination.
+CREATE TABLE protected_start_receipts (
+  attempt_id TEXT PRIMARY KEY NOT NULL REFERENCES protected_execution_bindings(attempt_id),
+  nonce BLOB NOT NULL CHECK(length(nonce)=12),
+  ciphertext BLOB NOT NULL CHECK(length(ciphertext)>0 AND length(ciphertext)<=8192),
+  auth_tag BLOB NOT NULL CHECK(length(auth_tag)=16)
+);
+CREATE TRIGGER protected_start_receipt_no_replace BEFORE INSERT ON protected_start_receipts
+WHEN EXISTS (SELECT 1 FROM protected_start_receipts WHERE attempt_id=NEW.attempt_id)
+BEGIN SELECT RAISE(ABORT, 'Protected receipt cannot be replaced'); END;
+CREATE TRIGGER protected_start_receipt_no_update BEFORE UPDATE ON protected_start_receipts
+BEGIN SELECT RAISE(ABORT, 'Protected receipt is immutable'); END;
+CREATE TRIGGER protected_start_receipt_no_delete BEFORE DELETE ON protected_start_receipts
+BEGIN SELECT RAISE(ABORT, 'Protected receipt is immutable'); END;
+
 DROP TRIGGER grants_legacy_authority_insert;
 DROP TRIGGER grants_legacy_authority_update;
 DROP TRIGGER tasks_legacy_authority_insert;

@@ -123,6 +123,51 @@ test('an accepted fake Turn with a lost reply quarantines the original Attempt i
   }
 }, 45000);
 
+test('a fake acknowledged Turn persists encrypted receipt and quarantines the original Attempt when its process exits', async () => {
+  const item = await fixture('Write the approved change');
+  let child: ReturnType<typeof spawn> | undefined;
+  let client: AppServerExecutionClient | undefined;
+  let closed: Promise<unknown> | undefined;
+  try {
+    vi.mocked(presentProtectedConsent).mockResolvedValue(true);
+    const original = await item.authority.confirmAndQueue(item.scope);
+    const task = item.db.prepare('SELECT task_id FROM tasks').get() as { task_id: string };
+    const claimed = await item.authority.claimQueued(item.scope);
+    const input = { projectId: 'p', taskId: task.task_id, projectPath: item.project,
+      worktreeRoot: join(item.folder, 'worktrees'), baselineCommit: item.head } as Parameters<GitWorktreeService['create']>[0];
+    const isolated = new GitWorktreeService().create(input);
+    const principalHash = createHash('sha256').update('codex-personal-v1:fixture@example.invalid:plus').digest('hex');
+    const writer = await item.authority.prepareReceipt(item.scope, claimed.claimToken, { cwd: isolated.path, principalHash });
+    const path = fileURLToPath(new URL('../../../../packages/codex-adapter/tests/fixtures/execution-app-server.mjs', import.meta.url));
+    child = spawn(process.execPath, [path, 'normal'], { stdio: ['pipe', 'pipe', 'ignore'], windowsHide: true });
+    closed = once(child, 'close');
+    client = new AppServerExecutionClient(child, '0.121.0', principalHash, async () => true,
+      () => writer.markUnknown(), receipt => writer.record(receipt));
+    await client.initialize();
+    const receipt = await client.start(isolated.path, item.proposal.objective);
+    expect(item.db.prepare('SELECT state FROM execution_attempts').get()).toEqual({ state: 'RUNNING' });
+    expect(await item.authority.readReceipt(item.scope)).toEqual({ attemptId: original.attemptId, ...receipt });
+    if (!child.stdin) throw new Error('fixture stdin unavailable');
+    child.stdin.end();
+    await closed;
+    expect(client.status()).toBe('UNKNOWN');
+    expect(client.unknownNotificationFailed()).toBe(false);
+    expect(item.db.prepare('SELECT attempt_id,state FROM execution_attempts').all())
+      .toEqual([{ attempt_id: original.attemptId, state: 'UNKNOWN' }]);
+    expect(item.db.prepare('SELECT state FROM outbox').get()).toEqual({ state: 'ACKNOWLEDGED' });
+    expect(item.db.prepare('SELECT state FROM resource_leases').get()).toEqual({ state: 'ACTIVE' });
+    expect(await item.authority.readReceipt(item.scope)).toEqual({ attemptId: original.attemptId, ...receipt });
+    expect(execFileSync('git', ['-C', item.project, 'status', '--porcelain'], { env: projectGitEnvironment(), encoding: 'utf8' }).trim()).toBe('');
+    writer.dispose();
+  } finally {
+    client?.dispose();
+    if (child?.stdin && !child.stdin.destroyed) child.stdin.end();
+    if (closed) await closed;
+    item.db.close();
+    rmSync(item.folder, { recursive: true, force: true });
+  }
+}, 45000);
+
 test('a real Git baseline and synthetic native consent queue one protected Attempt', async () => {
   const item = await fixture();
   try {

@@ -480,6 +480,192 @@ test('only the matching protected claim can quarantine an uncertain original Att
   } finally { db.close(); }
 });
 
+test('a protected start receipt is encrypted and atomically bound to the claimed original Attempt', async () => {
+  const { db, authority, proposal } = await fixture();
+  try {
+    bindProtected(db, proposal);
+    const original = await confirm(authority, scope, async () => true, async () => 'a'.repeat(40));
+    const claim = await authority.claimQueued(scope);
+    const prepare = Reflect.get(authority, 'prepareReceipt');
+    expect(typeof prepare).toBe('function');
+    const cwd = 'E:/private-worktrees/task-1';
+    const principalHash = 'b'.repeat(64);
+    const writer = await Reflect.apply(prepare, authority, [scope, claim.claimToken, { cwd, principalHash }]);
+    const receipt = { threadId: 'private-thread-1', turnId: 'private-turn-1', cwd, principalHash };
+    expect(writer.record(receipt)).toBe(true);
+    expect(writer.record(receipt)).toBe(false);
+    expect(db.prepare('SELECT attempt_id,state FROM execution_attempts').get()).toEqual({ attempt_id: original.attemptId, state: 'RUNNING' });
+    expect(db.prepare('SELECT state,claim_token FROM outbox').get()).toEqual({ state: 'ACKNOWLEDGED', claim_token: null });
+    expect(db.prepare('SELECT state FROM resource_leases').get()).toEqual({ state: 'ACTIVE' });
+    const bytes = db.serialize();
+    for (const text of [receipt.threadId, receipt.turnId, cwd]) expect(bytes.includes(Buffer.from(text))).toBe(false);
+    const read = Reflect.get(authority, 'readReceipt');
+    expect(typeof read).toBe('function');
+    expect(await Reflect.apply(read, authority, [scope])).toEqual({ attemptId: original.attemptId, ...receipt });
+    writer.dispose();
+  } finally { db.close(); }
+});
+
+test('protected receipt preparation rejects a foreign claim without modifying the Attempt', async () => {
+  const { db, authority, proposal } = await fixture();
+  try {
+    bindProtected(db, proposal);
+    const original = await confirm(authority, scope, async () => true, async () => 'a'.repeat(40));
+    const claim = await authority.claimQueued(scope);
+    await expect(authority.prepareReceipt(scope, '00000000-0000-4000-8000-000000000000',
+      { cwd: 'E:/private-worktrees/task-1', principalHash: 'b'.repeat(64) })).rejects.toThrow();
+    expect(db.prepare('SELECT attempt_id,state FROM execution_attempts').get()).toEqual({ attempt_id: original.attemptId, state: 'DISPATCH_PENDING' });
+    expect(db.prepare('SELECT state,claim_token FROM outbox').get()).toEqual({ state: 'DISPATCHING', claim_token: claim.claimToken });
+    expect(db.prepare('SELECT count(*) AS n FROM protected_start_receipts').get()).toEqual({ n: 0 });
+  } finally { db.close(); }
+});
+
+test('a receipt persistence failure rolls back ACK and keeps the original Attempt claim', async () => {
+  const { db, authority, proposal } = await fixture();
+  try {
+    bindProtected(db, proposal);
+    const original = await confirm(authority, scope, async () => true, async () => 'a'.repeat(40));
+    const claim = await authority.claimQueued(scope);
+    const cwd = 'E:/private-worktrees/task-1', principalHash = 'b'.repeat(64);
+    const writer = await authority.prepareReceipt(scope, claim.claimToken, { cwd, principalHash });
+    db.exec("CREATE TRIGGER fixture_receipt_abort BEFORE UPDATE OF state ON execution_attempts WHEN NEW.state='RUNNING' BEGIN SELECT RAISE(ABORT, 'fixture'); END");
+    expect(writer.record({ threadId: 'thread-1', turnId: 'turn-1', cwd, principalHash })).toBe(false);
+    expect(db.prepare('SELECT count(*) AS n FROM protected_start_receipts').get()).toEqual({ n: 0 });
+    expect(db.prepare('SELECT state,claim_token FROM outbox').get()).toEqual({ state: 'DISPATCHING', claim_token: claim.claimToken });
+    expect(db.prepare('SELECT attempt_id,state FROM execution_attempts').get()).toEqual({ attempt_id: original.attemptId, state: 'DISPATCH_PENDING' });
+    expect(authority.quarantineClaim(scope, claim.claimToken)).toBe(true);
+    expect(db.prepare('SELECT state FROM resource_leases').get()).toEqual({ state: 'ACTIVE' });
+  } finally { db.close(); }
+});
+
+test('the private receipt owner quarantines a running original Attempt after connection loss', async () => {
+  const { db, authority, proposal } = await fixture();
+  try {
+    bindProtected(db, proposal);
+    const original = await confirm(authority, scope, async () => true, async () => 'a'.repeat(40));
+    const claim = await authority.claimQueued(scope);
+    const cwd = 'E:/private-worktrees/task-1', principalHash = 'b'.repeat(64);
+    const writer = await authority.prepareReceipt(scope, claim.claimToken, { cwd, principalHash });
+    const receipt = { threadId: 'thread-1', turnId: 'turn-1', cwd, principalHash };
+    expect(writer.record(receipt)).toBe(true);
+    const markUnknown = Reflect.get(writer, 'markUnknown');
+    expect(typeof markUnknown).toBe('function');
+    expect(Reflect.apply(markUnknown, writer, [])).toBe(true);
+    expect(db.prepare('SELECT attempt_id,state FROM execution_attempts').get()).toEqual({ attempt_id: original.attemptId, state: 'UNKNOWN' });
+    expect(db.prepare('SELECT state FROM outbox').get()).toEqual({ state: 'ACKNOWLEDGED' });
+    expect(db.prepare('SELECT state FROM resource_leases').get()).toEqual({ state: 'ACTIVE' });
+    expect(await authority.readReceipt(scope)).toEqual({ attemptId: original.attemptId, ...receipt });
+    expect(Reflect.apply(markUnknown, writer, [])).toBe(false);
+  } finally { db.close(); }
+});
+
+test('competing receipt writers cannot acknowledge or create a second receipt', async () => {
+  const { db, authority, proposal } = await fixture();
+  try {
+    bindProtected(db, proposal);
+    const original = await confirm(authority, scope, async () => true, async () => 'a'.repeat(40));
+    const claim = await authority.claimQueued(scope);
+    const cwd = 'E:/private-worktrees/task-1', principalHash = 'b'.repeat(64);
+    const first = await authority.prepareReceipt(scope, claim.claimToken, { cwd, principalHash });
+    const second = await authority.prepareReceipt(scope, claim.claimToken, { cwd, principalHash });
+    expect(first.record({ threadId: 'thread-1', turnId: 'turn-1', cwd, principalHash })).toBe(true);
+    expect(second.record({ threadId: 'thread-2', turnId: 'turn-2', cwd, principalHash })).toBe(false);
+    expect(second.markUnknown()).toBe(false);
+    expect(db.prepare('SELECT count(*) AS n FROM protected_start_receipts').get()).toEqual({ n: 1 });
+    expect(db.prepare('SELECT attempt_id,state FROM execution_attempts').all()).toEqual([{ attempt_id: original.attemptId, state: 'RUNNING' }]);
+    expect(first.markUnknown()).toBe(true);
+  } finally { db.close(); }
+});
+
+test('a receipt writer with an unexpected cwd cannot acknowledge and can quarantine the claim', async () => {
+  const { db, authority, proposal } = await fixture();
+  try {
+    bindProtected(db, proposal);
+    const original = await confirm(authority, scope, async () => true, async () => 'a'.repeat(40));
+    const claim = await authority.claimQueued(scope);
+    const cwd = 'E:/private-worktrees/task-1', principalHash = 'b'.repeat(64);
+    const writer = await authority.prepareReceipt(scope, claim.claimToken, { cwd, principalHash });
+    expect(writer.record({ threadId: 'thread-1', turnId: 'turn-1', cwd: 'E:/other-worktree', principalHash })).toBe(false);
+    expect(writer.markUnknown()).toBe(true);
+    expect(db.prepare('SELECT count(*) AS n FROM protected_start_receipts').get()).toEqual({ n: 0 });
+    expect(db.prepare('SELECT attempt_id,state FROM execution_attempts').get()).toEqual({ attempt_id: original.attemptId, state: 'UNKNOWN' });
+    expect(db.prepare('SELECT state FROM resource_leases').get()).toEqual({ state: 'ACTIVE' });
+  } finally { db.close(); }
+});
+
+test('a quarantined claim cannot later be acknowledged by a previously prepared receipt writer', async () => {
+  const { db, authority, proposal } = await fixture();
+  try {
+    bindProtected(db, proposal);
+    const original = await confirm(authority, scope, async () => true, async () => 'a'.repeat(40));
+    const claim = await authority.claimQueued(scope);
+    const cwd = 'E:/private-worktrees/task-1', principalHash = 'b'.repeat(64);
+    const writer = await authority.prepareReceipt(scope, claim.claimToken, { cwd, principalHash });
+    expect(authority.quarantineClaim(scope, claim.claimToken)).toBe(true);
+    expect(writer.record({ threadId: 'thread-1', turnId: 'turn-1', cwd, principalHash })).toBe(false);
+    expect(db.prepare('SELECT count(*) AS n FROM protected_start_receipts').get()).toEqual({ n: 0 });
+    expect(db.prepare('SELECT attempt_id,state FROM execution_attempts').get()).toEqual({ attempt_id: original.attemptId, state: 'UNKNOWN' });
+    expect(db.prepare('SELECT state FROM resource_leases').get()).toEqual({ state: 'ACTIVE' });
+    writer.dispose();
+  } finally { db.close(); }
+});
+
+test('connection loss inside a caller transaction invalidates the receipt writer', async () => {
+  const { db, authority, proposal } = await fixture();
+  try {
+    bindProtected(db, proposal);
+    const original = await confirm(authority, scope, async () => true, async () => 'a'.repeat(40));
+    const claim = await authority.claimQueued(scope);
+    const cwd = 'E:/private-worktrees/task-1', principalHash = 'b'.repeat(64);
+    const writer = await authority.prepareReceipt(scope, claim.claimToken, { cwd, principalHash });
+    expect(db.transaction(() => writer.markUnknown()).immediate()).toBe(false);
+    expect(writer.record({ threadId: 'thread-1', turnId: 'turn-1', cwd, principalHash })).toBe(false);
+    expect(db.prepare('SELECT count(*) AS n FROM protected_start_receipts').get()).toEqual({ n: 0 });
+    expect(db.prepare('SELECT attempt_id,state FROM execution_attempts').get()).toEqual({ attempt_id: original.attemptId, state: 'DISPATCH_PENDING' });
+    expect(authority.quarantineClaim(scope, claim.claimToken)).toBe(true);
+    expect(db.prepare('SELECT state FROM resource_leases').get()).toEqual({ state: 'ACTIVE' });
+  } finally { db.close(); }
+});
+
+test('a modified receipt cannot be used by a prior owner capability to change Attempt state', async () => {
+  const { db, authority, proposal } = await fixture();
+  try {
+    bindProtected(db, proposal);
+    const original = await confirm(authority, scope, async () => true, async () => 'a'.repeat(40));
+    const claim = await authority.claimQueued(scope);
+    const cwd = 'E:/private-worktrees/task-1', principalHash = 'b'.repeat(64);
+    const writer = await authority.prepareReceipt(scope, claim.claimToken, { cwd, principalHash });
+    expect(writer.record({ threadId: 'thread-1', turnId: 'turn-1', cwd, principalHash })).toBe(true);
+    db.exec('DROP TRIGGER protected_start_receipt_no_update; UPDATE protected_start_receipts SET auth_tag=zeroblob(16)');
+    expect(writer.markUnknown()).toBe(false);
+    expect(db.prepare('SELECT attempt_id,state FROM execution_attempts').get()).toEqual({ attempt_id: original.attemptId, state: 'RUNNING' });
+    expect(db.prepare('SELECT state FROM resource_leases').get()).toEqual({ state: 'ACTIVE' });
+  } finally { db.close(); }
+});
+
+test('protected receipt survives a database reopen and rejects modified ciphertext', async () => {
+  const { db, vault, authority, proposal } = await fixture();
+  let reopened: Database.Database | undefined;
+  const folder = mkdtempSync(join(tmpdir(), 'sa-protected-receipt-'));
+  try {
+    bindProtected(db, proposal);
+    const original = await confirm(authority, scope, async () => true, async () => 'a'.repeat(40));
+    const claim = await authority.claimQueued(scope);
+    const cwd = 'E:/private-worktrees/task-1', principalHash = 'b'.repeat(64);
+    const writer = await authority.prepareReceipt(scope, claim.claimToken, { cwd, principalHash });
+    const receipt = { threadId: 'thread-1', turnId: 'turn-1', cwd, principalHash };
+    expect(writer.record(receipt)).toBe(true);
+    const backup = join(folder, 'receipt.sqlite');
+    await db.backup(backup);
+    reopened = new Database(backup, { fileMustExist: true });
+    const recovered = new ProtectedProposalAuthority(reopened, vault, () => '2026-08-01T00:00:00.000Z');
+    expect(await recovered.readReceipt(scope)).toEqual({ attemptId: original.attemptId, ...receipt });
+    reopened.exec('DROP TRIGGER protected_start_receipt_no_update; UPDATE protected_start_receipts SET auth_tag=zeroblob(16)');
+    expect(await recovered.readReceipt(scope)).toBeNull();
+    expect(reopened.prepare('SELECT state FROM execution_attempts').get()).toEqual({ state: 'RUNNING' });
+  } finally { reopened?.close(); db.close(); rmSync(folder, { recursive: true, force: true }); }
+});
+
 test.each(['claimed', 'unknown'])('protected %s Attempt cannot lose its active Lease through a generic update', async phase => {
   const { db, authority, proposal } = await fixture();
   try {
