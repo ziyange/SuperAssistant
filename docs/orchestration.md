@@ -381,3 +381,8 @@ or replacing the Attempt. Receipt recording independently rejects stale
 database authority and Lease state transactionally; rejection after an external
 start is an unknown outcome, not proof that no side effect occurred. The Lease
 remains active and no production transport is enabled.
+
+TASK-833 snapshots the fixture request identity before asynchronous claim and
+uses that same immutable scope for subsequent receipt checks and quarantine.
+Changing the caller's object cannot redirect recovery to another Proposal; this
+does not provide process ownership or make the fixture production-safe.

@@ -223,6 +223,29 @@ test('a worktree failure after claim quarantines the original Attempt without re
   } finally { item.db.close(); rmSync(item.folder, { recursive: true, force: true }); }
 }, 30000);
 
+test('caller scope mutation after claim cannot redirect quarantine from the original Attempt', async () => {
+  const item = await fixture();
+  try {
+    vi.mocked(presentProtectedConsent).mockResolvedValue(true);
+    const original = await item.authority.confirmAndQueue(item.scope);
+    const supplied = { ...item.scope };
+    const principal = createHash('sha256').update('codex-personal-v1:fixture@example.invalid:plus').digest('hex');
+    const { GitWorktreeService } = await import('../../src/main/worktree-service.js');
+    const { FixtureProtectedDispatch } = await import('../../src/main/fixture-protected-dispatch.js');
+    const worktree = vi.spyOn(GitWorktreeService.prototype, 'create').mockImplementation(() => {
+      supplied.proposalVersionId = 'other-proposal';
+      throw new Error('fixture worktree failed');
+    });
+    try {
+      const dispatcher = new FixtureProtectedDispatch(item.authority, join(item.folder, 'worktrees'), principal, () => { throw new Error('must not launch'); });
+      await expect(dispatcher.start(supplied)).rejects.toThrow('FIXTURE_OUTCOME_UNKNOWN');
+      expect(item.db.prepare('SELECT attempt_id,state FROM execution_attempts').all()).toEqual([{ attempt_id: original.attemptId, state: 'UNKNOWN' }]);
+      expect(item.db.prepare('SELECT state,claim_token FROM outbox').get()).toEqual({ state: 'RECONCILING', claim_token: null });
+      expect(item.db.prepare('SELECT state FROM resource_leases').get()).toEqual({ state: 'ACTIVE' });
+    } finally { worktree.mockRestore(); }
+  } finally { item.db.close(); rmSync(item.folder, { recursive: true, force: true }); }
+}, 30000);
+
 test('a fixture transport cannot report success without persisting its start receipt', async () => {
   const item = await fixture();
   try {

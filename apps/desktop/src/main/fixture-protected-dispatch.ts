@@ -23,9 +23,10 @@ export class FixtureProtectedDispatch {
 
   async start(scope: EncryptedProposalScope): Promise<{ attemptId: string; cwd: string; receipt: Receipt }> {
     if (this.currentState !== 'IDLE' || !/^[a-f0-9]{64}$/.test(this.principalHash)) throw new Error('FIXTURE_DISPATCH_UNAVAILABLE');
+    const originalScope = Object.freeze({ ...scope });
     this.currentState = 'STARTING';
     let claimed: Awaited<ReturnType<ProtectedProposalAuthority['claimQueuedContext']>>;
-    try { claimed = await this.authority.claimQueuedContext(scope); }
+    try { claimed = await this.authority.claimQueuedContext(originalScope); }
     catch { this.currentState = 'IDLE'; throw new Error('FIXTURE_DISPATCH_UNAVAILABLE'); }
     let writer: ReceiptWriter | undefined;
     let client: FixtureClient | undefined;
@@ -36,7 +37,7 @@ export class FixtureProtectedDispatch {
       if (quarantined) return true;
       if (this.currentState === 'PERSISTENCE_FAILED') return false;
       let success = false;
-      try { success = writer ? writer.markUnknown() : this.authority.quarantineClaim(scope, claimed.claimToken); } catch { /* preserve uncertainty */ }
+      try { success = writer ? writer.markUnknown() : this.authority.quarantineClaim(originalScope, claimed.claimToken); } catch { /* preserve uncertainty */ }
       if (success) { quarantined = true; this.currentState = 'UNKNOWN'; }
       else this.currentState = 'PERSISTENCE_FAILED';
       return success;
@@ -46,8 +47,8 @@ export class FixtureProtectedDispatch {
         projectId: claimed.projectId, taskId: claimed.taskId, projectPath: claimed.projectPath,
         worktreeRoot: this.worktreeRoot, baselineCommit: claimed.baselineCommit
       } as Parameters<GitWorktreeService['create']>[0]);
-      writer = await this.authority.prepareReceipt(scope, claimed.claimToken, { cwd: worktree.path, principalHash: this.principalHash });
-      if (!await this.authority.verifyClaimedContext(scope, claimed.claimToken)) throw new Error('FIXTURE_OUTCOME_UNKNOWN');
+      writer = await this.authority.prepareReceipt(originalScope, claimed.claimToken, { cwd: worktree.path, principalHash: this.principalHash });
+      if (!await this.authority.verifyClaimedContext(originalScope, claimed.claimToken)) throw new Error('FIXTURE_OUTCOME_UNKNOWN');
       client = this.createFixtureClient(claimed.executableVersion, markUnknown, receipt => {
         if (!acceptingReceipt || quarantined || this.currentState !== 'STARTING' || !writer?.record(receipt)) return false;
         recordedReceipt = { ...receipt };
@@ -55,7 +56,7 @@ export class FixtureProtectedDispatch {
       }, worktree.path);
       await client.initialize();
       if (quarantined || this.currentState !== 'STARTING') throw new Error('FIXTURE_OUTCOME_UNKNOWN');
-      if (!await this.authority.verifyClaimedContext(scope, claimed.claimToken) || quarantined || this.currentState !== 'STARTING') {
+      if (!await this.authority.verifyClaimedContext(originalScope, claimed.claimToken) || quarantined || this.currentState !== 'STARTING') {
         throw new Error('FIXTURE_OUTCOME_UNKNOWN');
       }
       acceptingReceipt = true;
