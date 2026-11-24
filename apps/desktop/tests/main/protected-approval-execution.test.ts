@@ -2,7 +2,7 @@ import { Buffer } from 'node:buffer';
 import { execFileSync, spawn } from 'node:child_process';
 import { createCipheriv, createHash, randomBytes } from 'node:crypto';
 import { once } from 'node:events';
-import { mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import process from 'node:process';
@@ -21,6 +21,7 @@ import { ProtectedProposalRegistry } from '../../src/main/protected-proposal-reg
 import { ProtectedProposalIntake } from '../../src/main/protected-proposal-intake.js';
 import { LocalGoalDraft } from '../../src/main/local-goal-draft.js';
 import { ProtectedGoalAuthorization } from '../../src/main/protected-goal-authorization.js';
+import { OwnerAppServerTransport } from '../../src/main/owner-app-server-transport.js';
 import { presentProtectedCancellation, presentProtectedConsent } from '../../src/main/protected-native-consent.js';
 import { projectGitEnvironment } from '../../src/main/project-git-baseline.js';
 import { AppServerExecutionClient } from '../../../../packages/codex-adapter/src/app-server-execution-client.js';
@@ -444,6 +445,75 @@ test('an accepted fake Turn with a lost reply quarantines the original Attempt i
     rmSync(item.folder, { recursive: true, force: true });
   }
 }, 45000);
+
+test.skipIf(process.platform !== 'win32')('protected goal cancellation stops the real fixture Job and retains the original uncertain Attempt', async () => {
+  const item = await fixture();
+  const drafts = new LocalGoalDraft(item.db, () => new Date('2026-08-01T00:00:00.000Z'));
+  let draftId = '';
+  let owner: ReturnType<typeof spawn> | undefined;
+  let transport: OwnerAppServerTransport | undefined;
+  let client: AppServerExecutionClient<OwnerAppServerTransport> | undefined;
+  let closed: Promise<unknown> | undefined;
+  try {
+    const compiler = join(process.env.SystemRoot ?? 'C:/Windows', 'Microsoft.NET/Framework64/v4.0.30319/csc.exe');
+    const source = join(process.cwd(), 'apps/desktop/native/ProcessOwner.cs');
+    const binary = join(item.folder, 'owner.exe');
+    const wrapper = join(process.cwd(), 'apps/desktop/tests/native/owned-execution-wrapper.mjs');
+    execFileSync(compiler, ['/nologo', '/target:exe', '/reference:System.Web.Extensions.dll', '/out:' + binary, source],
+      { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'], timeout: 30000 });
+    draftId = await drafts.create({ projectId: 'p', objective: 'Write the approved change', criterion: 'Document the fixture' });
+    vi.mocked(presentProtectedConsent).mockReset().mockResolvedValue(true);
+    const command = new ProtectedGoalAuthorization(item.db, item.vault, drafts, () => '2026-08-01T00:00:00.000Z');
+    const original = await command.confirm(draftId);
+    const scope = { workspaceId: 'w', projectId: 'p', proposalVersionId: 'goal-review-' + draftId.slice(5) };
+    const principal = createHash('sha256').update('codex-personal-v1:fixture@example.invalid:plus').digest('hex');
+    const { FixtureProtectedDispatch } = await import('../../src/main/fixture-protected-dispatch.js');
+    const dispatcher = new FixtureProtectedDispatch(item.authority, join(item.folder, 'worktrees'), principal, (version, onUnknown, recordStart, cwd) => {
+      owner = spawn(binary, [], { cwd: item.folder, stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true });
+      closed = once(owner, 'close');
+      transport = new OwnerAppServerTransport(owner);
+      client = new AppServerExecutionClient(transport, version, principal, async () => true, onUnknown, recordStart, 15000);
+      return {
+        async initialize() {
+          if (await transport!.start({ executable: process.execPath, cwd, args: [wrapper, 'normal', item.folder] }, 15000) !== 'READY_UNTRUSTED') throw new Error('fixture owner unavailable');
+          await client!.initialize();
+        },
+        start: (path, objective) => client!.start(path, objective),
+        dispose: () => client!.dispose()
+      };
+    });
+    const dispatched = await dispatcher.start(scope);
+    expect(dispatched.attemptId).toBe(original.attemptId);
+    expect(item.db.prepare('SELECT attempt_id,state FROM execution_attempts').get()).toEqual({ attempt_id: original.attemptId, state: 'RUNNING' });
+    const parentFile = join(item.folder, 'parent.pid'), childFile = join(item.folder, 'child.pid');
+    const deadline = Date.now() + 15000;
+    while ((!existsSync(parentFile) || !existsSync(childFile)) && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 50));
+    expect(existsSync(parentFile) && existsSync(childFile)).toBe(true);
+    const pids = [Number(readFileSync(parentFile, 'utf8')), Number(readFileSync(childFile, 'utf8'))];
+    expect(pids.every(pid => Number.isSafeInteger(pid) && pid > 0)).toBe(true);
+    expect(pids[0]).not.toBe(pids[1]);
+    for (const pid of pids) expect(() => process.kill(pid, 0)).not.toThrow();
+    vi.mocked(presentProtectedCancellation).mockReset().mockResolvedValue(true);
+    expect(await item.authority.requestCancellation(scope)).toBe('STARTED');
+    expect(await client!.interrupt()).toBe(true);
+    expect(await transport!.stop(15000)).toBe('UNVERIFIED_TERMINATION');
+    await closed;
+    for (const pid of pids) {
+      try { process.kill(pid, 0); throw new Error('fixture process still running'); }
+      catch (error) { expect(error && typeof error === 'object' && 'code' in error ? error.code : null).toBe('ESRCH'); }
+    }
+    expect(item.db.prepare('SELECT attempt_id,state FROM execution_attempts').get()).toEqual({ attempt_id: original.attemptId, state: 'UNKNOWN' });
+    expect(item.db.prepare('SELECT state FROM resource_leases').get()).toEqual({ state: 'ACTIVE' });
+    expect(execFileSync('git', ['-C', item.project, 'status', '--porcelain'], { env: projectGitEnvironment(), encoding: 'utf8' }).trim()).toBe('');
+  } finally {
+    drafts.discard(draftId);
+    client?.dispose();
+    if (owner && owner.exitCode === null && owner.signalCode === null) owner.kill();
+    if (closed) await closed;
+    item.db.close();
+    rmSync(item.folder, { recursive: true, force: true });
+  }
+}, 120000);
 
 test('a fake acknowledged Turn persists encrypted receipt and quarantines the original Attempt when its process exits', async () => {
   const item = await fixture('Write the approved change');

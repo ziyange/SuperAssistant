@@ -561,6 +561,11 @@ instance that issued it, bounded to eight records. Instance replacement or
 eviction fails closed instead of accepting an unguarded historical approval;
 the existing Grant and Attempt remain intact for separately authorized recovery.
 
+TASK-843's stream bridge treats the Windows owner protocol as untrusted. Its
+ready and stop frames are not evidence of executable provenance, sandbox
+confinement or Lease-release authority. Channel failures close the adapter
+transport; a potentially started Attempt remains subject to UNKNOWN handling.
+
 TASK-832 revalidates the authenticated original claim after worktree creation
 and after fixture transport initialization. Receipt persistence rechecks the
 authenticated Project snapshot, Grant and current Agent/Function, exact

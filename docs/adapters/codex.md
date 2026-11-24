@@ -291,3 +291,11 @@ H1 requires a fake App Server contract suite for initialization, compatible/inco
 - H1 supports one local Codex adapter type and `stdio` transport.
 - H2 supports multiple Codex workers and other SAI adapters. Correlation, ResourceLeases, capacity, and reconciliation are per ExecutionAttempt/worker; no upstream identifier enters the domain.
 - H3 may add managed remote workers only after a transport ADR defines mutual authentication, tenant routing, egress, and remote sandbox proof. Stable App Server methods, product-neutral SAI, Grant enforcement, event order, and ambiguous-state rules remain mandatory.
+
+## Untrusted owner stream integration
+
+TASK-843 connects the existing App Server client to framed streams supplied by
+the Windows owner protocol. The transport is bounded and propagates owner
+channel loss; it does not authenticate the owner, prove sandbox confinement,
+or authorize release of a Lease. Real Codex compatibility and production
+activation remain separate gates.

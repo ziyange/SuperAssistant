@@ -1,6 +1,7 @@
 /* global Buffer, setTimeout, clearTimeout */
 /* eslint-disable no-unused-vars -- callback names describe the private protocol port. */
 import type { ChildProcess } from 'node:child_process';
+import type { EventEmitter } from 'node:events';
 import { createHash } from 'node:crypto';
 import { isAbsolute } from 'node:path';
 import { StringDecoder } from 'node:string_decoder';
@@ -9,6 +10,7 @@ type State = 'NEW' | 'INITIALIZING' | 'READY' | 'STARTING' | 'RUNNING' | 'INTERR
 type Pending = { resolve: (value: Record<string, unknown>) => void; reject: (reason: Error) => void;
   timer: ReturnType<typeof setTimeout>; accept?: (value: Record<string, unknown>) => void };
 type StartReceipt = Readonly<{ threadId: string; turnId: string; cwd: string; principalHash: string }>;
+export type AppServerTransport = Pick<ChildProcess, 'stdin' | 'stdout'> & Pick<EventEmitter, 'on' | 'once' | 'off'>;
 const LIMIT = 1_048_576;
 const validId = (id: unknown): id is string => typeof id === 'string' && /^[a-z0-9_-]{1,128}$/i.test(id);
 const record = (value: unknown): value is Record<string, unknown> => value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -42,7 +44,7 @@ function exactPolicy(value: unknown, cwd: string): boolean {
  * A mocked verifier is test-only; this module provides no production verifier.
  * Its response is neither an applied-sandbox attestation nor termination proof.
  */
-export class AppServerExecutionClient {
+export class AppServerExecutionClient<T extends AppServerTransport = ChildProcess> {
   #state: State = 'NEW';
   private readonly stdin: NonNullable<ChildProcess['stdin']>;
   private readonly stdout: NonNullable<ChildProcess['stdout']>;
@@ -57,8 +59,8 @@ export class AppServerExecutionClient {
   private notificationFailed = false;
   private readonly ignoreLateError = () => {};
 
-  constructor(private readonly child: ChildProcess, private readonly version: string, private readonly expectedPrincipalHash: string,
-    private readonly verifyConfinement: (child: ChildProcess, cwd: string) => Promise<boolean>,
+  constructor(private readonly child: T, private readonly version: string, private readonly expectedPrincipalHash: string,
+    private readonly verifyConfinement: (child: T, cwd: string) => Promise<boolean>,
     private readonly onUnknown: () => boolean, private readonly recordStart: (receipt: StartReceipt) => boolean, private readonly timeoutMs = 5000) {
     if (!child.stdin || !child.stdout || !/^[a-f0-9]{64}$/.test(expectedPrincipalHash)
       || typeof verifyConfinement !== 'function' || typeof onUnknown !== 'function' || typeof recordStart !== 'function'

@@ -1,7 +1,7 @@
 # TASK-842: Bind goal staging to protected native confirmation
 
 ## Status
-IN_PROGRESS
+COMPLETED
 PHASE: PHASE-007
 MAX_ITERATIONS: 6
 user_confirmed: true
@@ -114,3 +114,8 @@ Goal runtime returned Exit 0, 41 governance unit tests passed and
 with the explicit allowlist. Host versions include Node 22.23.2, Python 3.9.12
 and Git 2.56.0.windows.4. CI evidence remains tied to candidate commit only
 after that commit is pushed and its own runs complete.
+
+For commit `218797ea5000a2da35b7ab93326ab4bcbc6ec89f`, GitHub documentation
+run 45313220407 and application run 45313220397 completed successfully;
+the latter included Windows and PostgreSQL 16 compatibility jobs. This closes
+only TASK-842's scoped evidence, not production execution or merge acceptance.

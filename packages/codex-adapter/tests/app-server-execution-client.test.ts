@@ -21,9 +21,9 @@ function fixture(mode: string, version = '0.121.0', scopeProven: boolean | ((cou
   let checks = 0;
   let uncertain = 0;
   const receipts: unknown[] = [];
-  const client = new AppServerExecutionClient(child, version, expectedPrincipal, async () => {
+  const client = new AppServerExecutionClient(child, version, expectedPrincipal, async (actual: ChildProcess) => {
     checks += 1;
-    return typeof scopeProven === 'function' ? scopeProven(checks) : scopeProven;
+    return actual === child && (typeof scopeProven === 'function' ? scopeProven(checks) : scopeProven);
   }, () => { uncertain += 1; return notifyOkay; }, start => { receipts.push(start); return receiptOkay; });
   return { child, client, writes, receipts, uncertain: () => uncertain, async close() { client.dispose(); if (!child.stdin.destroyed) child.stdin.end(); await closed; } };
 }

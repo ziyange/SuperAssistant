@@ -406,5 +406,10 @@ route remains closed until its separate trust and execution gates pass.
 Its bounded in-memory replay evidence is not durable: after eviction or
 authority recreation a repeated confirmation is rejected, not replaced by a
 new Attempt; durable recovery remains a separate path.
+
+TASK-843 wires the existing execution client to the owner protocol's framed
+streams. A fixture with a real Windows Job, fake App Server and its child can
+exercise initialize, start receipt, interrupt and stop; a production terminal
+transition and Lease release still require independently verified ownership.
 This is not a production UI route, a verified real process owner or permission
 to release the Lease.
