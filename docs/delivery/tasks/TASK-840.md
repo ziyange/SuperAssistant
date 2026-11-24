@@ -1,7 +1,7 @@
 # TASK-840: Reject invalidated drafts at protected registration commit
 
 ## Status
-IN_PROGRESS
+COMPLETED
 PHASE: PHASE-007
 MAX_ITERATIONS: 5
 user_confirmed: true
@@ -103,3 +103,8 @@ The shared Electron SQLite file's SHA-256 remained
 `9FD7F1298ED1F7184C11FAD6FB985510A36F08575AC033EA06C8014FC1B85215`.
 GitHub CI for the combined candidate has not yet run. These tests do not prove
 the production confirmation/dispatch path, whole-tree cancellation or H1.
+
+Subsequently, commit `a05f4a5bc4107236aac38ba4614a8003922205da` passed
+GitHub documentation run 45263972980 and application run 45263972944,
+including the Windows and PostgreSQL 16 jobs. This is scoped task evidence,
+not H1 or merge acceptance.

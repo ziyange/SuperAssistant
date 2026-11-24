@@ -1,7 +1,7 @@
 # TASK-841: Correct DSH probe signal-exit observation
 
 ## Status
-IN_PROGRESS
+COMPLETED
 PHASE: PHASE-007
 MAX_ITERATIONS: 4
 user_confirmed: true
@@ -85,3 +85,8 @@ Electron functional tests 2 passed and browser E2E 9 passed. Governance scanned
 history checker validated 19 contiguous scopes. The shared Electron SQLite
 file hash was unchanged. The current candidate still lacks remote CI evidence,
 production execution integration, and full merge acceptance.
+
+Subsequently, commit `a05f4a5bc4107236aac38ba4614a8003922205da` passed
+GitHub documentation run 45263972980 and application run 45263972944,
+including the Windows and PostgreSQL 16 jobs. This is scoped task evidence,
+not H1 or merge acceptance.

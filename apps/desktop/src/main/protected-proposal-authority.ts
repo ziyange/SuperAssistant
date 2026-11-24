@@ -13,7 +13,7 @@ import { isBuiltinCodexFunction } from './local-codex-function.js';
 import { readProjectHeadAsync } from './async-project-baseline.js';
 import { presentProtectedCancellation, presentProtectedConsent } from './protected-native-consent.js';
 import { sharedPromptGate } from './prompt-gate.js';
-import { fingerprintExecutable } from './local-goal-draft.js';
+import { fingerprintExecutable, LocalGoalDraft } from './local-goal-draft.js';
 
 type Envelope = {
   record_id: string; workspace_id: string; project_id: string; content_kind: string; format_version: number;
@@ -68,6 +68,8 @@ export class ProtectedProposalAuthority {
   private readonly store: EncryptedProposalStore;
   private readonly payloads: ReservedPayloadService;
   private readonly pending = new Map<string, Promise<{ attemptId: string }>>();
+  private readonly pendingDrafts = new Map<string, { drafts: LocalGoalDraft; work: Promise<{ attemptId: string }> }>();
+  readonly #guardedDrafts = new Map<string, { drafts: LocalGoalDraft; attemptId: string }>();
   constructor(private readonly db: Database.Database, vault: ReservedVault,
     private readonly clock: () => string = () => new Date().toISOString()) {
     this.payloads = new ReservedPayloadService(db, new ProtectedKeyReservations(db), vault);
@@ -104,6 +106,30 @@ export class ProtectedProposalAuthority {
     });
     this.pending.set(key, work);
     void work.finally(() => { if (this.pending.get(key) === work) this.pending.delete(key); }).catch(() => undefined);
+    return work;
+  }
+
+  /** The draft check only restricts native authorization; it cannot replace authentication or consent. */
+  confirmDraftAndQueue(input: EncryptedProposalScope, drafts: LocalGoalDraft, draftId: string): Promise<{ attemptId: string }> {
+    if (arguments.length !== 3 || !validScope(input) || !(drafts instanceof LocalGoalDraft)
+      || typeof draftId !== 'string' || !/^goal-[a-z0-9-]{1,100}$/i.test(draftId)
+      || input.proposalVersionId !== 'goal-review-' + draftId.slice(5)) return Promise.reject(new Error('PROTECTED_AUTHORITY_UNAVAILABLE'));
+    const scope = { ...input };
+    const key = JSON.stringify([scope.workspaceId, scope.projectId, scope.proposalVersionId]);
+    const previous = this.pendingDrafts.get(key);
+    if (previous) return previous.drafts === drafts ? previous.work : Promise.reject(new Error('PROTECTED_AUTHORITY_UNAVAILABLE'));
+    const work = sharedPromptGate.run(async () => {
+      const result = await this.confirmAndQueueOnce(scope, true, false, false, undefined, { drafts, draftId });
+      this.#guardedDrafts.set(key, { drafts, attemptId: result.attemptId });
+      if (this.#guardedDrafts.size > 8) this.#guardedDrafts.delete(this.#guardedDrafts.keys().next().value!);
+      return result;
+    }, null).then(result => {
+      if (result === null) throw new Error('PROTECTED_AUTHORITY_UNAVAILABLE');
+      return result;
+    });
+    this.pendingDrafts.set(key, { drafts, work });
+    void work.then(() => { if (this.pendingDrafts.get(key)?.work === work) this.pendingDrafts.delete(key); },
+      () => { if (this.pendingDrafts.get(key)?.work === work) this.pendingDrafts.delete(key); });
     return work;
   }
 
@@ -368,7 +394,8 @@ export class ProtectedProposalAuthority {
     finally { plain?.fill(0); aad?.fill(0); codec?.dispose(); }
   }
 
-  private async confirmAndQueueOnce(scope: EncryptedProposalScope, allowCreate: boolean, claim = false, includeContext = false, claimedToken?: string): Promise<{ attemptId: string; claimToken?: string; context?: ClaimContext; verifiedProject?: ProjectSnapshot }> {
+  private async confirmAndQueueOnce(scope: EncryptedProposalScope, allowCreate: boolean, claim = false, includeContext = false, claimedToken?: string,
+    guard?: { drafts: LocalGoalDraft; draftId: string }): Promise<{ attemptId: string; claimToken?: string; context?: ClaimContext; verifiedProject?: ProjectSnapshot }> {
     try {
       if (this.db.inTransaction) throw new Error('unavailable');
       const observed = instant(this.clock());
@@ -414,7 +441,7 @@ export class ProtectedProposalAuthority {
         const transactionTime = this.clock();
         const time = instant(transactionTime);
         if (time !== null) maxObserved = Math.max(maxObserved, time);
-        if (time === null || this.envelope(scope) !== captured
+        if (time === null || (guard && !LocalGoalDraft.prototype.matchesSnapshot.call(guard.drafts, guard.draftId, proposal)) || this.envelope(scope) !== captured
           || !isDeepStrictEqual(this.project(scope), project)) throw new Error('unavailable');
         const hasBinding = !!this.db.prepare('SELECT 1 FROM protected_execution_bindings WHERE proposal_version_id=?').get(scope.proposalVersionId);
         return { hasBinding, time: Math.max(time, observed), rolledBack: time < observed };
@@ -437,15 +464,22 @@ export class ProtectedProposalAuthority {
           if (time === null) throw new Error('unavailable');
           maxObserved = Math.max(maxObserved, time);
           const effectiveTime = new Date(Math.max(time, initial.time)).toISOString();
-          if (this.envelope(scope) !== captured || !isDeepStrictEqual(this.project(scope), project)
+          if ((guard && !LocalGoalDraft.prototype.matchesSnapshot.call(guard.drafts, guard.draftId, proposal))
+            || this.envelope(scope) !== captured || !isDeepStrictEqual(this.project(scope), project)
             || !isDeepStrictEqual(this.proofSnapshot(scope), snapshot)) throw new Error('unavailable');
           const leaseId = snapshot.fields[11], attemptId = snapshot.fields[10], token = Number(snapshot.fields[13]);
           if (!leaseId || !attemptId || !Number.isSafeInteger(token) || token <= 0) throw new Error('unavailable');
+          if (guard) {
+            const key = JSON.stringify([scope.workspaceId, scope.projectId, scope.proposalVersionId]);
+            const origin = this.#guardedDrafts.get(key);
+            if (!origin || origin.drafts !== guard.drafts || origin.attemptId !== attemptId) throw new Error('unavailable');
+          }
           const writable = new SqliteResourceLeaseRepository(this.db, () => effectiveTime).canWrite({ leaseId, attemptId, fencingToken: token });
           if (!writable || initial.rolledBack || time < initial.time || !this.executable(proposal, effectiveTime)) return { unavailable: true } as const;
           let checked: ExistingResult;
           try { checked = this.existing(scope, fingerprint, contextDigest, proposal, claimedToken); }
           catch { return { unavailable: true } as const; }
+          if (guard && !LocalGoalDraft.prototype.matchesSnapshot.call(guard.drafts, guard.draftId, proposal)) throw new Error('unavailable');
           if ((!claim && !claimedToken) || !checked || 'unavailable' in checked) return checked;
           const lease = this.db.prepare(`SELECT l.lease_id,l.fencing_token FROM protected_execution_bindings b
             JOIN resource_leases l ON l.lease_id=b.lease_id WHERE b.attempt_id=?`).get(checked.attemptId) as { lease_id: string; fencing_token: number } | undefined;
@@ -499,6 +533,7 @@ export class ProtectedProposalAuthority {
         const committedTime = this.clock();
         const committedAt = instant(committedTime);
         if (checkedAt === null || committedAt === null || checkedAt < at || committedAt < checkedAt || committedAt >= at + 30_000
+          || (guard && !LocalGoalDraft.prototype.matchesSnapshot.call(guard.drafts, guard.draftId, proposal))
           || this.envelope(scope) !== captured || !this.executable(proposal, committedTime)
           || !isDeepStrictEqual(this.project(scope), project)) throw new Error('unavailable');
         const concurrent = this.existing(scope, fingerprint, contextDigest, proposal);
@@ -519,6 +554,7 @@ export class ProtectedProposalAuthority {
         new SqliteResourceLeaseRepository(this.db, this.clock).acquire({ leaseId: ids.lease, resourceKey: resource, attemptId: ids.attempt, fencingToken: latest.value + 1, createdAt: now });
         this.db.prepare('INSERT INTO outbox (message_id,attempt_id,request_id,idempotency_key,message_type,payload_json,state,created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
           .run('outbox:' + ids.attempt, ids.attempt, ids.request, scope.proposalVersionId, 'start', JSON.stringify({ attempt_id: ids.attempt }), 'PENDING', now);
+        if (guard && !LocalGoalDraft.prototype.matchesSnapshot.call(guard.drafts, guard.draftId, proposal)) throw new Error('unavailable');
         return { attemptId: ids.attempt };
       }).immediate();
       if ('unavailable' in result) throw new Error('unavailable');

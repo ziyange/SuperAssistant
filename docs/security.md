@@ -551,6 +551,16 @@ encrypted binding even when staging fails; the failed result must remain
 unavailable to any production confirmation path. Missing, ambiguous or
 uncertain key reservations are never recreated.
 
+TASK-842 requires the identical genuine main-owned draft to remain live inside
+the transaction that issues protected authorization. Discard or expiry before
+commit rolls back the Grant and original Attempt. Draft validity is only a
+negative guard: native consent, authenticated ciphertext, catalog, executable
+and baseline checks remain independently required.
+Guarded replay additionally requires evidence held by the same authority
+instance that issued it, bounded to eight records. Instance replacement or
+eviction fails closed instead of accepting an unguarded historical approval;
+the existing Grant and Attempt remain intact for separately authorized recovery.
+
 TASK-832 revalidates the authenticated original claim after worktree creation
 and after fixture transport initialization. Receipt persistence rechecks the
 authenticated Project snapshot, Grant and current Agent/Function, exact

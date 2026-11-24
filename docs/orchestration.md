@@ -396,7 +396,15 @@ built-in Codex Function, and it is not yet wired to desktop production intake.
 TASK-839 composes an actual LocalGoalDraft with encrypted storage and the
 protected registry. Repeated staging of an identical linked payload reuses it;
 TASK-840 rejects a draft discarded or expired before registration commits.
-ambiguous key operations do not retry. Test-only native-consent and fake App
+Ambiguous key operations do not retry. Test-only native-consent and fake App
 Server composition reaches one original Attempt and quarantines a lost reply.
+
+TASK-842 adds a main-owned staging-and-confirmation command guarded by the
+same live draft through authorization commit. It returns a queued original
+Attempt only; it does not dispatch or prove process ownership. The production
+route remains closed until its separate trust and execution gates pass.
+Its bounded in-memory replay evidence is not durable: after eviction or
+authority recreation a repeated confirmation is rejected, not replaced by a
+new Attempt; durable recovery remains a separate path.
 This is not a production UI route, a verified real process owner or permission
 to release the Lease.

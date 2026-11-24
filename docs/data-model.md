@@ -26,6 +26,12 @@ transaction. Discard after commit can still leave an encrypted identity even
 though staging returns failure; it is not consent or authorization and must not
 by itself make a production confirmation action available.
 
+TASK-842 composes protected staging and native confirmation as one main-only
+goal command. The same exact live draft is an additional transaction guard for
+Grant and initial Attempt creation and guarded replay; it is not authorization.
+This remains unavailable through production IPC until key custody and process
+ownership are proven.
+
 Migration 032 rebuilds the Grant and Task Proposal foreign keys to the shared authority identity while retaining legacy rows, rowids and dependent references. Unknown or altered target-table schema blocks migration. This is a local implementation pending integrated acceptance; until a later trusted issuer is implemented, protected identities cannot create or update Grants or Tasks.
 
 Migration 031 adds a common identity registry and protected encrypted-payload binding; migration 032 performs the later foreign-key rebuild with exclusive ownership, backup and integrity checks. Legacy Proposal rows are backfilled and future legacy inserts create a same-scope identity atomically. Protected bindings contain neither Proposal text nor raw digest and are not authorization.

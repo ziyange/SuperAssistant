@@ -20,6 +20,7 @@ import { ProtectedProposalAuthority } from '../../src/main/protected-proposal-au
 import { ProtectedProposalRegistry } from '../../src/main/protected-proposal-registry.js';
 import { ProtectedProposalIntake } from '../../src/main/protected-proposal-intake.js';
 import { LocalGoalDraft } from '../../src/main/local-goal-draft.js';
+import { ProtectedGoalAuthorization } from '../../src/main/protected-goal-authorization.js';
 import { presentProtectedCancellation, presentProtectedConsent } from '../../src/main/protected-native-consent.js';
 import { projectGitEnvironment } from '../../src/main/project-git-baseline.js';
 import { AppServerExecutionClient } from '../../../../packages/codex-adapter/src/app-server-execution-client.js';
@@ -69,6 +70,129 @@ async function fixture(objective = 'private integration goal') {
   return { folder, db, vault, scope, authority, commit, head, project, executable, proposal };
 }
 
+test('one main-owned goal command stages and confirms exactly one original Attempt', async () => {
+  const item = await fixture();
+  const drafts = new LocalGoalDraft(item.db, () => new Date('2026-08-01T00:00:00.000Z'));
+  let draftId = '';
+  try {
+    draftId = await drafts.create({ projectId: 'p', objective: 'Change the fixture', criterion: 'Document the change' });
+    vi.mocked(presentProtectedConsent).mockReset().mockResolvedValue(true);
+    const command = new ProtectedGoalAuthorization(item.db, item.vault, drafts, () => '2026-08-01T00:00:00.000Z');
+    const results = await Promise.all([command.confirm(draftId), command.confirm(draftId)]);
+    expect(results[0]).toEqual(results[1]);
+    expect(vi.mocked(presentProtectedConsent)).toHaveBeenCalledOnce();
+    expect(vi.mocked(presentProtectedConsent).mock.calls[0]?.[0]).toContain('Change the fixture');
+    expect(item.db.prepare('SELECT COUNT(*) AS n FROM authorization_grants').get()).toEqual({ n: 1 });
+    expect(item.db.prepare('SELECT attempt_id,state FROM execution_attempts').get()).toEqual({ attempt_id: results[0].attemptId, state: 'DISPATCH_PENDING' });
+    expect(item.db.serialize().includes(Buffer.from('Change the fixture'))).toBe(false);
+    expect(await command.confirm(draftId)).toEqual(results[0]);
+    const another = new ProtectedGoalAuthorization(item.db, item.vault, drafts, () => '2026-08-01T00:00:00.000Z');
+    await expect(another.confirm(draftId)).rejects.toThrow();
+    drafts.discard(draftId);
+    await expect(command.confirm(draftId)).rejects.toThrow();
+    expect(item.db.prepare('SELECT COUNT(*) AS n FROM execution_attempts').get()).toEqual({ n: 1 });
+  } finally { drafts.discard(draftId); item.db.close(); rmSync(item.folder, { recursive: true, force: true }); }
+}, 60000);
+
+test('a guarded draft request cannot reuse an unguarded pending confirmation', async () => {
+  const item = await fixture();
+  const drafts = new LocalGoalDraft(item.db, () => new Date('2026-08-01T00:00:00.000Z'));
+  let draftId = '';
+  let release: (() => void) | undefined;
+  let unguarded: Promise<{ attemptId: string }> | undefined;
+  try {
+    draftId = await drafts.create({ projectId: 'p', objective: 'Change the fixture', criterion: 'Document the change' });
+    const scope = await new ProtectedProposalIntake(item.db, item.vault, drafts, () => '2026-08-01T00:00:00.000Z').stage(draftId);
+    let notifyReady: (() => void) | undefined;
+    const ready = new Promise<void>(resolve => { notifyReady = resolve; });
+    const paused = new Promise<void>(resolve => { release = resolve; });
+    vi.mocked(presentProtectedConsent).mockReset().mockImplementation(async () => { notifyReady?.(); await paused; return true; });
+    unguarded = item.authority.confirmAndQueue(scope);
+    await ready;
+    await expect(item.authority.confirmDraftAndQueue(scope, drafts, draftId)).rejects.toThrow();
+    expect(item.db.prepare('SELECT COUNT(*) AS n FROM authorization_grants').get()).toEqual({ n: 0 });
+    release?.();
+    await unguarded;
+  } finally { release?.(); await unguarded?.catch(() => undefined); drafts.discard(draftId); item.db.close(); rmSync(item.folder, { recursive: true, force: true }); }
+}, 60000);
+
+test('a guarded command rejects a completed unguarded approval', async () => {
+  const item = await fixture();
+  const drafts = new LocalGoalDraft(item.db, () => new Date('2026-08-01T00:00:00.000Z'));
+  let draftId = '';
+  try {
+    draftId = await drafts.create({ projectId: 'p', objective: 'Change the fixture', criterion: 'Document the change' });
+    const scope = await new ProtectedProposalIntake(item.db, item.vault, drafts, () => '2026-08-01T00:00:00.000Z').stage(draftId);
+    vi.mocked(presentProtectedConsent).mockReset().mockResolvedValue(true);
+    const unguarded = await item.authority.confirmAndQueue(scope);
+    const command = new ProtectedGoalAuthorization(item.db, item.vault, drafts, () => '2026-08-01T00:00:00.000Z');
+    await expect(command.confirm(draftId)).rejects.toThrow();
+    expect(item.db.prepare('SELECT attempt_id FROM execution_attempts').get()).toEqual({ attempt_id: unguarded.attemptId });
+    expect(item.db.prepare('SELECT COUNT(*) AS n FROM authorization_grants').get()).toEqual({ n: 1 });
+  } finally { drafts.discard(draftId); item.db.close(); rmSync(item.folder, { recursive: true, force: true }); }
+}, 60000);
+
+test('guarded replay rolls back if the draft is discarded during lease observation', async () => {
+  const item = await fixture();
+  const drafts = new LocalGoalDraft(item.db, () => new Date('2026-08-01T00:00:00.000Z'));
+  let draftId = '';
+  try {
+    draftId = await drafts.create({ projectId: 'p', objective: 'Change the fixture', criterion: 'Document the change' });
+    vi.mocked(presentProtectedConsent).mockReset().mockResolvedValue(true);
+    const command = new ProtectedGoalAuthorization(item.db, item.vault, drafts, () => '2026-08-01T00:00:00.000Z');
+    const original = await command.confirm(draftId);
+    item.db.function('fixture_discard_replay', () => { drafts.discard(draftId); return 1; });
+    item.db.exec('CREATE TRIGGER fixture_discard_replay AFTER UPDATE ON resource_leases BEGIN SELECT fixture_discard_replay(); END');
+    await expect(command.confirm(draftId)).rejects.toThrow();
+    expect(item.db.prepare('SELECT attempt_id FROM execution_attempts').get()).toEqual({ attempt_id: original.attemptId });
+    expect(item.db.prepare('SELECT COUNT(*) AS n FROM authorization_grants').get()).toEqual({ n: 1 });
+  } finally { drafts.discard(draftId); item.db.close(); rmSync(item.folder, { recursive: true, force: true }); }
+}, 60000);
+
+test('discarding a staged draft during native confirmation cannot create authorization', async () => {
+  const item = await fixture();
+  const drafts = new LocalGoalDraft(item.db, () => new Date('2026-08-01T00:00:00.000Z'));
+  let draftId = '';
+  try {
+    draftId = await drafts.create({ projectId: 'p', objective: 'Change the fixture', criterion: 'Document the change' });
+    vi.mocked(presentProtectedConsent).mockReset().mockImplementation(async () => { drafts.discard(draftId); return true; });
+    const command = new ProtectedGoalAuthorization(item.db, item.vault, drafts, () => '2026-08-01T00:00:00.000Z');
+    await expect(command.confirm(draftId)).rejects.toThrow();
+    expect(item.db.prepare('SELECT COUNT(*) AS n FROM authorization_grants').get()).toEqual({ n: 0 });
+    expect(item.db.prepare('SELECT COUNT(*) AS n FROM execution_attempts').get()).toEqual({ n: 0 });
+  } finally { drafts.discard(draftId); item.db.close(); rmSync(item.folder, { recursive: true, force: true }); }
+}, 60000);
+
+test('a draft invalidated reentrantly during the authorization transaction rolls back the Grant and Attempt', async () => {
+  const item = await fixture();
+  const drafts = new LocalGoalDraft(item.db, () => new Date('2026-08-01T00:00:00.000Z'));
+  let draftId = '';
+  try {
+    draftId = await drafts.create({ projectId: 'p', objective: 'Change the fixture', criterion: 'Document the change' });
+    item.db.function('fixture_discard_draft', () => { drafts.discard(draftId); return 1; });
+    item.db.exec('CREATE TRIGGER fixture_discard AFTER INSERT ON authorization_grants BEGIN SELECT fixture_discard_draft(); END');
+    vi.mocked(presentProtectedConsent).mockReset().mockResolvedValue(true);
+    const command = new ProtectedGoalAuthorization(item.db, item.vault, drafts, () => '2026-08-01T00:00:00.000Z');
+    await expect(command.confirm(draftId)).rejects.toThrow();
+    expect(item.db.prepare('SELECT COUNT(*) AS n FROM authorization_grants').get()).toEqual({ n: 0 });
+    expect(item.db.prepare('SELECT COUNT(*) AS n FROM execution_attempts').get()).toEqual({ n: 0 });
+  } finally { drafts.discard(draftId); item.db.close(); rmSync(item.folder, { recursive: true, force: true }); }
+}, 60000);
+
+test('a dismissed native confirmation creates no Grant or Attempt', async () => {
+  const item = await fixture();
+  const drafts = new LocalGoalDraft(item.db, () => new Date('2026-08-01T00:00:00.000Z'));
+  let draftId = '';
+  try {
+    draftId = await drafts.create({ projectId: 'p', objective: 'Change the fixture', criterion: 'Document the change' });
+    vi.mocked(presentProtectedConsent).mockReset().mockResolvedValue(false);
+    const command = new ProtectedGoalAuthorization(item.db, item.vault, drafts, () => '2026-08-01T00:00:00.000Z');
+    await expect(command.confirm(draftId)).rejects.toThrow();
+    expect(item.db.prepare('SELECT COUNT(*) AS n FROM authorization_grants').get()).toEqual({ n: 0 });
+    expect(item.db.prepare('SELECT COUNT(*) AS n FROM execution_attempts').get()).toEqual({ n: 0 });
+  } finally { drafts.discard(draftId); item.db.close(); rmSync(item.folder, { recursive: true, force: true }); }
+}, 60000);
+
 test('a real local draft stages one protected Proposal and retains its original Attempt after a lost fake reply', async () => {
   const item = await fixture();
   let child: ReturnType<typeof spawn> | undefined;
@@ -78,15 +202,14 @@ test('a real local draft stages one protected Proposal and retains its original 
   let draftId = '';
   try {
     draftId = await drafts.create({ projectId: 'p', objective: 'Write the approved change', criterion: 'Document the fixture' });
-    const intake = new ProtectedProposalIntake(item.db, item.vault, drafts, () => '2026-08-01T00:00:00.000Z');
-    const [first, second] = await Promise.all([intake.stage(draftId), intake.stage(draftId)]);
-    expect(first).toEqual(second);
-    expect(await intake.stage(draftId)).toEqual(first);
+    const command = new ProtectedGoalAuthorization(item.db, item.vault, drafts, () => '2026-08-01T00:00:00.000Z');
+    vi.mocked(presentProtectedConsent).mockReset().mockResolvedValue(true);
+    const [original, repeated] = await Promise.all([command.confirm(draftId), command.confirm(draftId)]);
+    expect(original).toEqual(repeated);
+    const first = { workspaceId: 'w', projectId: 'p', proposalVersionId: 'goal-review-' + draftId.slice(5) };
     expect(item.db.prepare('SELECT COUNT(*) AS n FROM protected_proposal_bindings WHERE proposal_version_id=?').get(first.proposalVersionId)).toEqual({ n: 1 });
     expect(item.db.serialize().includes(Buffer.from('Write the approved change'))).toBe(false);
     expect(item.db.serialize().includes(Buffer.from('Document the fixture'))).toBe(false);
-    vi.mocked(presentProtectedConsent).mockResolvedValue(true);
-    const original = await item.authority.confirmAndQueue(first);
     const path = fileURLToPath(new URL('../../../../packages/codex-adapter/tests/fixtures/execution-app-server.mjs', import.meta.url));
     const principal = createHash('sha256').update('codex-personal-v1:fixture@example.invalid:plus').digest('hex');
     const { FixtureProtectedDispatch } = await import('../../src/main/fixture-protected-dispatch.js');
