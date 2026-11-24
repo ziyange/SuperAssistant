@@ -413,3 +413,10 @@ exercise initialize, start receipt, interrupt and stop; a production terminal
 transition and Lease release still require independently verified ownership.
 This is not a production UI route, a verified real process owner or permission
 to release the Lease.
+
+TASK-844 adds a fixture-only, same-scope cancellation command: it coalesces
+concurrent requests, requires the existing protected cancellation decision,
+then bounds interrupt and owner stop. A dismissed or wrong-scope request does
+not signal the fixture. It quarantines the original Attempt as UNKNOWN and
+retains its Lease; a stop acknowledgement is not terminal evidence. This
+composition is not connected to production IPC or the desktop UI.

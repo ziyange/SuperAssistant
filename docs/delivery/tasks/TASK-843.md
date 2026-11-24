@@ -1,7 +1,7 @@
 # TASK-843: Connect the App Server client to the native owner transport
 
 ## Status
-IN_PROGRESS
+COMPLETED
 PHASE: PHASE-007
 MAX_ITERATIONS: 6
 user_confirmed: true
@@ -120,3 +120,9 @@ Goal runtime Exit 0, and passed 41 governance tests. An initial
 `git diff --check` found a blank line at the end of the Codex adapter document;
 it was removed and the check must be rerun. Current host versions are Node
 22.23.2, Python 3.9.12 and Git 2.56.0.windows.4.
+
+Candidate commit `7133d82441092b5ecf73cf131ff7fd425fedb76a` was pushed.
+GitHub Actions governance run 45325222363 and application run 45325222400
+completed successfully, including Windows deterministic tests and PostgreSQL
+16 compatibility. This evidence applies to that commit only; it does not
+establish production ownership or H1 acceptance.

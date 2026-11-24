@@ -1,5 +1,6 @@
 /* eslint-disable no-unused-vars -- fixture port parameter names document the test boundary. */
 import { isDeepStrictEqual } from 'node:util';
+import { clearTimeout, setTimeout } from 'node:timers';
 import type { EncryptedProposalScope } from './encrypted-proposal-store.js';
 import { ProtectedProposalAuthority } from './protected-proposal-authority.js';
 import { GitWorktreeService } from './worktree-service.js';
@@ -9,17 +10,48 @@ type Receipt = Parameters<ReceiptWriter['record']>[0];
 type FixtureClient = {
   initialize(): Promise<void>;
   start(cwd: string, objective: string): Promise<Receipt>;
+  interrupt?(): Promise<boolean>;
+  stop?(timeoutMs: number): Promise<'UNVERIFIED_TERMINATION' | 'UNKNOWN'>;
   dispose(): void;
 };
 type FixtureFactory = (version: string, onUnknown: () => boolean, record: (receipt: Receipt) => boolean, cwd: string) => FixtureClient;
 
+async function bounded(operation: () => Promise<unknown>, timeoutMs: number): Promise<void> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    await Promise.race([
+      Promise.resolve().then(operation).then(() => undefined, () => undefined),
+      new Promise<void>(resolve => { timer = setTimeout(resolve, timeoutMs); })
+    ]);
+  } finally { if (timer) clearTimeout(timer); }
+}
+
 /** Test-only composition; its injected transport is not process custody or confinement proof. */
 export class FixtureProtectedDispatch {
   private currentState: 'IDLE' | 'STARTING' | 'RUNNING' | 'UNKNOWN' | 'PERSISTENCE_FAILED' = 'IDLE';
+  private session?: { scope: EncryptedProposalScope; client: FixtureClient; markUnknown: () => boolean };
+  private cancellation: Promise<'UNKNOWN' | 'DISMISSED' | 'UNAVAILABLE' | 'ALREADY_CANCELLING'> | undefined;
   public get state(): 'IDLE' | 'STARTING' | 'RUNNING' | 'UNKNOWN' | 'PERSISTENCE_FAILED' { return this.currentState; }
 
   constructor(private readonly authority: ProtectedProposalAuthority, private readonly worktreeRoot: string,
     private readonly principalHash: string, private readonly createFixtureClient: FixtureFactory) {}
+
+  cancel(scope: EncryptedProposalScope): Promise<'UNKNOWN' | 'DISMISSED' | 'UNAVAILABLE' | 'ALREADY_CANCELLING'> {
+    const session = this.session;
+    if (!session || !isDeepStrictEqual(scope, session.scope) || !session.client.interrupt || !session.client.stop) return Promise.resolve('UNAVAILABLE');
+    if (this.cancellation) return this.cancellation;
+    if (this.currentState !== 'RUNNING') return Promise.resolve('UNAVAILABLE');
+    const run = async (): Promise<'UNKNOWN' | 'DISMISSED' | 'UNAVAILABLE' | 'ALREADY_CANCELLING'> => {
+      const decision = await this.authority.requestCancellation(session.scope);
+      if (decision !== 'STARTED') return decision;
+      await bounded(() => session.client.interrupt!(), 5000);
+      await bounded(() => session.client.stop!(15000), 15000);
+      if (!session.markUnknown()) throw new Error('FIXTURE_QUARANTINE_FAILED');
+      return 'UNKNOWN';
+    };
+    this.cancellation = run().finally(() => { this.cancellation = undefined; });
+    return this.cancellation;
+  }
 
   async start(scope: EncryptedProposalScope): Promise<{ attemptId: string; cwd: string; receipt: Receipt }> {
     if (this.currentState !== 'IDLE' || !/^[a-f0-9]{64}$/.test(this.principalHash)) throw new Error('FIXTURE_DISPATCH_UNAVAILABLE');
@@ -65,6 +97,7 @@ export class FixtureProtectedDispatch {
       if (quarantined || this.currentState !== 'STARTING' || !recordedReceipt || !isDeepStrictEqual(receipt, recordedReceipt)) {
         throw new Error('FIXTURE_OUTCOME_UNKNOWN');
       }
+      this.session = { scope: originalScope, client, markUnknown };
       this.currentState = 'RUNNING';
       return { attemptId: claimed.attemptId, cwd: worktree.path, receipt };
     } catch {

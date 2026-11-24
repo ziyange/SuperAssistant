@@ -479,6 +479,8 @@ test.skipIf(process.platform !== 'win32')('protected goal cancellation stops the
           await client!.initialize();
         },
         start: (path, objective) => client!.start(path, objective),
+        interrupt: () => client!.interrupt(),
+        stop: (timeoutMs) => transport!.stop(timeoutMs),
         dispose: () => client!.dispose()
       };
     });
@@ -494,9 +496,7 @@ test.skipIf(process.platform !== 'win32')('protected goal cancellation stops the
     expect(pids[0]).not.toBe(pids[1]);
     for (const pid of pids) expect(() => process.kill(pid, 0)).not.toThrow();
     vi.mocked(presentProtectedCancellation).mockReset().mockResolvedValue(true);
-    expect(await item.authority.requestCancellation(scope)).toBe('STARTED');
-    expect(await client!.interrupt()).toBe(true);
-    expect(await transport!.stop(15000)).toBe('UNVERIFIED_TERMINATION');
+    expect(await dispatcher.cancel(scope)).toBe('UNKNOWN');
     await closed;
     for (const pid of pids) {
       try { process.kill(pid, 0); throw new Error('fixture process still running'); }
@@ -514,6 +514,81 @@ test.skipIf(process.platform !== 'win32')('protected goal cancellation stops the
     rmSync(item.folder, { recursive: true, force: true });
   }
 }, 120000);
+
+test('fixture cancellation rejects a different scope and dismissed consent without signalling the original client', async () => {
+  const item = await fixture('Write the approved change');
+  try {
+    vi.mocked(presentProtectedConsent).mockResolvedValue(true);
+    const original = await item.authority.confirmAndQueue(item.scope);
+    const principal = createHash('sha256').update('codex-personal-v1:fixture@example.invalid:plus').digest('hex');
+    let signals = 0;
+    const { FixtureProtectedDispatch } = await import('../../src/main/fixture-protected-dispatch.js');
+    const dispatcher = new FixtureProtectedDispatch(item.authority, join(item.folder, 'worktrees'), principal, (_version, _unknown, record) => ({
+      async initialize() {},
+      async start(cwd) { const receipt = { threadId: 'thread', turnId: 'turn', cwd, principalHash: principal }; if (!record(receipt)) throw new Error('receipt'); return receipt; },
+      async interrupt() { signals++; return true; },
+      async stop() { signals++; return 'UNVERIFIED_TERMINATION' as const; },
+      dispose() {}
+    }));
+    await dispatcher.start(item.scope);
+    vi.mocked(presentProtectedCancellation).mockReset().mockResolvedValue(false);
+    expect(await dispatcher.cancel({ ...item.scope, proposalVersionId: 'other' })).toBe('UNAVAILABLE');
+    expect(vi.mocked(presentProtectedCancellation)).not.toHaveBeenCalled();
+    expect(await dispatcher.cancel(item.scope)).toBe('DISMISSED');
+    expect(signals).toBe(0);
+    expect(item.db.prepare('SELECT attempt_id,state FROM execution_attempts').all()).toEqual([{ attempt_id: original.attemptId, state: 'RUNNING' }]);
+    expect(item.db.prepare('SELECT state FROM resource_leases').get()).toEqual({ state: 'ACTIVE' });
+  } finally { item.db.close(); rmSync(item.folder, { recursive: true, force: true }); }
+}, 30000);
+
+test('concurrent fixture cancellations prompt once and stop once even when interruption fails', async () => {
+  const item = await fixture('Write the approved change');
+  try {
+    vi.mocked(presentProtectedConsent).mockResolvedValue(true);
+    const original = await item.authority.confirmAndQueue(item.scope);
+    const principal = createHash('sha256').update('codex-personal-v1:fixture@example.invalid:plus').digest('hex');
+    let interrupts = 0, stops = 0;
+    const { FixtureProtectedDispatch } = await import('../../src/main/fixture-protected-dispatch.js');
+    const dispatcher = new FixtureProtectedDispatch(item.authority, join(item.folder, 'worktrees'), principal, (_version, _unknown, record) => ({
+      async initialize() {},
+      async start(cwd) { const receipt = { threadId: 'thread', turnId: 'turn', cwd, principalHash: principal }; if (!record(receipt)) throw new Error('receipt'); return receipt; },
+      async interrupt() { interrupts++; throw new Error('lost interrupt'); },
+      async stop() { stops++; return 'UNVERIFIED_TERMINATION' as const; },
+      dispose() {}
+    }));
+    await dispatcher.start(item.scope);
+    vi.mocked(presentProtectedCancellation).mockReset().mockResolvedValue(true);
+    expect(await Promise.all([dispatcher.cancel(item.scope), dispatcher.cancel(item.scope)])).toEqual(['UNKNOWN', 'UNKNOWN']);
+    expect(vi.mocked(presentProtectedCancellation)).toHaveBeenCalledTimes(1);
+    expect([interrupts, stops]).toEqual([1, 1]);
+    expect(item.db.prepare('SELECT attempt_id,state FROM execution_attempts').all()).toEqual([{ attempt_id: original.attemptId, state: 'UNKNOWN' }]);
+    expect(item.db.prepare('SELECT state FROM resource_leases').get()).toEqual({ state: 'ACTIVE' });
+  } finally { item.db.close(); rmSync(item.folder, { recursive: true, force: true }); }
+}, 30000);
+
+test('a nonresponsive fixture stop is bounded and cannot release the original Lease', async () => {
+  const item = await fixture('Write the approved change');
+  try {
+    vi.mocked(presentProtectedConsent).mockResolvedValue(true);
+    const original = await item.authority.confirmAndQueue(item.scope);
+    const principal = createHash('sha256').update('codex-personal-v1:fixture@example.invalid:plus').digest('hex');
+    const { FixtureProtectedDispatch } = await import('../../src/main/fixture-protected-dispatch.js');
+    const dispatcher = new FixtureProtectedDispatch(item.authority, join(item.folder, 'worktrees'), principal, (_version, _unknown, record) => ({
+      async initialize() {},
+      async start(cwd) { const receipt = { threadId: 'thread', turnId: 'turn', cwd, principalHash: principal }; if (!record(receipt)) throw new Error('receipt'); return receipt; },
+      async interrupt() { return true; },
+      async stop() { return new Promise<'UNKNOWN'>(() => {}); },
+      dispose() {}
+    }));
+    await dispatcher.start(item.scope);
+    vi.mocked(presentProtectedCancellation).mockReset().mockResolvedValue(true);
+    const started = Date.now();
+    expect(await dispatcher.cancel(item.scope)).toBe('UNKNOWN');
+    expect(Date.now() - started).toBeLessThan(20000);
+    expect(item.db.prepare('SELECT attempt_id,state FROM execution_attempts').all()).toEqual([{ attempt_id: original.attemptId, state: 'UNKNOWN' }]);
+    expect(item.db.prepare('SELECT state FROM resource_leases').get()).toEqual({ state: 'ACTIVE' });
+  } finally { item.db.close(); rmSync(item.folder, { recursive: true, force: true }); }
+}, 40000);
 
 test('a fake acknowledged Turn persists encrypted receipt and quarantines the original Attempt when its process exits', async () => {
   const item = await fixture('Write the approved change');

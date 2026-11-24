@@ -566,6 +566,13 @@ ready and stop frames are not evidence of executable provenance, sandbox
 confinement or Lease-release authority. Channel failures close the adapter
 transport; a potentially started Attempt remains subject to UNKNOWN handling.
 
+TASK-844's fixture cancellation retains that boundary: even an observed stop
+response cannot independently attest owner identity or whole-tree termination.
+The fixture retains the original Lease and reports UNKNOWN, not CANCELLED.
+The timeout bounds waiting only; an already-started interrupt or stop may
+complete later against that same original session. It is not cancellation of
+the underlying operation and is not evidence that process activity ceased.
+
 TASK-832 revalidates the authenticated original claim after worktree creation
 and after fixture transport initialization. Receipt persistence rechecks the
 authenticated Project snapshot, Grant and current Agent/Function, exact
