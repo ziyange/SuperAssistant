@@ -573,6 +573,14 @@ The timeout bounds waiting only; an already-started interrupt or stop may
 complete later against that same original session. It is not cancellation of
 the underlying operation and is not evidence that process activity ceased.
 
+TASK-845 is developing an in-process Node-API Credential Manager binding.
+It avoids sending key material through a separately spawned helper and clears
+native working buffers, but it is not yet connected to the production route.
+Loading a writable or substituted addon is still a code-execution risk: signed
+or otherwise verified packaging and a protected installation remain required.
+The cooperative mutex cannot stop a noncooperating same-user writer, and
+ambiguous writes still require reconciliation instead of automatic retry.
+
 TASK-832 revalidates the authenticated original claim after worktree creation
 and after fixture transport initialization. Receipt persistence rechecks the
 authenticated Project snapshot, Grant and current Agent/Function, exact

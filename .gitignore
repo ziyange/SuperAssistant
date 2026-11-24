@@ -1,5 +1,6 @@
 .worktrees/
 .superpowers/
+apps/desktop/native/build/
 node_modules/
 dist/
 coverage/

@@ -16,6 +16,7 @@
     "build:main": "tsc -p tsconfig.main.json",
     "build:preload": "tsc --noEmit -p tsconfig.preload.json && vite build --config vite.preload.config.ts",
     "build:renderer": "vite build --config vite.config.ts",
-    "build": "npm run clean && npm run build:main && npm run build:preload && npm run build:renderer"
+    "build:native": "node scripts/build-native.cjs",
+    "build": "npm run clean && npm run build:main && npm run build:preload && npm run build:renderer && npm run build:native"
   }
 }

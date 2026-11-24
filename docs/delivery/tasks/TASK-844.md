@@ -1,7 +1,7 @@
 # TASK-844: Compose protected cancellation and owner stop in the fixture
 
 ## Status
-IN_PROGRESS
+COMPLETED
 PHASE: PHASE-007
 MAX_ITERATIONS: 6
 user_confirmed: true
@@ -88,3 +88,8 @@ committed with its result; the history check must be rerun without concurrent
 writes before completion. Real Codex and Electron sandbox security remain
 deferred; production owner provenance, terminal reconciliation and IPC remain
 unproven. CI for this uncommitted change has not run.
+
+Candidate commit `e67309b2a07c1c849476f1bf457ab9fbe27b4b89` passed GitHub
+documentation run 45329365535 and application run 45329365538, including its
+Windows and PostgreSQL 16 jobs. These results do not establish production
+process ownership, protected IPC, or integrated H1 acceptance.
