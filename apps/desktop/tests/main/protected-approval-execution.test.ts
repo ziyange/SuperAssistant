@@ -25,10 +25,11 @@ import { ProtectedGoalAuthorization } from '../../src/main/protected-goal-author
 import { OwnerAppServerTransport } from '../../src/main/owner-app-server-transport.js';
 import { InProcessOwnerTransport } from '../../src/main/inprocess-owner-transport.js';
 import { WindowsNativeVault } from '../../src/main/windows-native-vault.js';
+import { ProtectedAttemptObserver } from '../../src/main/protected-attempt-observer.js';
 import { presentProtectedCancellation, presentProtectedConsent } from '../../src/main/protected-native-consent.js';
 import { projectGitEnvironment } from '../../src/main/project-git-baseline.js';
 import { AppServerExecutionClient } from '../../../../packages/codex-adapter/src/app-server-execution-client.js';
-import { ReadOnlyAppServerClient } from '../../../../packages/codex-adapter/src/app-server-client.js';
+import { ReadOnlyAppServerClient } from '@super-assistant/codex-adapter';
 
 vi.mock('../../src/main/protected-native-consent.js', () => ({ presentProtectedConsent: vi.fn(), presentProtectedCancellation: vi.fn() }));
 
@@ -666,6 +667,128 @@ test.skipIf(process.platform !== 'win32')('real test-namespace Windows credentia
     }
   }
 }, 120000);
+
+test('read-only observation uses the original protected Attempt and keeps its Lease', async () => {
+  const item = await fixture('Write the approved change');
+  const principal = createHash('sha256').update('codex-personal-v1:fixture@example.invalid:plus').digest('hex');
+  let child: ReturnType<typeof spawn> | undefined;
+  let changedAccountChild: ReturnType<typeof spawn> | undefined;
+  let unsupportedChild: ReturnType<typeof spawn> | undefined;
+  let reader: ReadOnlyAppServerClient | undefined;
+  let changedAccountReader: ReadOnlyAppServerClient | undefined;
+  let unsupportedReader: ReadOnlyAppServerClient | undefined;
+  try {
+    vi.mocked(presentProtectedConsent).mockReset().mockResolvedValue(true);
+    const original = await item.authority.confirmAndQueue(item.scope);
+    const { FixtureProtectedDispatch } = await import('../../src/main/fixture-protected-dispatch.js');
+    const dispatch = new FixtureProtectedDispatch(item.authority, join(item.folder, 'worktrees'), principal, (_version, _unknown, record) => ({
+      async initialize() {},
+      async start(cwd) { const receipt = { threadId: 'thread-1', turnId: 'turn-1', cwd, principalHash: principal }; if (!record(receipt)) throw new Error('receipt'); return receipt; },
+      async interrupt() { return true; }, async stop() { return 'UNVERIFIED_TERMINATION' as const; }, dispose() {}
+    }));
+    const started = await dispatch.start(item.scope);
+    vi.mocked(presentProtectedCancellation).mockReset().mockResolvedValue(true);
+    expect(await dispatch.cancel(item.scope)).toBe('UNKNOWN');
+    const fixturePath = join(process.cwd(), 'packages/codex-adapter/tests/fixtures/execution-app-server.mjs');
+    changedAccountChild = spawn(process.execPath, [fixturePath, 'account-switch'], { cwd: started.cwd, stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true });
+    changedAccountReader = new ReadOnlyAppServerClient(changedAccountChild, 15000);
+    await changedAccountReader.discover('0.121.0');
+    const coordinator = new ProtectedAttemptObserver(item.authority);
+    expect(await coordinator.observe(item.scope, changedAccountReader)).toBeNull();
+    expect(item.db.prepare('SELECT state FROM execution_attempts').get()).toEqual({ state: 'UNKNOWN' });
+    unsupportedChild = spawn(process.execPath, [fixturePath, 'normal'], { cwd: started.cwd, stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true });
+    unsupportedReader = new ReadOnlyAppServerClient(unsupportedChild, 15000);
+    await unsupportedReader.discover('0.121.0');
+    expect(await coordinator.observe(item.scope, unsupportedReader)).toBeNull();
+    expect(item.db.prepare('SELECT state FROM execution_attempts').get()).toEqual({ state: 'RECONCILING' });
+    child = spawn(process.execPath, [fixturePath, 'reconcile'], { cwd: started.cwd, stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true });
+    reader = new ReadOnlyAppServerClient(child, 15000);
+    await reader.discover('0.121.0');
+    const request = coordinator.observe(item.scope, reader);
+    expect(coordinator.observe(item.scope, reader)).toBe(request);
+    expect(await coordinator.observe(item.scope, changedAccountReader)).toBeNull();
+    const result = await request;
+    expect(result).toEqual({ attemptId: original.attemptId, observation: 'OBSERVED_COMPLETED' });
+    expect(item.db.prepare('SELECT attempt_id,state FROM execution_attempts').all()).toEqual([{ attempt_id: original.attemptId, state: 'RECONCILING' }]);
+    expect(item.db.prepare('SELECT state FROM resource_leases').get()).toEqual({ state: 'ACTIVE' });
+    expect(item.db.prepare('SELECT COUNT(*) AS n FROM execution_attempts').get()).toEqual({ n: 1 });
+    expect(await coordinator.observe({ ...item.scope, extra: 'forbidden' } as typeof item.scope, reader)).toBeNull();
+    const keysBeforeLoss = [...item.vault.values.entries()];
+    const observeBeforeLoss = reader.observeTurn.bind(reader);
+    const keyLossSpy = vi.spyOn(reader, 'observeTurn').mockImplementation(async (...args) => {
+      const observed = await observeBeforeLoss(...args);
+      item.vault.values.clear();
+      return observed;
+    });
+    expect(await coordinator.observe(item.scope, reader)).toBeNull();
+    keyLossSpy.mockRestore();
+    for (const [ref, key] of keysBeforeLoss) item.vault.values.set(ref, key);
+    const verify = reader.verifyRecoveryPrincipal.bind(reader);
+    let checks = 0;
+    const verifySpy = vi.spyOn(reader, 'verifyRecoveryPrincipal').mockImplementation(async () => ++checks === 2 ? false : verify());
+    expect(await coordinator.observe(item.scope, reader)).toBeNull();
+    verifySpy.mockRestore();
+    checks = 0;
+    const stateSpy = vi.spyOn(reader, 'verifyRecoveryPrincipal').mockImplementation(async () => {
+      const valid = await verify();
+      if (++checks === 2) item.db.prepare("UPDATE execution_attempts SET state='UNKNOWN' WHERE attempt_id=?").run(original.attemptId);
+      return valid;
+    });
+    expect(await coordinator.observe(item.scope, reader)).toBeNull();
+    stateSpy.mockRestore();
+    expect(item.db.prepare('SELECT state FROM execution_attempts').get()).toEqual({ state: 'UNKNOWN' });
+    expect(await item.authority.beginReconciliation(item.scope)).toBe(true);
+    // Simulate a malicious writer bypassing Lease guards in this in-memory fixture only.
+    item.db.exec('DROP TRIGGER protected_lease_no_unverified_release; DROP TRIGGER protected_lease_no_resurrection');
+    checks = 0;
+    const leaseSpy = vi.spyOn(reader, 'verifyRecoveryPrincipal').mockImplementation(async () => {
+      const valid = await verify();
+      if (++checks === 2) item.db.prepare("UPDATE resource_leases SET state='RELEASED' WHERE attempt_id=?").run(original.attemptId);
+      return valid;
+    });
+    expect(await coordinator.observe(item.scope, reader)).toBeNull();
+    leaseSpy.mockRestore();
+    expect(item.db.prepare('SELECT state FROM resource_leases').get()).toEqual({ state: 'RELEASED' });
+    item.db.prepare("UPDATE resource_leases SET state='ACTIVE' WHERE attempt_id=?").run(original.attemptId);
+    const originalTag = (item.db.prepare('SELECT auth_tag FROM protected_start_receipts WHERE attempt_id=?').get(original.attemptId) as { auth_tag: Buffer }).auth_tag;
+    const tamperedTag = Buffer.from(originalTag); tamperedTag[0] = tamperedTag.readUInt8(0) ^ 1;
+    // This in-memory fixture deliberately simulates a writer bypassing the immutable-row trigger.
+    item.db.exec('DROP TRIGGER protected_start_receipt_no_update');
+    const observe = reader.observeTurn.bind(reader);
+    const observeSpy = vi.spyOn(reader, 'observeTurn').mockImplementation(async (...args) => {
+      const observed = await observe(...args);
+      item.db.prepare('UPDATE protected_start_receipts SET auth_tag=? WHERE attempt_id=?').run(tamperedTag, original.attemptId);
+      return observed;
+    });
+    expect(await coordinator.observe(item.scope, reader)).toBeNull();
+    expect(item.db.prepare('SELECT attempt_id,state FROM execution_attempts').all()).toEqual([{ attempt_id: original.attemptId, state: 'RECONCILING' }]);
+    expect(item.db.prepare('SELECT state FROM resource_leases').get()).toEqual({ state: 'ACTIVE' });
+    observeSpy.mockRestore();
+    item.db.prepare('UPDATE protected_start_receipts SET auth_tag=? WHERE attempt_id=?').run(originalTag, original.attemptId);
+    expect(await item.authority.readReceipt(item.scope)).not.toBeNull();
+    const savedKeys = [...item.vault.values.entries()];
+    item.vault.values.clear();
+    expect(await coordinator.observe(item.scope, reader)).toBeNull();
+    for (const [ref, key] of savedKeys) item.vault.values.set(ref, key);
+    checks = 0;
+    const closedSpy = vi.spyOn(reader, 'verifyRecoveryPrincipal').mockImplementation(async () => {
+      const valid = await verify();
+      if (++checks === 2) reader!.dispose();
+      return valid;
+    });
+    expect(await coordinator.observe(item.scope, reader)).toBeNull();
+    closedSpy.mockRestore();
+  } finally {
+    unsupportedReader?.dispose();
+    if (unsupportedChild && unsupportedChild.exitCode === null && unsupportedChild.signalCode === null) { const closed = once(unsupportedChild, 'exit'); unsupportedChild.kill(); await closed; }
+    changedAccountReader?.dispose();
+    if (changedAccountChild && changedAccountChild.exitCode === null && changedAccountChild.signalCode === null) { const closed = once(changedAccountChild, 'exit'); changedAccountChild.kill(); await closed; }
+    reader?.dispose();
+    if (child && child.exitCode === null && child.signalCode === null) { const closed = once(child, 'exit'); child.kill(); await closed; }
+    item.db.close();
+    rmSync(item.folder, { recursive: true, force: true });
+  }
+}, 60000);
 
 test('fixture cancellation rejects a different scope and dismissed consent without signalling the original client', async () => {
   const item = await fixture('Write the approved change');

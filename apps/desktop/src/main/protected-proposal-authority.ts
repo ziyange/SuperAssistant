@@ -310,6 +310,21 @@ export class ProtectedProposalAuthority {
     } catch { return false; }
   }
 
+  /** Main-only observation guard; it neither changes state nor releases a Lease. */
+  async prepareObservation(input: EncryptedProposalScope): Promise<{ receipt: Readonly<{ attemptId: string } & ProtectedReceipt>; isCurrent: () => boolean } | null> {
+    if (arguments.length !== 1 || !validScope(input) || this.db.inTransaction) return null;
+    const scope = { ...input }, authenticated = await this.authenticatedReceipt(scope);
+    if (!authenticated || this.db.inTransaction) return null;
+    const isCurrent = (): boolean => {
+      try {
+        if (this.db.inTransaction) return false;
+        return this.db.transaction(() => this.receiptState(scope, authenticated)?.state === 'RECONCILING').immediate();
+      } catch { return false; }
+    };
+    if (!isCurrent()) return null;
+    return Object.freeze({ receipt: Object.freeze({ ...authenticated.receipt }), isCurrent });
+  }
+
   /** Fixture-only cancellation intent; interruption and process termination remain separate. */
   async requestCancellation(input: EncryptedProposalScope): Promise<'STARTED' | 'ALREADY_CANCELLING' | 'DISMISSED' | 'UNAVAILABLE'> {
     if (arguments.length !== 1 || !validScope(input) || this.db.inTransaction) return 'UNAVAILABLE';

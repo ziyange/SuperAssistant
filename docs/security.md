@@ -598,6 +598,15 @@ test. Consent and effect-confinement decisions are simulated. Reopening a
 database in the same process does not prove application restart, production
 credential provenance, OS effect confinement or trusted installation.
 
+TASK-848's protected recovery observation is main-only. It reauthenticates the
+original encrypted receipt after the upstream query and checks its snapshot,
+the RECONCILING Attempt, ACTIVE Lease record and known client principal at a
+synchronous final boundary. This is point-in-time evidence only: the check
+does not attest the client installation, prove that its account cannot change
+afterward, establish Lease expiry or process death, or authorize production
+IPC, terminal state or Lease release. An instance check is not a security
+boundary against a hostile or compromised main process.
+
 TASK-832 revalidates the authenticated original claim after worktree creation
 and after fixture transport initialization. Receipt persistence rechecks the
 authenticated Project snapshot, Grant and current Agent/Function, exact

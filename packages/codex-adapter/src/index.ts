@@ -6,4 +6,5 @@ export * from './error-map.js';
 export * from './protocol.js';
 export * from './execution.js';
 export * from './reconciliation.js';
+export { ReadOnlyAppServerClient } from './app-server-client.js';
 export { createReadOnlyCodexLaunch, codexDiscoveryEnvironment, terminateProcessTree } from './worker.js';

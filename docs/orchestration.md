@@ -437,3 +437,11 @@ for protected Proposal and receipt operations with the Job-owned fake server.
 After fixture cancellation and same-process database reopen, the original
 Attempt enters RECONCILING with its Lease retained. The test does not exercise
 an application restart, a real native approval, or production dispatch.
+
+TASK-848 provides a main-only protected Attempt observer. It authenticates the
+encrypted original receipt, enters RECONCILING, verifies the read-only client
+principal around a provider query, then reauthenticates and synchronously
+rechecks the original snapshot, Attempt and ACTIVE Lease. Concurrent same-scope
+requests share one observation. A completed or failed provider observation is
+non-authoritative: it does not update the Attempt to terminal, release the
+Lease, redispatch, or prove process-tree death. This is not wired to IPC.

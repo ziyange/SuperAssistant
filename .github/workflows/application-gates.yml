@@ -63,6 +63,8 @@ jobs:
           $report = Get-Content -Raw -LiteralPath "$env:RUNNER_TEMP/unit-report.json" | ConvertFrom-Json
           $matching = @($report.testResults | Where-Object { $_.name -like '*protected-approval-execution.test.ts' } | ForEach-Object { $_.assertionResults } | Where-Object { $_.fullName -eq 'real test-namespace Windows credentials protect the same owned Attempt after database reopen' -and $_.status -eq 'passed' })
           if ($matching.Count -ne 1) { throw 'Required real credential integration did not pass exactly once' }
+          $observations = @($report.testResults | Where-Object { $_.name -like '*protected-approval-execution.test.ts' } | ForEach-Object { $_.assertionResults } | Where-Object { $_.fullName -eq 'read-only observation uses the original protected Attempt and keeps its Lease' -and $_.status -eq 'passed' })
+          if ($observations.Count -ne 1) { throw 'Required protected Attempt observation did not pass exactly once' }
       - name: Contract tests with no skipped cases
         shell: pwsh
         run: |
