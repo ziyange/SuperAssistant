@@ -1,7 +1,7 @@
 # TASK-846: In-process Windows execution ownership
 
 ## Status
-IN_PROGRESS
+COMPLETED
 PHASE: PHASE-007
 MAX_ITERATIONS: 8
 user_confirmed: true
@@ -133,3 +133,12 @@ points previously returned zero for zero tests; removing their permissive flags
 made each empty-input check fail and normal focused unit, 50 contract and nine
 browser tests pass. These are local results for an uncommitted working patch;
 current-task CI and production activation remain unverified.
+
+Candidate `bb85e88a3934d23efa8587487fd93689a37b7e01` subsequently passed
+GitHub documentation run 45655716456 and application run 45655716056. The
+application run's Windows build, synthetic native credential, owned process
+tree, desktop functional, lint, typecheck, unit and contract gates passed;
+PostgreSQL 16 compatibility passed separately. This closes only this
+fixture-level Task Pack. It does not validate PostgreSQL 17, production
+installation provenance, effect confinement, production IPC, Lease release,
+real Codex or Electron sandbox security.
