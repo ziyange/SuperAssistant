@@ -24,6 +24,7 @@ import { LocalGoalDraft } from '../../src/main/local-goal-draft.js';
 import { ProtectedGoalAuthorization } from '../../src/main/protected-goal-authorization.js';
 import { OwnerAppServerTransport } from '../../src/main/owner-app-server-transport.js';
 import { InProcessOwnerTransport } from '../../src/main/inprocess-owner-transport.js';
+import { WindowsNativeVault } from '../../src/main/windows-native-vault.js';
 import { presentProtectedCancellation, presentProtectedConsent } from '../../src/main/protected-native-consent.js';
 import { projectGitEnvironment } from '../../src/main/project-git-baseline.js';
 import { AppServerExecutionClient } from '../../../../packages/codex-adapter/src/app-server-execution-client.js';
@@ -580,6 +581,89 @@ test.skipIf(process.platform !== 'win32')('protected original Attempt runs and c
     if (transport) await transport.stop();
     item.db.close();
     rmSync(item.folder, { recursive: true, force: true });
+  }
+}, 120000);
+
+test.skipIf(process.platform !== 'win32')('real test-namespace Windows credentials protect the same owned Attempt after database reopen', async () => {
+  const addon = createRequire(import.meta.url)(join(process.cwd(), 'apps/desktop/native/build/Release/wincred_test.node'));
+  const ownerAddon = createRequire(import.meta.url)(join(process.cwd(), 'apps/desktop/native/build/Release/process_owner.node'));
+  const item = await fixture();
+  const keys = new Map<string, Buffer>();
+  const vault = new WindowsNativeVault({
+    async create(ref) { const key: Buffer = await addon.create(ref); keys.set(ref, Buffer.from(key)); return key; },
+    async read(ref) { return await addon.read(ref) as Buffer | null; }
+  });
+  const clock = () => '2026-08-01T00:00:00.000Z';
+  const drafts = new LocalGoalDraft(item.db, () => new Date(clock()));
+  let draftId = '';
+  let transport: InProcessOwnerTransport | undefined;
+  let client: AppServerExecutionClient<InProcessOwnerTransport> | undefined;
+  try {
+    const objective = 'Write the approved change';
+    draftId = await drafts.create({ projectId: 'p', objective, criterion: 'Document the isolated fixture' });
+    vi.mocked(presentProtectedConsent).mockReset().mockResolvedValue(true);
+    const original = await new ProtectedGoalAuthorization(item.db, vault, drafts, clock).confirm(draftId);
+    const scope = { workspaceId: 'w', projectId: 'p', proposalVersionId: 'goal-review-' + draftId.slice(5) };
+    const authority = new ProtectedProposalAuthority(item.db, vault, clock);
+    const principal = createHash('sha256').update('codex-personal-v1:fixture@example.invalid:plus').digest('hex');
+    const wrapper = join(process.cwd(), 'apps/desktop/tests/native/owned-execution-wrapper.mjs');
+    const { FixtureProtectedDispatch } = await import('../../src/main/fixture-protected-dispatch.js');
+    const dispatcher = new FixtureProtectedDispatch(authority, join(item.folder, 'worktrees'), principal, (version, onUnknown, recordStart, cwd) => {
+      transport = new InProcessOwnerTransport(ownerAddon.start(process.execPath, [wrapper, 'normal', item.folder], cwd));
+      client = new AppServerExecutionClient(transport, version, principal, async () => true, onUnknown, recordStart, 15000);
+      return {
+        initialize: () => client!.initialize(), start: (path, goal) => client!.start(path, goal),
+        interrupt: () => client!.interrupt(),
+        async stop() { return await transport!.stop() === 'TERMINATED_UNVERIFIED' ? 'UNVERIFIED_TERMINATION' as const : 'UNKNOWN' as const; },
+        dispose: () => client!.dispose()
+      };
+    });
+    expect((await dispatcher.start(scope)).attemptId).toBe(original.attemptId);
+    const pids = ['parent.pid', 'child.pid'].map(file => Number(readFileSync(join(item.folder, file), 'utf8')));
+    expect(pids.every(pid => Number.isSafeInteger(pid) && pid > 0)).toBe(true);
+    expect(pids[0]).not.toBe(pids[1]);
+    for (const pid of pids) expect(() => process.kill(pid, 0)).not.toThrow();
+    vi.mocked(presentProtectedCancellation).mockReset().mockResolvedValue(true);
+    expect(await dispatcher.cancel(scope)).toBe('UNKNOWN');
+    for (const pid of pids) expect(() => process.kill(pid, 0)).toThrow(expect.objectContaining({ code: 'ESRCH' }));
+    const receipt = await authority.readReceipt(scope);
+    expect(receipt?.attemptId).toBe(original.attemptId);
+    expect(keys.size).toBeGreaterThan(0);
+    const serialized = item.db.serialize();
+    expect(serialized.includes(Buffer.from(objective))).toBe(false);
+    for (const key of keys.values()) expect(serialized.includes(key)).toBe(false);
+    const backup = join(item.folder, 'credential-restart.sqlite');
+    await item.db.backup(backup);
+    const reopened = new Database(backup);
+    try {
+      const recovered = new ProtectedProposalAuthority(reopened, vault, clock);
+      expect(await recovered.readReceipt(scope)).toEqual(receipt);
+      expect(await recovered.beginReconciliation(scope)).toBe(true);
+      expect(reopened.prepare('SELECT attempt_id,state FROM execution_attempts').all()).toEqual([{ attempt_id: original.attemptId, state: 'RECONCILING' }]);
+      expect(reopened.prepare('SELECT state FROM resource_leases').get()).toEqual({ state: 'ACTIVE' });
+    } finally { reopened.close(); }
+    expect(execFileSync('git', ['-C', item.project, 'status', '--porcelain'], { env: projectGitEnvironment(), encoding: 'utf8' }).trim()).toBe('');
+  } finally {
+    try {
+      try { drafts.discard(draftId); }
+      finally {
+        try { client?.dispose(); }
+        finally {
+          try { if (transport) await transport.stop(); }
+          finally { item.db.close(); }
+        }
+      }
+    } finally {
+      try {
+        let cleanupFailed = false;
+        for (const [ref, key] of keys) {
+          try { if (await addon.cleanup(ref, key) !== true) cleanupFailed = true; }
+          catch { cleanupFailed = true; }
+          finally { key.fill(0); }
+        }
+        expect(cleanupFailed).toBe(false);
+      } finally { rmSync(item.folder, { recursive: true, force: true }); }
+    }
   }
 }, 120000);
 

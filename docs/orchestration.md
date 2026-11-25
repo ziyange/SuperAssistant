@@ -431,3 +431,9 @@ When the execution protocol fails or times out, the client first records
 UNKNOWN when applicable and then requests best-effort cleanup through the
 owned transport. A failed cleanup or unverified stop never changes that
 Attempt into a terminal state or authorizes Lease release.
+
+TASK-847 additionally uses the real Windows credential manager test namespace
+for protected Proposal and receipt operations with the Job-owned fake server.
+After fixture cancellation and same-process database reopen, the original
+Attempt enters RECONCILING with its Lease retained. The test does not exercise
+an application restart, a real native approval, or production dispatch.

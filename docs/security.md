@@ -590,6 +590,14 @@ Job membership is not filesystem or network confinement, trusted executable or
 addon provenance, or proof against broker-launched processes. This fixture is
 not registered as a production execution route.
 
+TASK-847 combines the protected Proposal and receipt path with real Windows
+Credential Manager through its isolated TestAddon namespace and a disposable
+Job-owned fake server. The fixture checks that the goal and test key bytes do
+not occur in SQLite, and removes each matching synthetic credential after the
+test. Consent and effect-confinement decisions are simulated. Reopening a
+database in the same process does not prove application restart, production
+credential provenance, OS effect confinement or trusted installation.
+
 TASK-832 revalidates the authenticated original claim after worktree creation
 and after fixture transport initialization. Receipt persistence rechecks the
 authenticated Project snapshot, Grant and current Agent/Function, exact
