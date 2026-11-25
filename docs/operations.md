@@ -473,3 +473,17 @@ for version and read-only App Server discovery. It exercises Project assignment
 and native Proposal review, and checks the isolated database has no Grant or
 Attempt afterward. The fixture performs no model, network or execution action;
 its success does not prove real Codex compatibility or process confinement.
+
+## Unsigned packaging fixture
+
+After the application build, the Windows CI workflow creates an empty
+`sa-package-output-*` directory directly under the system temporary directory,
+runs `node apps/desktop/scripts/package-fixture.mjs --source <repository>
+--output <directory>`, then runs `node
+apps/desktop/tests/native/package-fixture-smoke.cjs <directory>/SuperAssistant-Test-win32-x64`.
+The smoke test uses isolated application profiles and an owned process tree,
+checks the explicit manifest and tests integrity rejection on a separate copy.
+Failed tests may retain their temporary evidence. This unsigned fixture is not
+an installer or release and is not a substitute for signing, protected
+installation, real Codex, or Electron sandbox-security verification. The CI
+step is planned until its run on the relevant candidate actually succeeds.

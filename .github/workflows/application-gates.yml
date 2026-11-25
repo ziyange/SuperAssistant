@@ -35,6 +35,15 @@ jobs:
         run: npm ci
       - name: Build application
         run: npm run build
+      - name: Verify unsigned disposable package integrity
+        shell: pwsh
+        run: |
+          $fixtureOutput = Join-Path ([System.IO.Path]::GetTempPath()) ('sa-package-output-' + [guid]::NewGuid().ToString('N'))
+          New-Item -ItemType Directory -Path $fixtureOutput -ErrorAction Stop | Out-Null
+          node apps/desktop/scripts/package-fixture.mjs --source (Get-Location).Path --output $fixtureOutput
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node apps/desktop/tests/native/package-fixture-smoke.cjs (Join-Path $fixtureOutput 'SuperAssistant-Test-win32-x64')
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Verify isolated Windows credential addon
         run: npm run test:wincred
       - name: Verify owned process tree and bounded I/O

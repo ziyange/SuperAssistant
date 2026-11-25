@@ -614,3 +614,11 @@ resource-bound Lease, fencing and claim in one SQLite transaction. A rejected
 expired Lease preserves its authenticated observation watermark. These checks
 are point-in-time safeguards, not process attestation or a filesystem/OS fence;
 an external effect may already have happened before a receipt is rejected.
+
+TASK-849 adds an unsigned, disposable Windows packaging fixture with explicit
+runtime inputs and Electron ASAR integrity enabled. Its local test demonstrates
+startup and rejection of a changed ASAR in an isolated copy. The executable is
+not signed, and unpacked native addons are not protected by ASAR integrity.
+The fixture assumes exclusive access to its temporary directories; it does not
+attest publisher identity, protected installation, process effect confinement,
+production dispatch, or resistance to concurrent same-user path replacement.
