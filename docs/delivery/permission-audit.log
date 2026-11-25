@@ -10988,4 +10988,6 @@
 {"tx_id":"task-847-write-011","timestamp":"2026-11-25T17:00:49.621Z","action_type":"FILE_WRITE","normalized_path":"apps/desktop/tests/main/protected-approval-execution.test.ts","prev_hash":"b475c19fd06ada01702995c61df3efe1ccc93442d4a228b6cb5179fffee405bf","intent_hash":"c19117c71750a4d311e34ae8bf6f10b7fe5cbd25c2bb105ddd8ff09c2aae05b6","status":"COMMITTED","artifact_metadata":{"sha256":"9105f430e2db3c2c4da3bc6145740e855cb09d8a3c7be33f2ff29b4019c0d429"}}
 ,
 {"tx_id":"task-847-write-012","timestamp":"2026-11-25T17:12:36.230Z","action_type":"FILE_WRITE","normalized_path":"docs/delivery/tasks/TASK-847.md","prev_hash":"c19117c71750a4d311e34ae8bf6f10b7fe5cbd25c2bb105ddd8ff09c2aae05b6","intent_hash":"17e6110d051384d45d2e5aa3d7f6d46fedf96d9570deeee95e8a62b9d8a77e04","status":"COMMITTED","artifact_metadata":{"sha256":"487613dc35c5e2bb85531f6db590a0d718756898439b407b04ed87dc5ed21911"}}
+,
+{"tx_id":"task-847-write-013","timestamp":"2026-11-25T17:27:21.811Z","action_type":"FILE_WRITE","normalized_path":"docs/delivery/tasks/TASK-847.md","prev_hash":"17e6110d051384d45d2e5aa3d7f6d46fedf96d9570deeee95e8a62b9d8a77e04","intent_hash":"a06ca2f3ed919d9f03eb8723a7bd7b1473d3f4beeba7128308de6108a57d73c2","status":"COMMITTED","artifact_metadata":{"sha256":"4d2999a6a99039eb09751ad78a7e800d28853f789a810319de345ae3eb780882"}}
 ]

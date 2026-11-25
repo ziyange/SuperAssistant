@@ -1,7 +1,7 @@
 # TASK-847: Protected credential and owned Attempt integration
 
 ## Status
-IN_PROGRESS
+COMPLETED
 PHASE: PHASE-007
 MAX_ITERATIONS: 5
 user_confirmed: true
@@ -90,3 +90,10 @@ Integrated Windows credential, encrypted Proposal, fake execution and recovery r
   backup is reopened in the same process using the same vault instance; this
   does not establish application-process restart recovery or production IPC.
   Candidate CI and all production activation gates remain outstanding.
+
+Candidate `76fcc9782b4d66f12ed9a2944dddb32a223b2be4` passed GitHub
+documentation run 45663170320 and application run 45663170152. The Windows
+job included the exact named credential integration, and PostgreSQL 16 passed
+in its separate compatibility job. This closes the scoped integration test
+only; actual process restart, protected desktop IPC, trusted packaging,
+effect confinement, Lease release and full H1 remain unverified.
