@@ -1,10 +1,13 @@
 import { spawnSync } from 'node:child_process';
-import { copyFileSync, mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { copyFileSync, mkdtempSync, mkdirSync, readFileSync, realpathSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
+import { tmpdir as systemTmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { randomBytes } from 'node:crypto';
 import process from 'node:process';
 import { expect, test } from 'vitest';
+
+// Windows CI may provide TEMP as an 8.3 alias; test the canonical directory.
+function tmpdir(): string { return realpathSync.native(systemTmpdir()); }
 
 function run(source: string, output: string) {
   return spawnSync(process.execPath, [join(source, 'apps/desktop/scripts/package-fixture.mjs'), '--source', source, '--output', output],

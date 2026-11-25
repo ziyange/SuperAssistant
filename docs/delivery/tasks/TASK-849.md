@@ -100,3 +100,18 @@ Fail-closed isolated test-packaging workflow, integration and negative evidence,
   Its first run failed because `mkdtemp` can produce uppercase characters
   outside the fixture output naming policy; the test now creates an exclusive
   lowercase random output directory instead. Full CI must include this change.
+- Candidate `c00ded5` documentation CI and packaging step passed, but its
+  Windows unit job failed eight package tests: the runner exposed TEMP through
+  an 8.3 alias while the fixture requires canonical paths. The error was
+  reproduced locally with a disposable TEMP junction. The test setup now
+  resolves the temporary directory first; all nine focused cases pass under
+  that alias. The production path/link guards were not relaxed. A new candidate
+  and its actual CI are required; this failed run is not a pass.
+- Follow-up review identified the same possible alias in CI's package-output
+  setup; it now resolves the temporary root before creating the output. The
+  existing isolated package also passed its startup/tamper smoke with TEMP set
+  through a disposable junction. A fresh complete package attempt under that
+  alias did not finish: the official Electron download remained at zero bytes,
+  and its specifically identified task-owned process was stopped. Its output
+  and staging evidence were retained. This is not a passing fresh package run;
+  the new candidate CI must verify the complete workflow.
