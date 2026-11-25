@@ -1,7 +1,7 @@
 # TASK-848: Read-only protected Attempt observation
 
 ## Status
-IN_PROGRESS
+COMPLETED
 PHASE: PHASE-007
 MAX_ITERATIONS: 5
 user_confirmed: true
@@ -96,3 +96,11 @@ Main-only read-only recovery coordinator, tests, synchronized engineering facts,
   registered with production IPC, does not prove trusted client or installed
   binary provenance, effect confinement, process death or Lease expiry, and
   never marks an Attempt terminal, releases a Lease or creates a replacement.
+
+Candidate `687191e690fba3d4443826cbc48d087d54b8b3a0` passed GitHub
+documentation run 45673622637 and application run 45673622557. Windows
+build, isolated native tests, exact named integrations, desktop functional,
+unit and contract jobs passed; PostgreSQL 16 compatibility passed separately.
+This closes the internal observation task only. Production IPC, installed
+binary provenance, execution confinement, trustworthy terminal evidence and
+Lease release remain open and no H1 or merge acceptance is implied.

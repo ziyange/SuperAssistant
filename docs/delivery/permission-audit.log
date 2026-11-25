@@ -11038,4 +11038,6 @@
 {"tx_id":"task-848-write-023","timestamp":"2026-11-25T18:01:02.228Z","action_type":"FILE_WRITE","normalized_path":"apps/desktop/tests/main/protected-approval-execution.test.ts","prev_hash":"ea0d00eb2c25ab67f0c4e1418897e3264cb05c398df2798a2394f6b3a5de7381","intent_hash":"5607efeccf089859c7de4d80e231cc4a016ad1910c4f94ee7cc4626dda0c3e68","status":"COMMITTED","artifact_metadata":{"sha256":"9a2a150ec28ed884da3667797b13742762f7d0bedc125615382b83705b60da55"}}
 ,
 {"tx_id":"task-848-write-024","timestamp":"2026-11-25T18:12:23.297Z","action_type":"FILE_WRITE","normalized_path":"docs/delivery/tasks/TASK-848.md","prev_hash":"5607efeccf089859c7de4d80e231cc4a016ad1910c4f94ee7cc4626dda0c3e68","intent_hash":"578a91e3b0481063214ded013d3126be28c6c4aa586fd3be8ecae908ede9b1c9","status":"COMMITTED","artifact_metadata":{"sha256":"7e4525ef084143f01dbeb05fcb64caa843ea83fe97845679f91d5f86e6e1f034"}}
+,
+{"tx_id":"task-848-write-025","timestamp":"2026-11-25T18:29:55.553Z","action_type":"FILE_WRITE","normalized_path":"docs/delivery/tasks/TASK-848.md","prev_hash":"578a91e3b0481063214ded013d3126be28c6c4aa586fd3be8ecae908ede9b1c9","intent_hash":"6e75a855a9f15d2e36fda05398dc8eb7cb585b6e1e337f7146f38c9c88a13086","status":"COMMITTED","artifact_metadata":{"sha256":"c588728a02e07bbc5164aac658e5c01b5b83a625fc530bb0484c108254f91078"}}
 ]
