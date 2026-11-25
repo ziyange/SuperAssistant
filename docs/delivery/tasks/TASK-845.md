@@ -1,7 +1,7 @@
 # TASK-845: In-process Windows protected credential vault
 
 ## Status
-IN_PROGRESS
+COMPLETED
 PHASE: PHASE-007
 MAX_ITERATIONS: 8
 user_confirmed: true
@@ -130,3 +130,10 @@ production-namespace test violation was corrected before that test ran.
 The review also noted that rare Node-API allocation or shutdown failures can
 leave the underlying promise unresolved; the existing coordinator times out
 and preserves uncertainty, but that low-resource edge is not proven.
+
+Candidate commit `8f890396cc0f7abe2e345d22e23dceea713b75cb` passed
+GitHub documentation run 45339974044 and application run 45339974027.
+The application run passed Windows build, isolated native credential test,
+desktop functional tests, deterministic tests and PostgreSQL 16 compatibility.
+This closes only TASK-845's scoped implementation; installer provenance,
+production routing and full H1 acceptance remain open.

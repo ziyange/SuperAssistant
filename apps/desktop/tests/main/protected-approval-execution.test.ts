@@ -1,6 +1,7 @@
 import { Buffer } from 'node:buffer';
 import { execFileSync, spawn } from 'node:child_process';
 import { createCipheriv, createHash, randomBytes } from 'node:crypto';
+import { createRequire } from 'node:module';
 import { once } from 'node:events';
 import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -22,6 +23,7 @@ import { ProtectedProposalIntake } from '../../src/main/protected-proposal-intak
 import { LocalGoalDraft } from '../../src/main/local-goal-draft.js';
 import { ProtectedGoalAuthorization } from '../../src/main/protected-goal-authorization.js';
 import { OwnerAppServerTransport } from '../../src/main/owner-app-server-transport.js';
+import { InProcessOwnerTransport } from '../../src/main/inprocess-owner-transport.js';
 import { presentProtectedCancellation, presentProtectedConsent } from '../../src/main/protected-native-consent.js';
 import { projectGitEnvironment } from '../../src/main/project-git-baseline.js';
 import { AppServerExecutionClient } from '../../../../packages/codex-adapter/src/app-server-execution-client.js';
@@ -510,6 +512,72 @@ test.skipIf(process.platform !== 'win32')('protected goal cancellation stops the
     client?.dispose();
     if (owner && owner.exitCode === null && owner.signalCode === null) owner.kill();
     if (closed) await closed;
+    item.db.close();
+    rmSync(item.folder, { recursive: true, force: true });
+  }
+}, 120000);
+
+test.skipIf(process.platform !== 'win32')('protected original Attempt runs and cancels through the in-process Job owner', async () => {
+  const item = await fixture();
+  const drafts = new LocalGoalDraft(item.db, () => new Date('2026-08-01T00:00:00.000Z'));
+  let draftId = '';
+  let transport: InProcessOwnerTransport | undefined;
+  let client: AppServerExecutionClient<InProcessOwnerTransport> | undefined;
+  try {
+    const addon = createRequire(import.meta.url)(join(process.cwd(), 'apps/desktop/native/build/Release/process_owner.node'));
+    const wrapper = join(process.cwd(), 'apps/desktop/tests/native/owned-execution-wrapper.mjs');
+    draftId = await drafts.create({ projectId: 'p', objective: 'Write the approved change', criterion: 'Document the fixture' });
+    vi.mocked(presentProtectedConsent).mockReset().mockResolvedValue(true);
+    const command = new ProtectedGoalAuthorization(item.db, item.vault, drafts, () => '2026-08-01T00:00:00.000Z');
+    const original = await command.confirm(draftId);
+    const scope = { workspaceId: 'w', projectId: 'p', proposalVersionId: 'goal-review-' + draftId.slice(5) };
+    const principal = createHash('sha256').update('codex-personal-v1:fixture@example.invalid:plus').digest('hex');
+    const { FixtureProtectedDispatch } = await import('../../src/main/fixture-protected-dispatch.js');
+    const dispatcher = new FixtureProtectedDispatch(item.authority, join(item.folder, 'worktrees'), principal, (version, onUnknown, recordStart, cwd) => {
+      const owner = addon.start(process.execPath, [wrapper, 'normal', item.folder], cwd);
+      transport = new InProcessOwnerTransport(owner);
+      client = new AppServerExecutionClient(transport, version, principal, async () => true, onUnknown, recordStart, 15000);
+      return {
+        initialize: () => client!.initialize(),
+        start: (path, objective) => client!.start(path, objective),
+        interrupt: () => client!.interrupt(),
+        async stop() { return await transport!.stop() === 'TERMINATED_UNVERIFIED' ? 'UNVERIFIED_TERMINATION' as const : 'UNKNOWN' as const; },
+        dispose: () => client!.dispose()
+      };
+    });
+    expect((await dispatcher.start(scope)).attemptId).toBe(original.attemptId);
+    const parentFile = join(item.folder, 'parent.pid'), childFile = join(item.folder, 'child.pid');
+    const deadline = Date.now() + 15000;
+    while ((!existsSync(parentFile) || !existsSync(childFile)) && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 50));
+    expect(existsSync(parentFile) && existsSync(childFile)).toBe(true);
+    const pids = [Number(readFileSync(parentFile, 'utf8')), Number(readFileSync(childFile, 'utf8'))];
+    expect(pids.every(pid => Number.isSafeInteger(pid) && pid > 0)).toBe(true);
+    expect(pids[0]).not.toBe(pids[1]);
+    vi.mocked(presentProtectedCancellation).mockReset().mockResolvedValue(true);
+    expect(await dispatcher.cancel(scope)).toBe('UNKNOWN');
+    for (const pid of pids) {
+      try { process.kill(pid, 0); throw new Error('fixture process still running'); }
+      catch (error) { expect(error && typeof error === 'object' && 'code' in error ? error.code : null).toBe('ESRCH'); }
+    }
+    expect(item.db.prepare('SELECT attempt_id,state FROM execution_attempts').all()).toEqual([{ attempt_id: original.attemptId, state: 'UNKNOWN' }]);
+    expect(item.db.prepare('SELECT state FROM resource_leases').get()).toEqual({ state: 'ACTIVE' });
+    const receipt = await item.authority.readReceipt(scope);
+    expect(receipt?.attemptId).toBe(original.attemptId);
+    const backup = join(item.folder, 'restart.sqlite');
+    await item.db.backup(backup);
+    const reopened = new Database(backup);
+    try {
+      const recovered = new ProtectedProposalAuthority(reopened, item.vault, () => '2026-08-01T00:00:00.000Z');
+      expect(await recovered.readReceipt(scope)).toEqual(receipt);
+      expect(await recovered.beginReconciliation(scope)).toBe(true);
+      expect(reopened.prepare('SELECT attempt_id,state FROM execution_attempts').all()).toEqual([{ attempt_id: original.attemptId, state: 'RECONCILING' }]);
+      expect(reopened.prepare('SELECT state FROM resource_leases').get()).toEqual({ state: 'ACTIVE' });
+    } finally { reopened.close(); }
+    expect(execFileSync('git', ['-C', item.project, 'status', '--porcelain'], { env: projectGitEnvironment(), encoding: 'utf8' }).trim()).toBe('');
+  } finally {
+    drafts.discard(draftId);
+    client?.dispose();
+    if (transport) await transport.stop();
     item.db.close();
     rmSync(item.folder, { recursive: true, force: true });
   }

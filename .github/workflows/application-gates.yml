@@ -37,6 +37,13 @@ jobs:
         run: npm run build
       - name: Verify isolated Windows credential addon
         run: npm run test:wincred
+      - name: Verify owned process tree and bounded I/O
+        shell: pwsh
+        run: |
+          node apps/desktop/tests/native/process-owner-addon-test.cjs ./apps/desktop/native/build/Release/process_owner.node
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node apps/desktop/tests/native/process-owner-stress-test.cjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Real desktop Project registration and restart
         run: npx playwright test --config playwright.real-desktop.config.ts
       - name: Lint
@@ -48,7 +55,7 @@ jobs:
         run: |
           npx vitest run --project unit --maxWorkers=1 --reporter=default --reporter=json --outputFile.json="$env:RUNNER_TEMP/unit-report.json"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python scripts/check_vitest_summary.py "$env:RUNNER_TEMP/unit-report.json" --min-tests 600 --expected-skipped 9 --allow-skipped-file services/team/tests/postgres-team-repository.test.ts --allow-skipped-file services/team/tests/migration.test.ts --allow-skipped-test "apps/desktop/tests/main/wincred-native-probe.test.ts::creates reads and safely cleans an exact synthetic WinCred entry" --allow-skipped-test "apps/desktop/tests/main/windows-credential-vault.test.ts::native helper creates reads rejects duplicates and safely removes its own synthetic key" --allow-skipped-test "apps/desktop/tests/main/windows-credential-vault.test.ts::Node vault uses the real native helper and exactly cleans its synthetic credential" --require-file apps/desktop/tests/main/wincred-native-probe.test.ts --require-file apps/desktop/tests/main/windows-credential-vault.test.ts --require-file apps/desktop/tests/main/window-policy.test.ts --require-file packages/persistence/tests/migration-runner.test.ts --require-file packages/persistence/tests/outbox-inbox.test.ts --require-file packages/persistence/tests/resource-lease-expiry.test.ts --require-file apps/desktop/tests/main/lease-renewal-supervisor.test.ts
+          python scripts/check_vitest_summary.py "$env:RUNNER_TEMP/unit-report.json" --min-tests 600 --expected-skipped 9 --allow-skipped-file services/team/tests/postgres-team-repository.test.ts --allow-skipped-file services/team/tests/migration.test.ts --allow-skipped-test "apps/desktop/tests/main/wincred-native-probe.test.ts::creates reads and safely cleans an exact synthetic WinCred entry" --allow-skipped-test "apps/desktop/tests/main/windows-credential-vault.test.ts::native helper creates reads rejects duplicates and safely removes its own synthetic key" --allow-skipped-test "apps/desktop/tests/main/windows-credential-vault.test.ts::Node vault uses the real native helper and exactly cleans its synthetic credential" --require-file apps/desktop/tests/main/wincred-native-probe.test.ts --require-file apps/desktop/tests/main/windows-credential-vault.test.ts --require-file apps/desktop/tests/main/window-policy.test.ts --require-file packages/persistence/tests/migration-runner.test.ts --require-file packages/persistence/tests/outbox-inbox.test.ts --require-file packages/persistence/tests/resource-lease-expiry.test.ts --require-file apps/desktop/tests/main/lease-renewal-supervisor.test.ts --require-file apps/desktop/tests/main/inprocess-owner-transport.test.ts
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Contract tests with no skipped cases
         shell: pwsh

@@ -420,3 +420,14 @@ then bounds interrupt and owner stop. A dismissed or wrong-scope request does
 not signal the fixture. It quarantines the original Attempt as UNKNOWN and
 retains its Lease; a stop acknowledgement is not terminal evidence. This
 composition is not connected to production IPC or the desktop UI.
+
+TASK-846 also exercises the fake App Server through an in-process Windows Job
+owner and the existing execution client. After fixture cancellation the same
+Attempt remains UNKNOWN and its Lease remains active; reopening its database
+recovers that original Attempt into RECONCILING without redispatch. A local Job
+stop is intentionally classified as unverified until installed-binary trust,
+effect confinement and transactionally bound terminal evidence are established.
+When the execution protocol fails or times out, the client first records
+UNKNOWN when applicable and then requests best-effort cleanup through the
+owned transport. A failed cleanup or unverified stop never changes that
+Attempt into a terminal state or authorizes Lease release.

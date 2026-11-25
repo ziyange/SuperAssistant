@@ -581,6 +581,15 @@ or otherwise verified packaging and a protected installation remain required.
 The cooperative mutex cannot stop a noncooperating same-user writer, and
 ambiguous writes still require reconciliation instead of automatic retry.
 
+TASK-846 introduces an in-process Windows Job owner for disposable fixture
+execution. Its own child is assigned to a kill-on-close Job at creation, with
+bounded asynchronous pipe operations; stop checks that the owned Job has no
+active processes and that its handles close. The transport deliberately maps
+this observation to unverified termination, so it cannot release a Lease.
+Job membership is not filesystem or network confinement, trusted executable or
+addon provenance, or proof against broker-launched processes. This fixture is
+not registered as a production execution route.
+
 TASK-832 revalidates the authenticated original claim after worktree creation
 and after fixture transport initialization. Receipt persistence rechecks the
 authenticated Project snapshot, Grant and current Agent/Function, exact

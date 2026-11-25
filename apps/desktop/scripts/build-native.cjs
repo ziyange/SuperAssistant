@@ -20,4 +20,5 @@ if (process.platform === 'win32') {
   const output = resolve(desktop, 'dist', 'native');
   mkdirSync(output, { recursive: true });
   copyFileSync(resolve(native, 'build', 'Release', 'wincred_native.node'), resolve(output, 'wincred_native.node'));
+  copyFileSync(resolve(native, 'build', 'Release', 'process_owner.node'), resolve(output, 'process_owner.node'));
 }

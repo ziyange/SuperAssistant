@@ -10,7 +10,9 @@ type State = 'NEW' | 'INITIALIZING' | 'READY' | 'STARTING' | 'RUNNING' | 'INTERR
 type Pending = { resolve: (value: Record<string, unknown>) => void; reject: (reason: Error) => void;
   timer: ReturnType<typeof setTimeout>; accept?: (value: Record<string, unknown>) => void };
 type StartReceipt = Readonly<{ threadId: string; turnId: string; cwd: string; principalHash: string }>;
-export type AppServerTransport = Pick<ChildProcess, 'stdin' | 'stdout'> & Pick<EventEmitter, 'on' | 'once' | 'off'>;
+export type AppServerTransport = Pick<ChildProcess, 'stdin' | 'stdout'> & Pick<EventEmitter, 'on' | 'once' | 'off'> & {
+  onProtocolFailure?: () => void;
+};
 const LIMIT = 1_048_576;
 const validId = (id: unknown): id is string => typeof id === 'string' && /^[a-z0-9_-]{1,128}$/i.test(id);
 const record = (value: unknown): value is Record<string, unknown> => value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -134,6 +136,9 @@ export class AppServerExecutionClient<T extends AppServerTransport = ChildProces
       try { if (this.onUnknown() !== true) this.notificationFailed = true; }
       catch { this.notificationFailed = true; }
     }
+    // Best-effort owner cleanup is not evidence of termination or authority
+    // to release a Lease. Preserve the already-recorded state on failure.
+    void Promise.resolve().then(() => this.child.onProtocolFailure?.()).catch(() => { /* remain closed/unknown */ });
     for (const pending of this.pending.values()) { clearTimeout(pending.timer); pending.reject(failure()); }
     this.pending.clear();
     this.buffer = '';
