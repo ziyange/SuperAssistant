@@ -83,13 +83,17 @@
 - 任务：TASK-859
 - 日期：2026-11-27
 - 类型：阶段成果
-- 结论：PLANNED
+- 结论：PASS
 - 说明：在独立干净副本复现了两项缺陷：1,048,577 字节请求返回 201 并进入仓库，非法 JSON 进入业务授权端。修复为认证前置、声明及流式 1 MiB 边界、非法 JSON 直接拒绝，以及有限排空和连接关闭；不启用任何生产桌面执行或 Team 连接。REQ-081、093–095、097、099；仅覆盖 SCN-TEAM-GOVERNANCE、SCN-NFR-QUALITY 的请求边界子集。
 - 验证状态：PASS
 - 验证：Windows、Node 22.23.2、npm 10.9.8、Python 3.9.12；基线 548f92b 加本任务五文件补丁。`vitest run --project unit services/team/tests/server.test.ts --maxWorkers=1` 13/13；独立安全复核无阻断，适当 loopback 进程环境独立运行也是 13/13。完整 `npm run build`、`npm run lint`、`npm run typecheck` 返回 0；`npm run test:unit -- --maxWorkers=1` 187 文件，1193 通过、既定 9 项跳过，515.96 秒；`npm run test:contract -- --maxWorkers=1` 50/50。真实 Electron 功能回归 2/2（注册重启与只读 Proposal 审阅，不是沙箱或执行验收），浏览器投影回归 9/9。文档 418 份、Task Pack 206 份、追踪、五份 Schema、34 个历史范围及 Python 69/69（50.254 秒）通过；五路径范围及 diff 空白检查通过。
-- 证据：[任务与精确范围](tasks/TASK-859.md)、[真实 socket 回归](../../services/team/tests/server.test.ts)、[HTTP 安全事实](../security.md#team-http-请求体边界)。命令均在独立临时干净克隆执行，只使用合成身份、可抛弃仓库与假 App Server。
-- 遗留：本补丁候选 CI 为 PLANNED，推送后按实际 SHA 检查，不使用 548f92b 的 CI 冒充本补丁通过。9 项跳过为 6 项需数据库用例及 3 项显式启用原生探针，均不是本地通过；数据库另由独立 CI 执行。正式入口仍为 Team unavailable、Decision 只记录答案、保护执行未接入；可信安装、文件／网络效果约束和原 Attempt 终止／租约事务仍为合并阻断，不因此降低门禁。真实 Codex 和 Electron 沙箱继续延期。
+- 证据：[任务与精确范围](tasks/TASK-859.md)、[真实 socket 回归](../../services/team/tests/server.test.ts)、[HTTP 安全事实](../security.md#team-http-请求体边界)、[8ae7544 文档 CI](https://github.com/ziyange/SuperAssistant/actions/runs/45961724611)、[8ae7544 应用 CI](https://github.com/ziyange/SuperAssistant/actions/runs/45961724326)。提交为 8ae7544f7af7fca7c1504968ed513fb33363007c，整个提交树 2aaf8aaf63e42461d0618356a05afe9bb514c3da 与独立验证副本一致；干净副本按真实 SHA 的范围门禁返回 0。两套 CI 的 headSha 已核对，治理、Windows 构建与确定性测试、PostgreSQL 兼容性三项 job 均 success；CI 单测 1193 通过／9 跳过、契约 50/50、数据库 13/13、桌面功能 2/2，均读取实际运行输出。未更新 main。
+- 遗留：只关闭本任务 HTTP 边界问题，不代表 H1/H3 或可合并。9 项跳过为 6 项需数据库用例及 3 项显式启用原生探针，不能当作本地通过；数据库已由独立 CI 执行。正式入口仍为 Team unavailable、Decision 只记录答案、保护执行未接入；可信安装、文件／网络效果约束和原 Attempt 终止／租约事务仍为合并阻断。剩余 8 份原生诊断 WIP 保留未提交，未更改系统审计或信任设置。真实 Codex 和 Electron 沙箱继续延期。
 
 ### 验证环境边界
 
 独立审查首次在受限沙箱运行因 loopback EACCES 及连带超时失败，不计为通过；随后同一测试在适当进程环境通过，未改代码、断言或门限。拒绝期限用例证明观察到的及时关闭，不单独证明一定由 10 秒定时器触发；未声称一般 DoS 防护、生产认证延迟、TLS 或全局连接配额已验收。原工作树中的应用 WIP 在独立验证期间保持不变，后续只转入本任务明确审查的部分。
+
+精确转入时，首次 `git apply --cached --whitespace=error` 因 PowerShell 给补丁末行追加 CRLF 而被拒；保留暂存现场、修正传输边界后通过，并以完整树哈希证明没有带入混合的原生安全文档。未放宽空白规则。保留文件剔除本次新增的 10 行已验收 HTTP 说明后，原有内容指纹逐一不变。
+
+正式接线依赖复核确认：默认迁移只到 032，033 仍由夹具手动执行；现有凭据“重启”用例是同进程用原 vault 重开备份，不是结束首进程后的恢复证明；正式启动仍选择旧回执，退出也只等待发现流程。这些是现存开发缺口，不是本次 CI 失败；不能跳过它们，或把 unsigned 包、哈希／实例检查替代安装信任和效果约束来宣称可以合并。
