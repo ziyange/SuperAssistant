@@ -487,3 +487,12 @@ Failed tests may retain their temporary evidence. This unsigned fixture is not
 an installer or release and is not a substitute for signing, protected
 installation, real Codex, or Electron sandbox-security verification. The CI
 step is planned until its run on the relevant candidate actually succeeds.
+
+打包烟测的临时清理只作用于新建、规范路径位于系统临时目录下的 profile／clone
+直接子目录；在创建时捕获精确目录身份，删除尝试前复核，拒绝链接或路径替换。
+原生进程树必须先通过 `owner.stop() === 'TERMINATED'` 断言，清理等待不替代它。
+遇到短暂 EBUSY／EPERM／ENOTEMPTY，使用单调时钟最多等待 5 秒、有限次数重试；
+未知错误直接传播，持续锁或目录身份变化仍让门禁失败并保留剩余证据。
+同一快照的并发／重复调用共用一次结果，完成后不触碰复用该路径的新目录。
+全部清理成功后才打印 PASS。该机制限于独占测试目录，不是生产恢复、租约释放或
+对抗恶意同用户进程的通用删除安全协议；见 [TASK-860](delivery/tasks/TASK-860.md)。

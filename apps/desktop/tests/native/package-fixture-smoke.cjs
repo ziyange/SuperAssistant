@@ -12,6 +12,7 @@ const process = require('node:process');
 const console = require('node:console');
 const { Buffer } = require('node:buffer');
 const { setTimeout } = require('node:timers');
+const { captureFixtureDirectory } = require('./package-fixture-cleanup.cjs');
 
 if (process.argv[2] === '--launch') {
   const [, , , exe, profile] = process.argv;
@@ -74,6 +75,8 @@ async function main() {
   const addon = require(path.join(root, 'apps/desktop/native/build/Release/process_owner.node'));
   const profile = fs.mkdtempSync(path.join(temp, 'sa-package-profile-'));
   const clone = fs.mkdtempSync(path.join(temp, 'sa-package-clone-'));
+  const cleanupProfile = captureFixtureDirectory(profile);
+  const cleanupClone = captureFixtureDirectory(clone);
   let safeToClean = false;
   try {
     const normal = await launch(addon, exe, profile, root);
@@ -94,25 +97,26 @@ async function main() {
       assert.equal(fs.writeSync(fd, byte, 0, 1, offset), 1);
     } finally { fs.closeSync(fd); }
     const tamperedProfile = fs.mkdtempSync(path.join(temp, 'sa-package-profile-'));
-    let tamperedTerminated = false;
+    const cleanupTamperedProfile = captureFixtureDirectory(tamperedProfile);
+    let tamperedVerified = false;
     try {
       const changed = await launch(addon, path.join(copy, 'SuperAssistant-Test.exe'), tamperedProfile, root);
-      tamperedTerminated = true;
       assert.equal(changed.ready, false, JSON.stringify(changed));
       assert.notEqual(changed.code, 0, JSON.stringify(changed));
       assert.equal(changed.integrity, true, JSON.stringify(changed));
+      tamperedVerified = true;
     } finally {
-      if (tamperedTerminated) fs.rmSync(tamperedProfile, { recursive: true, force: true });
+      if (tamperedVerified) await cleanupTamperedProfile();
       else console.error(`Fixture profile retained: ${tamperedProfile}`);
     }
     safeToClean = true;
-    console.log(`package manifest ${actual.size} files, native exclusions, startup and tamper rejection: PASS`);
   } finally {
     if (safeToClean) {
-      fs.rmSync(profile, { recursive: true, force: true });
-      fs.rmSync(clone, { recursive: true, force: true });
+      await cleanupProfile();
+      await cleanupClone();
     } else console.error(`Fixture evidence retained: ${profile}; ${clone}`);
   }
+  console.log(`package manifest ${actual.size} files, native exclusions, startup, tamper rejection and cleanup: PASS`);
 }
 
 async function launch(addon, exe, profile, cwd) {
