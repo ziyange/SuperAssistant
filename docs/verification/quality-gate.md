@@ -12,13 +12,16 @@ This is the authoritative gate order for moving from an approved Task Pack to ta
 
 ## Gate order
 
+自 TASK-857 起的开发记录规则见 [ADR-009](../decisions/ADR-009-development-records.md)。
+以下顺序继续有效，但第 5 项对新工作改为冻结历史与开发记录门禁；旧 runtime-trace 分派只用于旧证据，不再为每次开发操作生成事务。
+
 For `PHASE-000`, run the local sequence in [the test strategy](test-strategy.md#phase-000-local-gate):
 
 1. documentation links and anchors;
 2. every `docs/delivery/tasks/TASK-*.md` pack, one validator invocation per file;
 3. requirement traceability;
 4. all five standalone JSON Schemas;
-5. Plan-mode runtime trace, requiring exit `0`;
+5. `check_delivery_records.py` 检查冻结历史、中文记录和实际 Git 文件范围，随后 `check_task_audit_history.py` 复核保留的旧事务，均要求 exit `0`；
 6. governance unit tests;
 7. `git diff --check` and an exact changed/untracked-path comparison with the active Task Pack.
 
@@ -47,7 +50,21 @@ A pack is executable only when:
 
 All repository `TASK-*.md` files are structurally validated, including drafts. Only an `APPROVED` pack is executable. Approved content is frozen; changing it requires a reviewed revision before work resumes.
 
+## 开发记录与文件边界门禁
+
+本地运行 `python scripts/check_delivery_records.py --task-pack docs/delivery/tasks/TASK-857.md --json`，后续替换为实际活动任务。CI 使用相同脚本并传入事件 `--base`、`--head`，从本次变更的记录或 Task Pack 取得精确文件范围；不能把未变化的旧成果当作新授权。
+
+不产生新问题或阶段成果的普通代码提交可在 commit body 使用独立一行 `Task: TASK-858`（替换为实际任务），CI 据此读取现有批准范围，无需改日志。新授权只能来自规范任务目录中 TASK-857 及之后的 APPROVED pack；旧耗尽任务不能通过默认迭代 1 恢复。`--head` 要求工作树干净；暂存或已提交的旧修改不能使用“迁移前脏文件”排除。重命名按删除和新增两个路径校验。记录的 PASS 必须有明确的验证状态 PASS，不能搭配计划或失败说明。
+
+历史、关闭或草案 Task Pack 出现在提交中时，只能作为被保全或更新的文件目标，不能自动作为新执行授权；这些文件仍须被当前批准清单逐项覆盖。显式引用旧耗尽 Pack 为执行任务仍被拒绝。归档不可变等更高层规则不因文件清单而失效。
+
+门禁覆盖暂存、未暂存、未跟踪路径的并集。只有事件基线等于冻结清单的来源提交、且既有文件内容完全相同时，才识别为迁移前改动；基线变化或内容变化不享有该排除。冻结清单在后续已有该清单的基线上不得静默修改。缺输入、零记录、错误类型、非中文说明、失效证据、计划验证标为 PASS 或文件越界均失败。
+
+只记录错误和独立成果，重复问题更新原条目，命令和原始输出以证据引用。一个成果可有多项测试，但不按命令生成开发记录。Task Pack 记录授权、边界和收尾链接，事实文档只更新事实，不复制流水。该门禁只验证材料和范围，不能证明测试真的执行或产品已验收；实际验收仍须直接证据。
+
 ## Runtime-trace dispatch
+
+本节保留为 TASK-857 之前历史事务的兼容规则，不适用于普通新开发操作。
 
 `scripts/verify_runtime_trace.py` is a hard gate. Before invoking it, require both `docs/delivery/execution-trace.json` and `docs/delivery/permission-audit.log` to exist and be non-empty; missing runtime evidence is `BLOCKED`, never an empty successful trace. Dispatch uses the pair `(exit_code, runtime_event_reason)` and, for exit `4`, `reason_details`. Wrappers must preserve the original exit and JSON payload.
 
@@ -72,11 +89,11 @@ A Task Pack receives `PASS` only when:
 
 - every acceptance criterion has direct evidence;
 - required `VAL-L1` and `VAL-L2` checks passed, plus `VAL-L3` where its risk requires it;
-- runtime-trace verification returned exit `0` after the final authorized action;
+- 自 TASK-857 起，新记录与文件范围门禁及冻结历史复核返回 exit `0`；旧任务保留其 runtime-trace 规则；
 - changed and untracked paths remain within `Allowed Files` and no unrelated change was incorporated;
 - test assertions prove behavior and failure paths rather than mere execution;
 - product or engineering facts discovered during implementation were written back to their authoritative documents;
-- the verification report records commands, exit codes, versions, failures, skipped checks, and retained Artifacts.
+- 中文开发记录引用命令结果、失败、跳过项及证据；不重复创建验收报告。历史报告保留不重写。
 
 ## Application-phase gate
 
@@ -98,7 +115,7 @@ A phase can be marked `PASS` and archived only when all of the following are tru
 - every required Task Pack has task-level `PASS`;
 - phase exit conditions and required scenarios are proven;
 - no unresolved blocking Decision, contract conflict, scope violation, or stop-class runtime event remains;
-- runtime trace, tests, and applicable build evidence are current;
+- 开发记录门禁、保留的历史审计、产品运行轨迹、测试与适用的构建证据有效；
 - requirements, traceability, architecture/contracts, commands, limitations, roadmap, and ADRs have received targeted writeback;
 - the archive contains the exact approved pack snapshots and all required evidence;
 - the next phase's Task Packs are structurally valid, reviewed, and `APPROVED` with required human confirmation;

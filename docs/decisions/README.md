@@ -14,6 +14,7 @@ This directory is the authoritative index for decisions that constrain Super Ass
 | [ADR-006](ADR-006-team-authority-and-oidc.md) | Team Workspace authority and generic OIDC identity | Accepted | H3 design; PHASE-007 delivery |
 | [ADR-007](ADR-007-external-dsh-adapter.md) | External DeepSeek Harness Adapter with brokered capabilities | Accepted | PHASE-006 |
 | [ADR-008](ADR-008-protected-task-content.md) | Authenticated encryption for protected task content | Accepted design; isolated foundation | PHASE-007 recovery |
+| [ADR-009](ADR-009-development-records.md) | 中文成果／问题记录；替代 ADR-005 的开发逐操作日志条款 | Accepted；历史证据冻结，产品审计不变 | TASK-857 |
 
 ## Decision governance
 

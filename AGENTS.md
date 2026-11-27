@@ -2,13 +2,11 @@
 
 ## Current lifecycle state
 
-- Integration recovery is active on `codex/task-720-audited`; TASK-720 has
-  completed its local governance gate. TASK-721 is in progress with uncommitted
-  security and notification changes. TASK-727 through TASK-736 have local
-  implementation evidence but are not integrated acceptance or clean commits.
-  Real Electron sandbox/preload verification is deferred until pre-release.
-  H1 and H3 integrated acceptance remain unproven. Historical
-  phase records below are not proof of current end-to-end acceptance.
+- 当前候选为 `codex/phase-007-desktop-lifecycle`；TASK-857 迁移开发记录规则。
+  TASK-858 已获授权独立提交治理及历史文档证据并验证 CI，应用 WIP 不纳入该提交。
+  现有未提交应用修改和 TASK-850–856 保留，局部证据不等于集成验收。
+  真实 Codex 和 Electron 沙箱验证继续延期，H1/H3 尚未验收。
+  当前成果和阻断统一查看 [中文开发记录](docs/delivery/development-log.md)。
 
 - `PHASE-000` is the accepted document-first baseline; `TASK-000` is completed locally.
 - `PHASE-001` is archived on `codex/phase-001-platform-foundation`; TASK-100
@@ -46,18 +44,26 @@ When sources disagree, the more specific active fact source wins. A conflict wit
 
 ## Validation
 
+自 TASK-857 起，按 [ADR-009](docs/decisions/ADR-009-development-records.md)
+执行：人工开发记录只写有意义的问题和独立验收成果，同一问题更新原条目。
+普通读取、修改、成功命令与重复重试不追加开发日志；Task Pack 收尾链接到同一条目。
+只更新发生变化的工程事实。旧日志原路径冻结，禁止补造或清空。
+产品运行时授权和安全审计不变；历史阻断及迭代上限仍有效。
+
 Run the local gate in the order documented by `docs/verification/quality-gate.md`. The principal commands are:
 
 ```powershell
 python scripts/check_docs_links.py docs --json
 python scripts/check_traceability.py --requirements docs/requirements.md --matrix docs/requirement-traceability-matrix.md --json
 python scripts/check_schemas.py references/schemas --json
-python scripts/verify_runtime_trace.py --mode plan --task-pack docs/delivery/tasks/TASK-000.md --schemas references/schemas.md --next-iteration 1 --json
+python scripts/check_delivery_records.py --task-pack docs/delivery/tasks/TASK-857.md --json
+python scripts/check_task_audit_history.py
 python -m unittest discover -s tests -v
 git diff --check
 ```
 
 Remote CI is evidence only after it actually runs. Until then, label it `planned`.
+以上 TASK-857 是迁移示例；后续本地检查使用实际活动 Task Pack。CI 按事件提交范围选择本次新增或更新的任务记录。
 
 ## Safety invariants
 

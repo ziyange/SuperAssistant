@@ -71,18 +71,14 @@ Pass: exit `0` and all five expected files validate as JSON Schemas:
 - `TaskPackSchema.json`
 - `PainPointCardSchema.json`
 
-### 5. Plan-mode runtime trace
+### 5. 冻结历史与开发记录
 
 ```powershell
-$runtimeInputs = @('docs/delivery/execution-trace.json', 'docs/delivery/permission-audit.log')
-foreach ($runtimeInput in $runtimeInputs) {
-  if (-not (Test-Path -LiteralPath $runtimeInput -PathType Leaf)) { throw "Missing runtime evidence: $runtimeInput" }
-  if ((Get-Item -LiteralPath $runtimeInput).Length -eq 0) { throw "Empty runtime evidence: $runtimeInput" }
-}
-python scripts/verify_runtime_trace.py --mode plan --task-pack docs/delivery/tasks/TASK-000.md --schemas references/schemas.md --next-iteration 1 --json
+python scripts/check_delivery_records.py --task-pack docs/delivery/tasks/TASK-857.md --json
+python scripts/check_task_audit_history.py
 ```
 
-Pass: both evidence files exist and are non-empty, process exit is `0`, payload `exit_code` is `0`, and `reason` is `SUCCESS`. Any other exit is dispatched according to [the quality gate](quality-gate.md#runtime-trace-dispatch); it must not be normalized to success by a wrapper.
+通过条件：新门禁与旧历史复核均 exit `0`。TASK-857 为当前示例，后续替换为实际活动任务。只对问题和独立成果更新 [中文开发记录](../delivery/development-log.md)，普通操作不追加事务。旧日志依 [ADR-009](../decisions/ADR-009-development-records.md) 冻结；旧事务失败仍按 [质量门禁](quality-gate.md#runtime-trace-dispatch) 分派，不得归一化成成功。
 
 ### 6. Governance unit tests
 
@@ -142,4 +138,4 @@ Tests use temporary directories, disposable repositories, fake credentials, fake
 
 ## Reporting
 
-Task evidence is stored under `docs/verification/reports/` and linked from the Task Pack or phase summary. A phase report distinguishes failed checks from skipped checks, identifies the first failed gate, links retained Artifacts, and records runtime-trace exit dispatch. Remote CI remains `planned` until a run URL and final conclusion exist.
+自 TASK-857 起，任务成果与问题只在 [中文开发记录](../delivery/development-log.md) 保存一份人工结论，Task Pack／阶段摘要使用链接；命令输出保留为证据，不逐命令写人工流水。旧 reports 与归档保持不变。失败与跳过必须区分，远程 CI 没有实际 Run URL 和结论前仍为 planned。

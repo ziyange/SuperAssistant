@@ -34,6 +34,13 @@ def main():
             if not match:
                 raise ValueError('unassigned transaction')
             number = int(match.group(1))
+            # A mode transition is a global control transaction, not a task's
+            # first scoped write. Every verifier below still checks its full
+            # chain, schema and Intent/Result state; never remove it from input.
+            if entry.get('action_type') == 'MODE_SWITCH':
+                if entry.get('normalized_path') != 'N/A':
+                    raise ValueError('mode switch cannot name a file operation')
+                continue
             if number != previous:
                 if number <= previous or not re.fullmatch(r'task-\d+-(?:pack|write)-001', tx):
                     raise ValueError('repeated, out-of-order or missing task start')

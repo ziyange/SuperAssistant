@@ -1,8 +1,16 @@
 # Super Assistant documentation
 
-## Integration recovery status (2026-11-05)
+## 当前状态与开发记录（2026-11-27）
 
-The integration candidate is `codex/task-720-audited`, based on `db83fb9`
+当前候选为 `codex/phase-007-desktop-lifecycle`，包含尚未提交的整改。
+[中文开发记录](delivery/development-log.md) 是成果、问题及历史总览的唯一人工入口。
+[TASK-857](delivery/tasks/TASK-857.md) 按用户批准的方案迁移开发日志，
+[ADR-009](decisions/ADR-009-development-records.md) 替代逐操作记账要求；原始日志冻结，产品审计不变。
+本迁移不证明应用验收或可合并；真实 Codex 和 Electron 沙箱验证继续延期。
+
+## 早期集成恢复背景（2026-11-05，非当前分支状态）
+
+The earlier integration candidate was `codex/task-720-audited`, based on `db83fb9`
 with uncommitted changes. TASK-720 completed its local governance gate;
 [TASK-721](delivery/tasks/TASK-721.md) remains in progress. The original
 TASK-716 work remains in a separate dirty worktree; selected files were reviewed

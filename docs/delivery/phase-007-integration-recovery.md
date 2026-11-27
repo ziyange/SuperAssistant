@@ -43,6 +43,9 @@ Those facts are recorded in the immutable TASK-709 acceptance audit.
 
 ## Acceptance matrix
 
+开发治理自 [TASK-857](tasks/TASK-857.md) 起按 [ADR-009](../decisions/ADR-009-development-records.md)
+迁移为中文成果／问题记录与冻结历史复核。该迁移不改变本阶段产品验收、应用审计、历史阻断或真实验证延期；当前摘要见 [开发记录](development-log.md)。
+
 The authoritative traceability matrix retains the original REQ and SCN IDs.
 TASK-711–718 add execution mappings; a test passing at one layer cannot stand
 in for a missing API, persistence or UI-layer proof.

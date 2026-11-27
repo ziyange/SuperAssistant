@@ -19,12 +19,14 @@ class AuditHistoryTests(unittest.TestCase):
                 (packs / f'TASK-{number}.md').write_text(
                     f'## Allowed Files\n- docs/delivery/tasks/TASK-{number}.md\n- file-{number}.txt\n', encoding='utf-8')
             entries, results = [], []
-            def append(tx, path):
+            def append(tx, path, action='FILE_WRITE'):
                 prev = entries[-1]['intent_hash'] if entries else 'GENESIS'
-                digest = hashlib.sha256(f'{prev}:FILE_WRITE:{path}:{tx}'.encode()).hexdigest()
-                entries.append({'tx_id': tx, 'timestamp': '2026-11-04T00:00:00Z', 'action_type': 'FILE_WRITE', 'normalized_path': path, 'prev_hash': prev, 'intent_hash': digest, 'status': 'COMMITTED'})
-                results.append({'tx_id': tx, 'iteration_index': 1, 'timestamp': '2026-11-04T00:00:00Z', 'action_type': 'FILE_WRITE', 'normalized_path': path, 'intent_hash': digest, 'result_status': 'COMPLETED', 'ignored_candidates': []})
+                digest = hashlib.sha256(f'{prev}:{action}:{path}:{tx}'.encode()).hexdigest()
+                entries.append({'tx_id': tx, 'timestamp': '2026-11-04T00:00:00Z', 'action_type': action, 'normalized_path': path, 'prev_hash': prev, 'intent_hash': digest, 'status': 'COMMITTED'})
+                results.append({'tx_id': tx, 'iteration_index': 1, 'timestamp': '2026-11-04T00:00:00Z', 'action_type': action, 'normalized_path': path, 'intent_hash': digest, 'result_status': 'COMPLETED', 'ignored_candidates': []})
             for number in (823, 824, 825):
+                if number == 824:
+                    append('task-824-plan-switch-001', 'N/A', 'MODE_SWITCH')
                 append(f'task-{number}-pack-001', f'docs/delivery/tasks/TASK-{number}.md')
                 append(f'task-{number}-write-002', f'file-{number}.txt')
             audit, trace = root / 'audit.json', root / 'trace.json'
@@ -37,13 +39,28 @@ class AuditHistoryTests(unittest.TestCase):
             def rechain():
                 prev = 'GENESIS'
                 for entry, result in zip(entries, results):
-                    digest = hashlib.sha256(f"{prev}:FILE_WRITE:{entry['normalized_path']}:{entry['tx_id']}".encode()).hexdigest()
+                    digest = hashlib.sha256(f"{prev}:{entry['action_type']}:{entry['normalized_path']}:{entry['tx_id']}".encode()).hexdigest()
                     entry['prev_hash'] = prev
                     entry['intent_hash'] = digest
                     result['intent_hash'] = digest
+                    result['action_type'] = entry['action_type']
                     result['normalized_path'] = entry['normalized_path']
                     prev = digest
-            for index in (1, 3, 5):
+            entries[2]['intent_hash'] = '0' * 64
+            self.assertEqual(run().returncode, 5, 'control transactions retain full hash validation')
+            rechain()
+            entries[2]['status'] = 'PENDING'
+            self.assertEqual(run().returncode, 6, 'pending control with a result is illegal')
+            entries[2]['status'] = 'COMMITTED'
+            saved_result = results.pop(2)
+            self.assertEqual(run().returncode, 4, 'control result cannot be omitted')
+            results.insert(2, saved_result)
+            entries[2]['normalized_path'] = 'file-824.txt'
+            rechain()
+            self.assertNotEqual(run().returncode, 0, 'control cannot disguise a file operation')
+            entries[2]['normalized_path'] = 'N/A'
+            rechain()
+            for index in (1, 4, 6):
                 original = entries[index]['normalized_path']
                 entries[index]['normalized_path'] = 'forbidden.txt'
                 rechain()
