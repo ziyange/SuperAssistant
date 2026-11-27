@@ -103,11 +103,11 @@
 - 任务：TASK-860
 - 日期：2026-11-27
 - 类型：问题
-- 结论：PLANNED
+- 结论：PASS
 - 说明：最终收尾提交 a17d733 的 Windows CI 在 unsigned 包完整性断言后，删除临时复制 EXE 报 EBUSY，门禁真实失败，后续测试未执行；不能沿用 8ae7544 的成功覆盖它。行为不变的清理接缝加真实 Windows FileShare 文件锁，在本地稳定复现同一错误。已识别问题为立即删除缺少有界占用处理、PASS 先于清理；具体外部句柄持有者未证明，不擅自终止未知进程。新增等待同时要求目录身份及重复调用保护。
 - 验证状态：PASS
 - 验证：Windows / Node 22.23.2 / npm 10.9.8 / Python 3.9.12，独立临时克隆，基线 a17d733 加本任务六文件补丁。清理定向 11/11；`npm run build`、`npm run lint`、`npm run typecheck` 返回 0。实际 unsigned 打包烟测通过 440 个清单文件、启动、篡改拒绝及全部清理，PASS 在清理之后输出；输出目录为独占的 sa-package-output-6e93119d881b48c4960a2ad02acdd110。完整 `npm run test:unit -- --maxWorkers=1` 为 188 文件、1204 通过及既定 9 项跳过，450.91 秒；contract 50/50，真实 Electron 功能 2/2、浏览器投影 9/9。治理按原顺序通过 419 文档、207 Task Pack、追踪、五份 Schema、六路径范围、34 历史范围、Python 69/69（43.243 秒）及空白检查。独立静态复核及错误传播修订复核均无 Critical／Important 发现。
-- 证据：[任务范围](tasks/TASK-860.md)、[失败 CI](https://github.com/ziyange/SuperAssistant/actions/runs/45963402337)、[真实文件锁回归](../../apps/desktop/tests/main/package-fixture-cleanup.test.ts)、[夹具清理实现](../../apps/desktop/tests/native/package-fixture-cleanup.cjs)。
-- 遗留：新候选 CI 为 PLANNED，必须在真实提交上通过后才能关闭；a17d733 的失败保留，不重跑成历史成功。9 项既定跳过不能算本地通过；数据库由独立 CI 执行。原有 8 份 WIP 保留，main 未更新，真实 Codex 与 Electron 沙箱继续延期；本问题不解除正式桌面接线及信任／隔离阻断。
+- 证据：[任务范围](tasks/TASK-860.md)、[原失败 CI](https://github.com/ziyange/SuperAssistant/actions/runs/45963402337)、[真实文件锁回归](../../apps/desktop/tests/main/package-fixture-cleanup.test.ts)、[夹具清理实现](../../apps/desktop/tests/native/package-fixture-cleanup.cjs)、[0b42555 文档 CI](https://github.com/ziyange/SuperAssistant/actions/runs/45968881245)、[0b42555 应用 CI](https://github.com/ziyange/SuperAssistant/actions/runs/45968881356)。修复提交为 0b42555ef31ea22243522ebcda0c70cc85ea31ec，提交树 f82e8fa65baff5d27cd8c0b6b868e6cf161ac367 与独立验证副本一致，干净 SHA 范围门禁返回 0；两套 CI 的 headSha 已核对，Governance validators、Windows build and deterministic tests、PostgreSQL 16 disposable compatibility 均 success。实际 CI 输出为清理回归 11/11、单测 1204 通过／9 跳过、契约 50/50、数据库 13/13、桌面功能 2/2，打包 440 文件／启动／篡改拒绝／清理均通过。
+- 遗留：本问题在所述修复提交上关闭，a17d733 的失败保留，不重跑成历史成功。9 项既定跳过不是本地通过；数据库已由独立 CI 执行。只验收夹具清理修复，不证明 H1/H3 或可以合并；[既有接线与信任／隔离缺口](#记录-dev-859) 仍在。原有 8 份 WIP 保留未提交，main 未更新，真实 Codex 与 Electron 沙箱继续延期。
 
 首轮完整检查在 lint 停止，发现 6 项类型词汇／导入及 finally 显式重抛问题。修正了 Node performance 导入和类型标注；只对一个类型签名词汇使用仓库既有的窄 lint 注释，没有关闭运行逻辑规则。篡改验证标志改为全部断言及已有终止检查通过后才成立；失败时保留证据与原始错误，避免新清理覆盖它。随后从失败门禁起重验并完成后续所有检查。没有扩大 30 秒启动／读取期限或既有测试超时，持续锁的新用例使用独立的 10 秒预算验证 5 秒等待边界；底层正在进行的文件系统操作不属于硬实时保证。
