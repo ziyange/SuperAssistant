@@ -70,6 +70,28 @@ class DeliveryRecordsTests(unittest.TestCase):
         self.write(FROZEN, '[{"tx_id":"new-001"}]\n')
         self.assertTrue(self.check())
 
+    def test_autocrlf_checkout_preserves_frozen_bytes_without_disabling_diff(self):
+        attributes = ROOT / '.gitattributes'
+        self.assertTrue(attributes.is_file(), '缺少跨平台证据保真属性')
+        self.write('.gitattributes', attributes.read_text(encoding='utf-8'))
+        self.write('docs/delivery/logging-baseline.json', json.dumps(self.baseline, indent=2) + '\n')
+        before = (self.root / 'docs/delivery/logging-baseline.json').read_bytes()
+        for number in (852, 853, 854):
+            self.write(f'docs/delivery/tasks/TASK-{number}.md', '# preserved history\n')
+        self.git('init', '-q')
+        self.git('config', 'core.autocrlf', 'true')
+        self.git('add', '.')
+        self.git('-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', 'commit', '-qm', 'fixture')
+        self.git('checkout-index', '--all', '--force')
+        for name in FROZEN_PATHS:
+            self.assertEqual((self.root / name).read_bytes(), b'[{"tx_id":"old-001"}]\n')
+        self.assertEqual((self.root / 'docs/delivery/logging-baseline.json').read_bytes(), before)
+        for number in (852, 853, 854):
+            self.assertEqual((self.root / f'docs/delivery/tasks/TASK-{number}.md').read_bytes(), b'# preserved history\n')
+        self.write(FROZEN, '[{"tx_id":"old-001"}]\n\n')
+        result = subprocess.run(['git', '-C', str(self.root), 'diff', '--check'], capture_output=True)
+        self.assertNotEqual(result.returncode, 0, '保真属性不能禁用空白错误检查')
+
     def test_eof_normalization_keeps_exact_original_evidence(self):
         name = 'docs/delivery/tasks/TASK-857.md'
         raw = (self.pack() + '\n\n').encode('utf-8')

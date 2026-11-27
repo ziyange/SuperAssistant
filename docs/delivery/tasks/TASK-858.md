@@ -28,6 +28,7 @@ REQ-096, REQ-099
 - docs/decisions/ADR-009-development-records.md
 
 ## Allowed Files
+- .gitattributes
 - .github/workflows/docs-gates.yml
 - AGENTS.md
 - docs/README.md
@@ -61,6 +62,8 @@ REQ-096, REQ-099
 提交前核对精确暂存清单、父提交和数据指纹；提交后用同一 SHA 的干净临时克隆复核治理及文件范围，不以带应用 WIP 的工作目录代替候选提交。CI 只按实际 SHA、Run URL 和结论记证据。
 
 ## Data Constraints
+
+保真属性仅针对冻结日志、清单及三份规范化旧文档，确保 Windows 自动换行设置不会改变证据字节；不禁用 diff 或任何空白错误规则。
 沿用三份原始日志的冻结哈希，历史数据和剩余应用 WIP 内容不变。冻结清单可追加 format_sources，保存三份旧文档规范化前的原始 Base64；解码后的 SHA256 必须等于既有指纹，当前文档只能为原始内容或仅规范化 EOF 的副本。暂存前要求真实索引为空或仅含已识别的本任务文件；发现未知暂存内容时保留并停止该提交。发布前扫描凭据特征，不打印秘密值。干净副本位于唯一自建临时目录，不注册永久工作树。
 
 ## UI Constraints

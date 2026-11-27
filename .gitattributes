@@ -1,0 +1,8 @@
+# Preserve audit evidence bytes across Windows/Linux checkout. Keep diff enabled.
+docs/delivery/permission-audit.log -text
+docs/delivery/execution-trace.json -text
+docs/delivery/expansions.json -text
+docs/delivery/logging-baseline.json -text
+docs/delivery/tasks/TASK-852.md text eol=lf
+docs/delivery/tasks/TASK-853.md text eol=lf
+docs/delivery/tasks/TASK-854.md text eol=lf
