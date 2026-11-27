@@ -71,9 +71,25 @@
 - 任务：TASK-858
 - 日期：2026-11-27
 - 类型：阶段成果
-- 结论：PLANNED
+- 结论：PASS
 - 说明：按用户授权独立提交日志迁移，旧日志和 TASK-850–856 作为证据依赖，应用 WIP 不纳入。三份旧文档因 EOF 空行被严格门禁拒绝，原始字节已保存在冻结清单 format_sources 并以原 SHA256 校验，提交副本只规范化末尾空行；首次干净克隆又暴露 CRLF 转换问题，追加精确保真属性，不禁用 diff／空白检查。旧任务保持未验收，不恢复执行权。
-- 验证状态：PLANNED
-- 验证：治理提交 85f4183 已形成，原有十份应用 WIP 内容不变且未提交；换行保真反例已复现并修复，待完成修正提交的干净克隆和两套 CI。DEV-857 的 104 例属于历史混合工作补丁，不能冒充本提交测试数量。
-- 证据：[安全提交任务](tasks/TASK-858.md)、[冻结清单](logging-baseline.json)。
-- 遗留：迁移提交及真实 CI 尚未完成；剩余应用合并阻断继续单独处理，真实 Codex 和 Electron 沙箱仍延期。
+- 验证状态：PASS
+- 验证：85f4183 与换行修正 548f92b 已独立提交并正常推送候选分支，未更新 main；两次提交零应用源码，原有十份应用 WIP 哈希未变且未提交。548f92bfe1a8339043b6a31ef8f04e7922101f2b 的全新干净克隆通过 417 份文档、205 份 Task Pack、追踪、五份 Schema、26 路径精确范围、34 个历史范围、69/69 项 Python 测试（53.160 秒，零跳过）及空白检查。两套实际 CI 均成功：治理；Windows 构建、打包完整性、合成凭据、进程树、桌面注册重启 2/2、lint/typecheck、单测 1182 通过及既定 9 项跳过、契约 50/50；独立 PostgreSQL 16 测试 13/13。DEV-857 的 104 例仍仅属于历史混合工作补丁。
+- 证据：[安全提交任务](tasks/TASK-858.md)、[冻结清单](logging-baseline.json)、[548f92b 文档 CI](https://github.com/ziyange/SuperAssistant/actions/runs/45957666190)、[548f92b 应用 CI](https://github.com/ziyange/SuperAssistant/actions/runs/45957666249)。两个 Run 的 headSha 均已核对，Governance validators、Windows build and deterministic tests、PostgreSQL 16 disposable compatibility 均为 success。
+- 遗留：只验收日志迁移与该候选提交的既定 CI，不代表 H1/H3 或 main 合并验收。生产桌面执行接线、可信安装与效果约束等原有缺口仍在；应用 WIP 由后续独立任务处理。真实 Codex 和 Electron 沙箱仍延期。
+
+## 记录 DEV-859
+
+- 任务：TASK-859
+- 日期：2026-11-27
+- 类型：阶段成果
+- 结论：PLANNED
+- 说明：在独立干净副本复现了两项缺陷：1,048,577 字节请求返回 201 并进入仓库，非法 JSON 进入业务授权端。修复为认证前置、声明及流式 1 MiB 边界、非法 JSON 直接拒绝，以及有限排空和连接关闭；不启用任何生产桌面执行或 Team 连接。REQ-081、093–095、097、099；仅覆盖 SCN-TEAM-GOVERNANCE、SCN-NFR-QUALITY 的请求边界子集。
+- 验证状态：PASS
+- 验证：Windows、Node 22.23.2、npm 10.9.8、Python 3.9.12；基线 548f92b 加本任务五文件补丁。`vitest run --project unit services/team/tests/server.test.ts --maxWorkers=1` 13/13；独立安全复核无阻断，适当 loopback 进程环境独立运行也是 13/13。完整 `npm run build`、`npm run lint`、`npm run typecheck` 返回 0；`npm run test:unit -- --maxWorkers=1` 187 文件，1193 通过、既定 9 项跳过，515.96 秒；`npm run test:contract -- --maxWorkers=1` 50/50。真实 Electron 功能回归 2/2（注册重启与只读 Proposal 审阅，不是沙箱或执行验收），浏览器投影回归 9/9。文档 418 份、Task Pack 206 份、追踪、五份 Schema、34 个历史范围及 Python 69/69（50.254 秒）通过；五路径范围及 diff 空白检查通过。
+- 证据：[任务与精确范围](tasks/TASK-859.md)、[真实 socket 回归](../../services/team/tests/server.test.ts)、[HTTP 安全事实](../security.md#team-http-请求体边界)。命令均在独立临时干净克隆执行，只使用合成身份、可抛弃仓库与假 App Server。
+- 遗留：本补丁候选 CI 为 PLANNED，推送后按实际 SHA 检查，不使用 548f92b 的 CI 冒充本补丁通过。9 项跳过为 6 项需数据库用例及 3 项显式启用原生探针，均不是本地通过；数据库另由独立 CI 执行。正式入口仍为 Team unavailable、Decision 只记录答案、保护执行未接入；可信安装、文件／网络效果约束和原 Attempt 终止／租约事务仍为合并阻断，不因此降低门禁。真实 Codex 和 Electron 沙箱继续延期。
+
+### 验证环境边界
+
+独立审查首次在受限沙箱运行因 loopback EACCES 及连带超时失败，不计为通过；随后同一测试在适当进程环境通过，未改代码、断言或门限。拒绝期限用例证明观察到的及时关闭，不单独证明一定由 10 秒定时器触发；未声称一般 DoS 防护、生产认证延迟、TLS 或全局连接配额已验收。原工作树中的应用 WIP 在独立验证期间保持不变，后续只转入本任务明确审查的部分。

@@ -228,6 +228,16 @@ a role or approval claim from a request body or header. TASK-721 regression
 evidence covers the audit-export route; complete Team API and SSE enforcement
 remain subject to G2/G6 integrated acceptance.
 
+### Team HTTP 请求体边界
+
+认证适配器先核验服务端身份，未认证请求返回 401，不解析请求体或调用业务授权端。
+POST 同时检查 Content-Length 和逐块实际字节，最多 1,048,576 字节；超限返回
+413，非法 JSON 返回 400，均不进入业务 API。合法 JSON 保留原路由和权限行为。
+拒绝后不保存剩余内容，最多额外排空 2 MiB（已交付单块可超过阈值），并设置
+10 秒关闭期限；先尽力完成拒绝响应再结束连接。恶意或断开的客户端未必接收响应，
+这些措施不是完整的 DoS 防护或硬实时保证。生产认证超时、TLS、通用限流和 Team
+集成验收仍需各自证据，不由本边界替代。
+
 ### PHASE-007 credential namespace isolation
 
 Team credential metadata contains only a `cred:` opaque reference, owner,
