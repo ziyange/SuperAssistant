@@ -47,7 +47,7 @@ test('rebuilds Proposal foreign keys without losing legacy data or child referen
     expect(db.pragma('foreign_key_check')).toEqual([]);
     expect(db.pragma('integrity_check', { simple: true })).toBe('ok');
     expect(() => db.prepare("INSERT INTO tasks VALUES ('second','w','p','proposal','grant','QUEUED','2026')").run()).toThrow();
-    expect(db.prepare('SELECT max(version) AS version FROM schema_migrations').get()).toEqual({ version: 32 });
+    expect(db.prepare('SELECT max(version) AS version FROM schema_migrations').get()).toEqual({ version: 33 });
   } finally { db.close(); }
 });
 
@@ -146,7 +146,7 @@ test('unknown newer migration history cannot be opened as an older schema', () =
 test('a completed v32 database with a newer unknown migration is rejected', () => {
   const db = legacy();
   try {
-    applyMigrations(db);
+    applyMigrations(db, foundationMigrations.filter(item => item.version <= 32));
     db.prepare("INSERT INTO schema_migrations VALUES (33,'unknown','2026')").run();
     expect(() => applyMigrations(db)).toThrow('MIGRATION_HISTORY_INVALID');
   } finally { db.close(); }
@@ -174,7 +174,7 @@ test('opening a persistent v31 database creates a backup and migrates without lo
     backup = new Database(join(folder, names[0]!), { readonly: true });
     expect(backup.prepare('SELECT max(version) AS version FROM schema_migrations').get()).toEqual({ version: 31 });
     expect(backup.prepare('SELECT count(*) AS n FROM tasks').get()).toEqual({ n: 1 });
-    expect(migrated.prepare('SELECT max(version) AS version FROM schema_migrations').get()).toEqual({ version: 32 });
+    expect(migrated.prepare('SELECT max(version) AS version FROM schema_migrations').get()).toEqual({ version: 33 });
     expect(parent(migrated, 'tasks')).toBe('proposal_authority_refs');
     expect(migrated.pragma('foreign_key_check')).toEqual([]);
   } finally { backup?.close(); migrated?.close(); rmSync(folder, { recursive: true, force: true }); }
@@ -233,7 +233,7 @@ test('online backup preserves a sparse rowid in an unindexed custom table during
     expect(names).toHaveLength(1);
     backup = new Database(join(folder, names[0]!, 'backup.sqlite'), { readonly: true });
     for (const db of [migrated, backup]) expect(db.prepare('SELECT rowid,value FROM user_notes').all()).toEqual([{ rowid: 101, value: 'keep' }]);
-    expect(migrated.prepare('SELECT max(version) AS version FROM schema_migrations').get()).toEqual({ version: 32 });
+    expect(migrated.prepare('SELECT max(version) AS version FROM schema_migrations').get()).toEqual({ version: 33 });
     expect(backup.prepare('SELECT max(version) AS version FROM schema_migrations').get()).toEqual({ version: 31 });
   } finally { backup?.close(); migrated?.close(); rmSync(folder, { recursive: true, force: true }); }
 });
@@ -308,7 +308,7 @@ test('reports post-commit WAL configuration failure without claiming a rollback 
     expect(() => { opened = createFoundationDatabase(path, { configureJournalMode() { throw new Error('injected WAL failure'); } }); }).toThrow('MIGRATION_COMMITTED_CONFIGURATION_FAILED');
     const check = new Database(path, { readonly: true });
     try {
-      expect(check.prepare('SELECT max(version) AS version FROM schema_migrations').get()).toEqual({ version: 32 });
+      expect(check.prepare('SELECT max(version) AS version FROM schema_migrations').get()).toEqual({ version: 33 });
       expect(check.prepare('SELECT count(*) AS n FROM tasks').get()).toEqual({ n: 1 });
       expect(parent(check, 'tasks')).toBe('proposal_authority_refs');
     } finally { check.close(); }
@@ -318,7 +318,7 @@ test('reports post-commit WAL configuration failure without claiming a rollback 
     try { expect(backup.prepare('SELECT max(version) AS version FROM schema_migrations').get()).toEqual({ version: 31 }); }
     finally { backup.close(); }
     reopened = createFoundationDatabase(path);
-    expect(reopened.prepare('SELECT max(version) AS version FROM schema_migrations').get()).toEqual({ version: 32 });
+    expect(reopened.prepare('SELECT max(version) AS version FROM schema_migrations').get()).toEqual({ version: 33 });
     expect(reopened.pragma('foreign_key_check')).toEqual([]);
   } finally { opened?.close(); reopened?.close(); rmSync(folder, { recursive: true, force: true }); }
 });
@@ -443,7 +443,7 @@ test('reports a foreign-key restoration failure after commit as committed, not r
   });
   try {
     expect(() => applyMigrations(db)).toThrow('MIGRATION_COMMITTED_CONFIGURATION_FAILED');
-    expect(db.prepare('SELECT max(version) AS version FROM schema_migrations').get()).toEqual({ version: 32 });
+    expect(db.prepare('SELECT max(version) AS version FROM schema_migrations').get()).toEqual({ version: 33 });
     expect(parent(db, 'tasks')).toBe('proposal_authority_refs');
   } finally { spy.mockRestore(); db.pragma('foreign_keys = ON'); db.close(); }
 });
@@ -458,7 +458,7 @@ test('still restores foreign keys if legacy alter restoration fails after commit
   try {
     expect(() => applyMigrations(db)).toThrow('MIGRATION_COMMITTED_CONFIGURATION_FAILED');
     expect(db.pragma('foreign_keys', { simple: true })).toBe(1);
-    expect(db.prepare('SELECT max(version) AS version FROM schema_migrations').get()).toEqual({ version: 32 });
+    expect(db.prepare('SELECT max(version) AS version FROM schema_migrations').get()).toEqual({ version: 33 });
   } finally { spy.mockRestore(); db.pragma('legacy_alter_table = OFF'); db.close(); }
 });
 
@@ -493,7 +493,7 @@ test('preserves custom unrelated tables, indexes, views and triggers', () => {
 test('a later failing pending migration rolls back the rebuild and all pending versions', () => {
   const db = legacy();
   try {
-    const bad = { version: 33, name: 'intentional-failure', sql: 'CREATE TABLE invalid ( ;' };
+    const bad = { version: 34, name: 'intentional-failure', sql: 'CREATE TABLE invalid ( ;' };
     expect(() => applyMigrations(db, [...foundationMigrations, bad])).toThrow();
     expect(db.prepare('SELECT max(version) AS version FROM schema_migrations').get()).toEqual({ version: 31 });
     expect(parent(db, 'tasks')).toBe('proposal_versions');

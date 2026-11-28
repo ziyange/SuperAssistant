@@ -51,7 +51,6 @@ async function fixture(objective = 'private integration goal') {
   const head = execFileSync('git', ['-C', project, 'rev-parse', 'HEAD'], { env, encoding: 'utf8' }).trim();
   const db = new Database(':memory:');
   applyMigrations(db);
-  db.exec(readFileSync(new URL('../../../../packages/persistence/src/sqlite/migrations/033-protected-execution.sql', import.meta.url), 'utf8'));
   db.prepare("INSERT INTO workspaces VALUES ('w','local-owner','Local','ACTIVE','2026','2026',1)").run();
   db.prepare("INSERT INTO agents VALUES ('agent','w','Codex','0.121.0','CONNECTED','AVAILABLE',NULL,1)").run();
   db.prepare("INSERT INTO projects VALUES ('p','w','P',?,?,'ACTIVE','agent',1,'2026','2026',1)").run(realpathSync(project), realpathSync(project).toLowerCase());

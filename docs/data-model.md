@@ -3,13 +3,17 @@
 # TASK-821 Proposal authority identity
 # TASK-822 controlled Proposal-parent transition
 
-TASK-823 in progress: protected authorization must bind the exact authenticated encrypted Proposal, main-owned native consent, current catalog and baseline to an atomic Grant/Task/Attempt/Lease/Outbox transaction. A ciphertext-envelope fingerprint, if used for persistent identity, is a versioned local verifier and must never be substituted for the Proposal SHA-256 on SAI. This is a design constraint, not a claim that protected execution is available.
+TASK-823 established the isolated design: protected authorization must bind the exact authenticated encrypted Proposal, main-owned native consent, current catalog and baseline to an atomic Grant/Task/Attempt/Lease/Outbox transaction. A ciphertext-envelope fingerprint, if used for persistent identity, is a versioned local verifier and must never be substituted for the Proposal SHA-256 on SAI. This is a design constraint, not a claim that protected execution is available.
 
-The protected-execution prototype maps the single H1 reviewed WorkItem to an independently generated opaque control-plane WorkItem ID; the original reviewed ID remains inside the encrypted Proposal. Any future dispatch or evidence reader must authenticate that encrypted Proposal and bind its sole required item to the opaque ID rather than assuming the two IDs match. The prototype and migration remain unavailable to the production route.
+The protected-execution prototype maps the single H1 reviewed WorkItem to an independently generated opaque control-plane WorkItem ID; the original reviewed ID remains inside the encrypted Proposal. Any future dispatch or evidence reader must authenticate that encrypted Proposal and bind its sole required item to the opaque ID rather than assuming the two IDs match. The prototype remains unavailable to the production execution route.
+
+## 033 正式迁移边界
+
+TASK-861 将原有 `033-protected-execution` 纳入默认迁移链；不修改历史 SQL。033 仅建立受保护绑定、上下文、加密回执和状态约束，不读取凭据、不审批、不派发。持久升级沿用验证备份、并发提交检测、独占事务和完整性检查；仅 032 的受控重建可以临时关闭外键，033 单独升级保持外键开启。失败保留原库和备份，不自动覆盖恢复；没有历史登记的手动安装实验库拒绝重复安装而不是猜测补登记。同号迁移不得替换其规范名称或 SQL，重开已迁移库不得生成新的 Attempt 或外部执行。本任务只验证迁移前置条件，不构成正式桌面接线、独立进程恢复或 H1 验收。
 
 The draft protected execution context records a SHA-256 fingerprint of the displayed Project and executable identity (including path, generation, file fingerprint and Git baseline), separately from the encrypted Proposal envelope fingerprint. These hashes are consistency markers, not keyed approval proofs or SAI Proposal digests. A future dispatcher must independently authenticate the Proposal, validate native approval provenance and recheck the current executable, Git baseline and Lease; a database binding alone never authorizes dispatch.
 
-TASK-823 is adding a domain-separated keyed authentication tag over the immutable protected approval record. Only the tag, not the vault key or raw Proposal content, is stored. The tag must be verified against freshly authenticated ciphertext and exact persisted fields before replay or dispatch. It is not a defense against a compromised main process, a malicious same-user principal with access to the key, or rollback to an earlier valid database snapshot.
+The isolated protected issuer uses a domain-separated keyed authentication tag over the immutable protected approval record. Only the tag, not the vault key or raw Proposal content, is stored. The tag must be verified against freshly authenticated ciphertext and exact persisted fields before replay or dispatch. It is not a defense against a compromised main process, a malicious same-user principal with access to the key, or rollback to an earlier valid database snapshot.
 
 TASK-838 adds a main-process protected Proposal registry: after authenticating
 the exact encrypted envelope, it inserts `proposal_authority_refs` and
@@ -32,7 +36,7 @@ Grant and initial Attempt creation and guarded replay; it is not authorization.
 This remains unavailable through production IPC until key custody and process
 ownership are proven.
 
-Migration 032 rebuilds the Grant and Task Proposal foreign keys to the shared authority identity while retaining legacy rows, rowids and dependent references. Unknown or altered target-table schema blocks migration. This is a local implementation pending integrated acceptance; until a later trusted issuer is implemented, protected identities cannot create or update Grants or Tasks.
+Migration 032 rebuilds the Grant and Task Proposal foreign keys to the shared authority identity while retaining legacy rows, rowids and dependent references. Unknown or altered target-table schema blocks migration. At schema 032 protected identities cannot create or update Grants or Tasks. Migration 033 adds the scoped protected execution binding required by the isolated issuer; the production execution route remains disabled pending its independent trust and containment gates.
 
 Migration 031 adds a common identity registry and protected encrypted-payload binding; migration 032 performs the later foreign-key rebuild with exclusive ownership, backup and integrity checks. Legacy Proposal rows are backfilled and future legacy inserts create a same-scope identity atomically. Protected bindings contain neither Proposal text nor raw digest and are not authorization.
 

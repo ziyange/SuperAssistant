@@ -39,7 +39,8 @@ const proposalGrantForeignKeysSql = readFileSync(fileURLToPath(new URL('./migrat
 const receiptClaimSql = readFileSync(fileURLToPath(new URL('./migrations/027-receipt-claim.sql', import.meta.url)), 'utf8');
 const codexReceiptsSql = readFileSync(fileURLToPath(new URL('./migrations/025-codex-start-receipts.sql', import.meta.url)), 'utf8');
 const proposalFullReviewSql = readFileSync(fileURLToPath(new URL('./migrations/024-full-proposal-review.sql', import.meta.url)), 'utf8');
-export const foundationMigrations: readonly Migration[] = [{ version: 1, name: 'foundation', sql: foundationSql }, { version: 2, name: 'project-metadata', sql: projectMetadataSql }, { version: 3, name: 'proposal-authorization', sql: proposalAuthorizationSql }, { version: 4, name: 'execution', sql: executionSql }, { version: 5, name: 'artifact', sql: artifactSql }, { version: 6, name: 'decision', sql: decisionSql }, { version: 7, name: 'history-change', sql: historyChangeSql }, { version: 8, name: 'acceptance', sql: acceptanceSql }, { version: 9, name: 'recovery-audit', sql: recoveryAuditSql }, { version: 10, name: 'agent-template', sql: agentTemplateSql }, { version: 11, name: 'work-item-graph', sql: workItemGraphSql }, { version: 12, name: 'resource-scheduler', sql: resourceSchedulerSql }, { version: 13, name: 'quality-evidence', sql: qualityEvidenceSql }, { version: 14, name: 'monitoring-events', sql: monitoringEventsSql }, { version: 15, name: 'event-aggregation', sql: eventAggregationSql }, { version: 16, name: 'follow-up-budget', sql: followUpBudgetSql }, { version: 17, name: 'dsh-attempt-journal', sql: dshAttemptJournalSql }, { version: 18, name: 'onboarding', sql: onboardingSql }, { version: 19, name: 'outbox-claims', sql: outboxClaimsSql }, { version: 20, name: 'resource-lease-expiry', sql: leaseExpirySql }, { version: 21, name: 'local-codex-registration', sql: codexRegistrationSql }, { version: 22, name: 'grant-uniqueness', sql: grantUniquenessSql }, { version: 23, name: 'proposal-drafts', sql: proposalDraftsSql }, { version: 24, name: 'full-proposal-review', sql: proposalFullReviewSql }, { version: 25, name: 'codex-start-receipts', sql: codexReceiptsSql }, { version: 26, name: 'receipt-principal', sql: receiptPrincipalSql }, { version: 27, name: 'receipt-claim', sql: receiptClaimSql }, { version: 28, name: 'draft-agent-generation', sql: draftAgentGenerationSql }, { version: 29, name: 'protected-payloads', sql: protectedPayloadSql }, { version: 30, name: 'protected-key-reservations', sql: protectedKeyReservationsSql }, { version: 31, name: 'proposal-authority-registry', sql: proposalAuthorityRegistrySql }, { version: 32, name: 'proposal-grant-foreign-keys', sql: proposalGrantForeignKeysSql, mode: 'controlled-rebuild' }];
+const protectedExecutionSql = readFileSync(fileURLToPath(new URL('./migrations/033-protected-execution.sql', import.meta.url)), 'utf8');
+export const foundationMigrations: readonly Migration[] = [{ version: 1, name: 'foundation', sql: foundationSql }, { version: 2, name: 'project-metadata', sql: projectMetadataSql }, { version: 3, name: 'proposal-authorization', sql: proposalAuthorizationSql }, { version: 4, name: 'execution', sql: executionSql }, { version: 5, name: 'artifact', sql: artifactSql }, { version: 6, name: 'decision', sql: decisionSql }, { version: 7, name: 'history-change', sql: historyChangeSql }, { version: 8, name: 'acceptance', sql: acceptanceSql }, { version: 9, name: 'recovery-audit', sql: recoveryAuditSql }, { version: 10, name: 'agent-template', sql: agentTemplateSql }, { version: 11, name: 'work-item-graph', sql: workItemGraphSql }, { version: 12, name: 'resource-scheduler', sql: resourceSchedulerSql }, { version: 13, name: 'quality-evidence', sql: qualityEvidenceSql }, { version: 14, name: 'monitoring-events', sql: monitoringEventsSql }, { version: 15, name: 'event-aggregation', sql: eventAggregationSql }, { version: 16, name: 'follow-up-budget', sql: followUpBudgetSql }, { version: 17, name: 'dsh-attempt-journal', sql: dshAttemptJournalSql }, { version: 18, name: 'onboarding', sql: onboardingSql }, { version: 19, name: 'outbox-claims', sql: outboxClaimsSql }, { version: 20, name: 'resource-lease-expiry', sql: leaseExpirySql }, { version: 21, name: 'local-codex-registration', sql: codexRegistrationSql }, { version: 22, name: 'grant-uniqueness', sql: grantUniquenessSql }, { version: 23, name: 'proposal-drafts', sql: proposalDraftsSql }, { version: 24, name: 'full-proposal-review', sql: proposalFullReviewSql }, { version: 25, name: 'codex-start-receipts', sql: codexReceiptsSql }, { version: 26, name: 'receipt-principal', sql: receiptPrincipalSql }, { version: 27, name: 'receipt-claim', sql: receiptClaimSql }, { version: 28, name: 'draft-agent-generation', sql: draftAgentGenerationSql }, { version: 29, name: 'protected-payloads', sql: protectedPayloadSql }, { version: 30, name: 'protected-key-reservations', sql: protectedKeyReservationsSql }, { version: 31, name: 'proposal-authority-registry', sql: proposalAuthorityRegistrySql }, { version: 32, name: 'proposal-grant-foreign-keys', sql: proposalGrantForeignKeysSql, mode: 'controlled-rebuild' }, { version: 33, name: 'protected-execution', sql: protectedExecutionSql }];
 
 const historySql = 'CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, name TEXT NOT NULL, applied_at TEXT NOT NULL)';
 const quote = (name: string) => '"' + name.replaceAll('"', '""') + '"';
@@ -132,9 +133,11 @@ function pendingMigrations(database: Database.Database, migrations: readonly Mig
     if (!Number.isSafeInteger(migration.version) || migration.version < 1 || versions.has(migration.version)) throw new Error('MIGRATION_PLAN_INVALID');
     versions.add(migration.version);
     if ((migration.version === 32 && (migration.mode !== 'controlled-rebuild' || migration.name !== 'proposal-grant-foreign-keys' || migration.sql !== proposalGrantForeignKeysSql))
+      || (migration.version === 33 && (migration.name !== 'protected-execution' || migration.sql !== protectedExecutionSql))
       || (migration.mode && migration.version !== 32)) throw new Error('MIGRATION_PLAN_INVALID');
   }
   if (versions.has(32) && Array.from({ length: 32 }, (_, index) => index + 1).some(version => !versions.has(version))) throw new Error('MIGRATION_PLAN_INVALID');
+  if (versions.has(33) && Array.from({ length: 33 }, (_, index) => index + 1).some(version => !versions.has(version))) throw new Error('MIGRATION_PLAN_INVALID');
   if (versions.has(32) && migrations.some(migration => {
     if (migration.version > 32) return false;
     const canonical = foundationMigrations.find(item => item.version === migration.version);
@@ -148,7 +151,8 @@ function pendingMigrations(database: Database.Database, migrations: readonly Mig
     if (expected && expected.name !== row.name) throw new Error('MIGRATION_HISTORY_INVALID');
   }
   if (versions.has(32)) {
-    const history = rows.filter(row => row.version <= 32).map(row => row.version).sort((a, b) => a - b);
+    const historyBoundary = versions.has(33) ? 33 : 32;
+    const history = rows.filter(row => row.version <= historyBoundary).map(row => row.version).sort((a, b) => a - b);
     if (history.some((version, index) => version !== index + 1)
       || rows.some(row => !versions.has(row.version))) throw new Error('MIGRATION_HISTORY_INVALID');
   }
@@ -193,7 +197,8 @@ function integrityOkay(database: Database.Database): boolean {
 
 export function applyMigrations(database: Database.Database, migrations: readonly Migration[] = foundationMigrations, backup?: MigrationBackup): void {
   const pending = pendingMigrations(database, migrations);
-  if (!pending.some(item => item.mode === 'controlled-rebuild')) { applyPending(database, pending); return; }
+  const rebuild = pending.some(item => item.mode === 'controlled-rebuild');
+  if (!rebuild && !pending.some(item => item.version === 33)) { applyPending(database, pending); return; }
   if (database.inTransaction) throw new Error('MIGRATION_REBUILD_NESTED');
   const databases = database.pragma('database_list') as { name: string; file: string }[];
   const main = databases.find(item => item.name === 'main');
@@ -205,10 +210,12 @@ export function applyMigrations(database: Database.Database, migrations: readonl
   if (originalLegacyAlter !== 0 && originalLegacyAlter !== 1) throw new Error('MIGRATION_FOREIGN_KEYS_INVALID');
   let committed = false;
   try {
-    database.pragma('foreign_keys = OFF');
-    if (database.pragma('foreign_keys', { simple: true }) !== 0) throw new Error('MIGRATION_FOREIGN_KEYS_INVALID');
-    database.pragma('legacy_alter_table = ON');
-    if (database.pragma('legacy_alter_table', { simple: true }) !== 1) throw new Error('MIGRATION_FOREIGN_KEYS_INVALID');
+    if (rebuild) {
+      database.pragma('foreign_keys = OFF');
+      if (database.pragma('foreign_keys', { simple: true }) !== 0) throw new Error('MIGRATION_FOREIGN_KEYS_INVALID');
+      database.pragma('legacy_alter_table = ON');
+      if (database.pragma('legacy_alter_table', { simple: true }) !== 1) throw new Error('MIGRATION_FOREIGN_KEYS_INVALID');
+    }
     database.exec('BEGIN EXCLUSIVE');
     if (backup && main.file) {
       if (database.pragma('data_version', { simple: true }) !== backup.dataVersion) throw new Error('MIGRATION_DATABASE_CHANGED');

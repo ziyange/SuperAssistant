@@ -4,7 +4,6 @@ import { createCipheriv, createHash, randomBytes } from 'node:crypto';
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { URL } from 'node:url';
 import Database from 'better-sqlite3';
 import { createH1ReviewedProposal } from '@super-assistant/domain';
 import { beforeEach, expect, test, vi } from 'vitest';
@@ -66,7 +65,6 @@ async function fixture(proposalCandidate = candidate) {
 }
 
 function bindProtected(db: Database.Database, proposal: ReturnType<typeof createH1ReviewedProposal>): void {
-  db.exec(readFileSync(new URL('../../../../packages/persistence/src/sqlite/migrations/033-protected-execution.sql', import.meta.url), 'utf8'));
   db.prepare("INSERT INTO proposal_authority_refs VALUES (?, ?, ?, 'PROTECTED', 1, ?)")
     .run(scope.proposalVersionId, scope.workspaceId, scope.projectId, proposal.createdAt);
   db.prepare(`INSERT INTO protected_proposal_bindings
@@ -1437,7 +1435,6 @@ test('captures the requested scope before awaiting the vault', async () => {
 test('an exact approved protected Proposal creates one original Attempt without plaintext persistence', async () => {
   const { db, authority, proposal } = await fixture();
   try {
-    db.exec(readFileSync(new URL('../../../../packages/persistence/src/sqlite/migrations/033-protected-execution.sql', import.meta.url), 'utf8'));
     db.prepare("INSERT INTO proposal_authority_refs VALUES (?, ?, ?, 'PROTECTED', 1, ?)")
       .run(scope.proposalVersionId, scope.workspaceId, scope.projectId, proposal.createdAt);
     db.prepare(`INSERT INTO protected_proposal_bindings
@@ -1953,7 +1950,6 @@ test('reopening a durable protected confirmation returns the original Attempt wi
 test('a protected Task cannot receive a WorkItem different from its frozen binding', async () => {
   const { db, proposal } = await fixture();
   try {
-    db.exec(readFileSync(new URL('../../../../packages/persistence/src/sqlite/migrations/033-protected-execution.sql', import.meta.url), 'utf8'));
     db.prepare("INSERT INTO proposal_authority_refs VALUES (?, ?, ?, 'PROTECTED', 1, ?)")
       .run(scope.proposalVersionId, scope.workspaceId, scope.projectId, proposal.createdAt);
     db.prepare(`INSERT INTO protected_proposal_bindings

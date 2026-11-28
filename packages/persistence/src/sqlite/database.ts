@@ -43,7 +43,8 @@ function initializeFoundationDatabase(database: Database.Database, path: string,
       configureJournal();
       applyMigrations(database);
     }
-    else if (foundationMigrations.some(migration => !applied.has(migration.version) && migration.mode === 'controlled-rebuild')) {
+    else if (foundationMigrations.some(migration => !applied.has(migration.version)
+      && (migration.mode === 'controlled-rebuild' || migration.version === 33))) {
       applyMigrations(database, foundationMigrations, backupContext);
       try { configureJournal(); } catch { throw new Error('MIGRATION_COMMITTED_CONFIGURATION_FAILED'); }
     } else {
