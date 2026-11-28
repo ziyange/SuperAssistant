@@ -117,11 +117,13 @@
 - 任务：TASK-861
 - 日期：2026-11-28
 - 类型：问题
-- 结论：REQUEST_CHANGES
+- 结论：PASS
 - 说明：默认迁移停在 032，受保护执行夹具自行安装 033。已正式登记既有 SQL；补上单独 033 升级的验证备份、独占事务、规范计划锁定和历史连续性检查，保留外键与旧授权边界，不开启生产执行。
 - 验证状态：PASS
 - 验证：Windows／Node 22.23.2／npm 10.9.8／Python 3.9.12，以 d997efd 为隔离基线。默认缺表、无备份直接升级、错误备份和同号替换均先复现再修复；独立审查的乱序 033 历史反例同样 RED→GREEN。`npm run build`、`npm run lint`、`npm run typecheck` 返回 0；迁移 14 项和执行事务 36 项定向通过。最终 `vitest run --project unit --maxWorkers=1` 为 189 文件、1218 通过及既定 9 项跳过，480.742 秒；严格 JSON 汇总检查通过。contract 50/50、真实 Electron 功能 2/2、浏览器投影 9/9。治理按序通过 420 文档、208 Pack、99 REQ 追踪、五份 Schema、12 路径范围、34 历史范围及 Python 69/69（46.867 秒）；空白检查通过。只证明本次迁移前置，不冒充完整执行验收。
-- 证据：[批准范围](tasks/TASK-861.md)、[迁移回归](../../packages/persistence/tests/protected-execution-migration.test.ts)、[执行事务拒绝回归](../../packages/persistence/tests/execution-transaction.test.ts)、[原迁移 SQL](../../packages/persistence/src/sqlite/migrations/033-protected-execution.sql)。
-- 遗留：本地验证通过，当前任务尚待提交与精确 SHA 的两套 CI，因此整体结论仍为 REQUEST_CHANGES。9 项既定跳过不是本地通过，数据库由独立 CI 复核。独立进程原 Attempt 恢复、正式桌面接线与可信安装／效果约束仍须独立验证；原 WIP 保留，真实 Codex 和 Electron 沙箱继续延期。
+- 证据：[批准范围](tasks/TASK-861.md)、[迁移回归](../../packages/persistence/tests/protected-execution-migration.test.ts)、[执行事务拒绝回归](../../packages/persistence/tests/execution-transaction.test.ts)、[原迁移 SQL](../../packages/persistence/src/sqlite/migrations/033-protected-execution.sql)、[c4661fb 文档 CI](https://github.com/ziyange/SuperAssistant/actions/runs/46106376674)、[c4661fb 应用 CI](https://github.com/ziyange/SuperAssistant/actions/runs/46106376631)。代码提交为 c4661fb4ae12491930449aba382bcb12ce3d6f56，完整提交树 b01fd02efd0cb073fd6e330a67b89eadcf38e254 与独立验证副本一致，干净 SHA 范围检查返回 0；两套 CI 的 headSha 已核对，治理、Windows 和 PostgreSQL 16 三个 job 均 success。实际日志为新迁移 14/14、单测 1218 通过／9 项既定跳过、契约 50/50、数据库 13/13、桌面功能 2/2；打包 440 文件、启动／篡改拒绝／清理、合成凭据和进程树验证均通过。
+- 遗留：只关闭正式迁移前置缺口，不证明 H1/H3 或可以合并。9 项既定跳过不是本地通过，数据库已由独立 CI 执行。独立进程原 Attempt 恢复、正式桌面接线与可信安装／效果约束仍须独立验证；原 8 份 WIP 经排除本次已验收安全说明后的字节指纹逐项保全，未纳入提交，main 未更新。真实 Codex 和 Electron 沙箱继续延期。
 
-本地执行目录为 `C:\Users\ZZY\AppData\Local\Temp\sa-task858-final-b92d84043b034c918412d9403686598f`；原始完整单测 JSON 保存在同一临时根目录的 `sa-task861-unit.json`（首轮）及 `sa-task861-unit-final.json`，契约为 `sa-task861-contract-final.json`。首轮完整单测 1217 通过、1 失败及 9 跳过，根因为旧故障注入仍删除 032 触发器；已先修订精确范围，再适配新名称，保留拒绝断言。安全文档清单项一度误落在必读区，范围门禁真实拒绝；修正到 Allowed Files 后从第一项重验，未在拒绝状态提交。上述历史结果保留，不用最终通过覆盖失败事实。
+本地执行目录为 `C:\Users\ZZY\AppData\Local\Temp\sa-task858-final-b92d84043b034c918412d9403686598f`；原始完整单测 JSON 保存在 `C:\Users\ZZY\AppData\Local\Temp` 的 `sa-task861-unit.json`（首轮）及 `sa-task861-unit-final.json`，契约为 `sa-task861-contract-final.json`。首轮完整单测 1217 通过、1 失败及 9 跳过，根因为旧故障注入仍删除 032 触发器；已先修订精确范围，再适配新名称，保留拒绝断言。安全文档清单项一度误落在必读区，范围门禁真实拒绝；修正到 Allowed Files 后从第一项重验，未在拒绝状态提交。上述历史结果保留，不用最终通过覆盖失败事实。
+
+收尾时临时副本的 Git pack 缺少索引，严格重建该索引后，完整连通性检查仍发现其他历史对象缺失；没有继续提交。原候选仓库的同一提交连通性检查通过，随后仅从该健康本地 origin 使用 `fetch --refetch` 补全临时缓存，HEAD 和暂存文档不变，临时副本完整连通性与提交树检查通过。缺失的外部原因未证明，不归因于 GC、安全软件或其他会话；不清理现场、不改系统策略、不重写原仓库历史。
