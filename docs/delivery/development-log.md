@@ -127,3 +127,17 @@
 本地执行目录为 `C:\Users\ZZY\AppData\Local\Temp\sa-task858-final-b92d84043b034c918412d9403686598f`；原始完整单测 JSON 保存在 `C:\Users\ZZY\AppData\Local\Temp` 的 `sa-task861-unit.json`（首轮）及 `sa-task861-unit-final.json`，契约为 `sa-task861-contract-final.json`。首轮完整单测 1217 通过、1 失败及 9 跳过，根因为旧故障注入仍删除 032 触发器；已先修订精确范围，再适配新名称，保留拒绝断言。安全文档清单项一度误落在必读区，范围门禁真实拒绝；修正到 Allowed Files 后从第一项重验，未在拒绝状态提交。上述历史结果保留，不用最终通过覆盖失败事实。
 
 收尾时临时副本的 Git pack 缺少索引，严格重建该索引后，完整连通性检查仍发现其他历史对象缺失；没有继续提交。原候选仓库的同一提交连通性检查通过，随后仅从该健康本地 origin 使用 `fetch --refetch` 补全临时缓存，HEAD 和暂存文档不变，临时副本完整连通性与提交树检查通过。缺失的外部原因未证明，不归因于 GC、安全软件或其他会话；不清理现场、不改系统策略、不重写原仓库历史。
+
+## 记录 DEV-862
+
+- 任务：TASK-862
+- 日期：2026-11-28
+- 类型：问题
+- 结论：REQUEST_CHANGES
+- 说明：进程可能在领取或写回执后直接退出，留下 DISPATCH_PENDING／RUNNING；现有观察器只接受已是 UNKNOWN 的记录，同进程用同 vault 重开数据库也不是独立恢复证明。本任务补认证隔离和真实新进程只读对账，不启用生产执行。独立审查发现认证期间新 claim／ACK 被误隔离、Project 暂停未复核、离线短路及清理清单可替换四项风险，均建立实际失败反例后修复。
+- 验证状态：REQUEST_CHANGES
+- 验证：Windows／Node 22.23.2／npm 10.9.8／Python 3.9.12，以 b168c6b 为基线。第 2 轮审查修复后，authority 165/165（含三项竞态）；独立进程与安全清理 9/9（真实测试 WinCred、强制退出、原回执、主体改变、缺密钥、篡改、离线和关闭客户端）。清单／目录替换两项及离线两项反例均观察 RED→GREEN；独立复核关闭原四项 Important 及 Windows guard 发现，无新增 Critical／Important。`npm run build`、`npm run lint`、`npm run typecheck` 返回 0；`vitest run --project unit --maxWorkers=1` 为 190 文件、1245 通过及既定 9 项跳过，452.56 秒，严格汇总通过；contract 50/50、真实 Electron 功能 2/2、浏览器投影 9/9。治理按序通过 421 文档、209 Pack、99 REQ、五份 Schema、11 路径范围、34 历史范围、Python 69/69（53.453 秒）及空白检查。候选 CI 尚待实际 SHA 核对，不将本地通过计为远程通过。
+- 证据：[批准范围](tasks/TASK-862.md)、[中断隔离实现](../../apps/desktop/src/main/protected-proposal-authority.ts)、[独立进程回归](../../apps/desktop/tests/main/protected-process-recovery.test.ts)、[恢复观察器](../../apps/desktop/src/main/protected-attempt-observer.ts)。原始完整输出在本机临时目录 `sa-task862-unit-final.json` 和 `sa-task862-contract-final.json`；CI 链接在获得实际运行后写入本条目。
+- 遗留：正式桌面确认／取消接线、可信安装、效果约束及终态租约事务仍需独立验收；原 WIP 保留，真实 Codex 和 Electron 沙箱继续延期。
+
+原临时副本的 workspace 链接缺失，保留现场，改用项目内忽略目录 `.superpowers/task862-verify` 的无对象共享克隆；原锁文件 `npm ci` 成功，不改依赖。首轮 lint 因类型词汇和 finally 显式抛错停止；修正后从 lint 重验并完成完整门禁。测试使用受控 consent 替身及假 App Server，不证明原生用户确认、生产启动、沙箱、终态或租约释放；Windows 的 9 项既定跳过不是本地通过，数据库兼容性仍由独立 CI 证明。

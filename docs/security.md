@@ -11,6 +11,8 @@ Migration 033 is registered in the default upgrade plan by TASK-861; its isolate
 
 The generic Outbox claimant checks migration-031 Proposal authority identity at selection and conditional mutation, and will not claim protected or unknown identities. Generic interrupted-message recovery also filters to Legacy identity in its atomic Attempt/Outbox transitions; it leaves protected claims and Leases untouched. A missing registry fails closed until migration. The isolated protected claimant separately verifies its keyed binding and Lease before a single atomic claim; its uncertainty transition retains the Lease. Neither path establishes OS process termination, trusted key custody, or evidence-backed recovery for a running Attempt.
 
+TASK-862 的受保护恢复先验证活动 local-owner Workspace／Project、原加密绑定及审批 HMAC，在认证等待前捕获原状态和 claim，再于同一事务复核完整关系。等待期间新领取或新 ACK 必须拒绝，已由另一个恢复器完成的同一隔离可以幂等接受；上游离线仍先完成本地隔离。操作只能保守地将非终态标为 UNKNOWN，或原子撤销旧 claim；不能授权重派、替换密钥、新建 Attempt、推断终止、写终态或释放 Lease。这是恢复边界，不是运行中轮询或生产进程所有权／效果约束的替代品。
+
 The registry stores identity, source and encrypted-payload linkage only. A protected binding is not proof of an authenticated Proposal or user approval; consumers must decrypt, reconstruct and revalidate it at the eventual authorization boundary. No protected Grant, Task or execution is enabled by the registry.
 
 Protected Proposal decryption is followed by byte-exact envelope and reservation revalidation in a main-owned SQLite transaction. The informational check accepts no callback and provides no authorization for later actions. Its wall-clock check has no persistent anti-rollback watermark. Production key provenance, credential handling, Git baseline and process containment remain separate gates.

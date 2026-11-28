@@ -28,6 +28,17 @@ type ProofSnapshot = { fields: string[]; tag: string };
 type ProtectedReceipt = { threadId: string; turnId: string; cwd: string; principalHash: string };
 type ReceiptEnvelope = { nonce: Buffer; ciphertext: Buffer; auth_tag: Buffer };
 type AuthenticatedReceipt = { receipt: ProtectedReceipt & { attemptId: string }; snapshot: ProofSnapshot; captured: string; stored: ReceiptEnvelope };
+type InterruptedState = { state: string; delivery_state: string; claim_token: string | null };
+function interruptedKind(row: InterruptedState | undefined): 'CLAIM' | 'ACK' | 'QUARANTINED' | null {
+  if (!row) return null;
+  if (['UNKNOWN', 'RECONCILING'].includes(row.state) && row.claim_token === null
+    && ['ACKNOWLEDGED', 'RECONCILING'].includes(row.delivery_state)) return 'QUARANTINED';
+  if (row.state === 'DISPATCH_PENDING' && row.delivery_state === 'DISPATCHING'
+    && typeof row.claim_token === 'string' && /^[a-f0-9-]{36}$/i.test(row.claim_token)) return 'CLAIM';
+  if (['DISPATCHED', 'RUNNING', 'WAITING_INPUT', 'WAITING_USER', 'CANCELLING'].includes(row.state)
+    && row.delivery_state === 'ACKNOWLEDGED' && row.claim_token === null) return 'ACK';
+  return null;
+}
 function validReceipt(value: unknown): value is ProtectedReceipt {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
   const row = value as Record<string, unknown>;
@@ -286,6 +297,58 @@ export class ProtectedProposalAuthority {
         finally { dispose(); }
       }, dispose
     };
+  }
+
+  /** Recovery quarantine is conservative uncertainty, never termination or dispatch authority. */
+  async quarantineInterrupted(input: EncryptedProposalScope): Promise<boolean> {
+    if (arguments.length !== 1 || !validScope(input) || this.db.inTransaction) return false;
+    const scope = { ...input };
+    try {
+      const accessible = this.db.prepare(`SELECT 1 FROM workspaces w JOIN projects p ON p.workspace_id=w.workspace_id
+        WHERE w.workspace_id=? AND w.owner_id='local-owner' AND w.status='ACTIVE' AND p.project_id=? AND p.status='ACTIVE'`)
+        .get(scope.workspaceId, scope.projectId);
+      if (!accessible) return false;
+      const snapshot = this.proofSnapshot(scope), captured = this.envelope(scope);
+      if (!snapshot || !captured || snapshot.fields[5] !== 'sha256:' + createHash('sha256').update(captured).digest('hex')) return false;
+      const initial = this.interruptedState(scope, snapshot), kind = interruptedKind(initial);
+      if (!initial || !kind || !sameTag(await this.tag(scope, snapshot.fields), snapshot.tag) || this.db.inTransaction) return false;
+      return this.db.transaction(() => {
+        if (this.envelope(scope) !== captured || !isDeepStrictEqual(this.proofSnapshot(scope), snapshot)) return false;
+        const current = this.interruptedState(scope, snapshot), currentKind = interruptedKind(current);
+        if (!current || !currentKind) return false;
+        // Only another recovery of this same delivery may complete the quarantine.
+        const expectedDelivery = kind === 'CLAIM' ? 'RECONCILING' : initial.delivery_state;
+        if (currentKind === 'QUARANTINED' && current.delivery_state === expectedDelivery) return true;
+        if (!isDeepStrictEqual(current, initial)) return false;
+        const attemptId = snapshot.fields[10];
+        if (kind === 'CLAIM' && this.db.prepare("UPDATE outbox SET state='RECONCILING',claim_token=NULL WHERE message_id=? AND state='DISPATCHING' AND claim_token=?")
+          .run('outbox:' + attemptId, initial.claim_token).changes !== 1) throw new Error('unavailable');
+        if (this.db.prepare("UPDATE execution_attempts SET state='UNKNOWN' WHERE attempt_id=? AND state=?")
+          .run(attemptId, initial.state).changes !== 1) throw new Error('unavailable');
+        return true;
+      }).immediate();
+    } catch { return false; }
+  }
+
+  private interruptedState(scope: EncryptedProposalScope, snapshot: ProofSnapshot): InterruptedState | undefined {
+    return this.db.prepare(`SELECT a.state,o.state AS delivery_state,o.claim_token FROM protected_execution_bindings b
+          JOIN workspaces ws ON ws.workspace_id=b.workspace_id AND ws.owner_id='local-owner' AND ws.status='ACTIVE'
+          JOIN projects p ON p.project_id=b.project_id AND p.workspace_id=b.workspace_id AND p.status='ACTIVE'
+          JOIN tasks t ON t.task_id=b.task_id AND t.workspace_id=b.workspace_id AND t.project_id=b.project_id
+            AND t.proposal_version_id=b.proposal_version_id AND t.authorization_grant_id=b.grant_id
+          JOIN work_items w ON w.work_item_id=b.work_item_id AND w.task_id=t.task_id AND w.agent_id=b.agent_id AND w.function_id=b.function_id
+          JOIN execution_attempts a ON a.attempt_id=b.attempt_id AND a.work_item_id=w.work_item_id
+            AND a.request_id=b.request_id AND a.idempotency_key=b.proposal_version_id
+          JOIN authorization_grants g ON g.grant_id=b.grant_id AND g.proposal_version_id=b.proposal_version_id
+            AND g.proposal_digest=b.envelope_digest AND g.actor_id=ws.owner_id AND g.status='CONSUMED'
+            AND g.idempotency_key=b.proposal_version_id AND g.issued_at=b.created_at
+          JOIN resource_leases l ON l.lease_id=b.lease_id AND l.attempt_id=a.attempt_id
+            AND l.resource_key='project:'||b.project_id AND l.fencing_token=? AND l.state='ACTIVE'
+          JOIN outbox o ON o.message_id='outbox:'||b.attempt_id AND o.attempt_id=a.attempt_id
+            AND o.request_id=b.request_id AND o.idempotency_key=b.proposal_version_id AND o.message_type='start'
+            AND o.payload_json=json_object('attempt_id',a.attempt_id)
+          WHERE b.workspace_id=? AND b.project_id=? AND b.proposal_version_id=?`)
+          .get(Number(snapshot.fields[13]), scope.workspaceId, scope.projectId, scope.proposalVersionId) as InterruptedState | undefined;
   }
 
   /** Read encrypted receipt only; this does not infer or update execution state. */

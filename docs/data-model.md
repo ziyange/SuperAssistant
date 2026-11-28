@@ -11,6 +11,12 @@ The protected-execution prototype maps the single H1 reviewed WorkItem to an ind
 
 TASK-861 将原有 `033-protected-execution` 纳入默认迁移链；不修改历史 SQL。033 仅建立受保护绑定、上下文、加密回执和状态约束，不读取凭据、不审批、不派发。持久升级沿用验证备份、并发提交检测、独占事务和完整性检查；仅 032 的受控重建可以临时关闭外键，033 单独升级保持外键开启。失败保留原库和备份，不自动覆盖恢复；没有历史登记的手动安装实验库拒绝重复安装而不是猜测补登记。同号迁移不得替换其规范名称或 SQL，重开已迁移库不得生成新的 Attempt 或外部执行。本任务只验证迁移前置条件，不构成正式桌面接线、独立进程恢复或 H1 验收。
 
+## 受保护 Attempt 中断隔离
+
+TASK-862 的 main-only 恢复契约先验证活动 local-owner Workspace、原加密封装、审批 HMAC 和完整关系，再在一个 SQLite 事务内隔离已领取或已回执的非终态。领取无回执时，原 Outbox 变为 RECONCILING 并清除旧 claim，原 Attempt 变为 UNKNOWN；已确认的 Outbox 不重排。已有 UNKNOWN／RECONCILING 幂等保留，未领取 PENDING 和终态不被覆盖。此操作不需要重新授权，不使用原进程内存中的 claim token，不创建密钥、Grant 或 Attempt，不更改／释放 Lease，也不证明进程已终止。随后只读观察仍认证原回执及主体；缺回执或不能证明结果时继续隔离。该契约不启用正式桌面执行，也不把观察结果直接写为终态。
+
+认证等待前捕获原 Attempt／Outbox 状态和 claim；事务内复核活动 Project 与原状态，不能把等待期间新领取或新 ACK 当作旧中断。另一个恢复器已对同一投递完成隔离可以幂等接受。上游尚未连接或客户端已关闭时，本地认证隔离仍先执行，随后返回无观察结果；上游健康不成为本地 UNKNOWN 的前置条件。
+
 The draft protected execution context records a SHA-256 fingerprint of the displayed Project and executable identity (including path, generation, file fingerprint and Git baseline), separately from the encrypted Proposal envelope fingerprint. These hashes are consistency markers, not keyed approval proofs or SAI Proposal digests. A future dispatcher must independently authenticate the Proposal, validate native approval provenance and recheck the current executable, Git baseline and Lease; a database binding alone never authorizes dispatch.
 
 The isolated protected issuer uses a domain-separated keyed authentication tag over the immutable protected approval record. Only the tag, not the vault key or raw Proposal content, is stored. The tag must be verified against freshly authenticated ciphertext and exact persisted fields before replay or dispatch. It is not a defense against a compromised main process, a malicious same-user principal with access to the key, or rollback to an earlier valid database snapshot.

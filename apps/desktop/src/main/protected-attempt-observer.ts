@@ -34,6 +34,7 @@ export class ProtectedAttemptObserver {
   }
 
   private async observeOnce(scope: EncryptedProposalScope, client: ReadOnlyAppServerClient): Promise<Observation> {
+    if (!await this.authority.quarantineInterrupted(scope) || !client.isReady()) return null;
     const receipt = await this.authority.readReceipt(scope);
     if (!receipt || !client.isReady() || client.recoveryPrincipal() !== receipt.principalHash
       || !await client.verifyRecoveryPrincipal() || !await this.authority.beginReconciliation(scope)) return null;

@@ -1999,3 +1999,204 @@ test.each([
     expect(() => db.exec(sql)).toThrow();
   } finally { db.close(); }
 });
+
+async function recoverInterrupted(authority: ProtectedProposalAuthority, target = scope): Promise<boolean> {
+  return authority.quarantineInterrupted(target);
+}
+
+test('interrupted protected claim becomes UNKNOWN atomically without its lost in-memory claim token', async () => {
+  const { db, authority, proposal } = await fixture();
+  try {
+    bindProtected(db, proposal);
+    const original = await confirm(authority, scope, async () => true, async () => 'a'.repeat(40));
+    await authority.claimQueued(scope);
+    await recoverInterrupted(authority);
+    expect(db.prepare('SELECT attempt_id,state FROM execution_attempts').all()).toEqual([{ attempt_id: original.attemptId, state: 'UNKNOWN' }]);
+    expect(db.prepare('SELECT state,claim_token FROM outbox').get()).toEqual({ state: 'RECONCILING', claim_token: null });
+    expect(db.prepare('SELECT state FROM resource_leases').get()).toEqual({ state: 'ACTIVE' });
+    expect(await recoverInterrupted(authority)).toBe(true);
+    await expect(authority.claimQueued(scope)).rejects.toThrow('PROTECTED_AUTHORITY_UNAVAILABLE');
+    expect(db.prepare('SELECT count(*) AS n FROM execution_attempts').get()).toEqual({ n: 1 });
+  } finally { db.close(); }
+});
+
+test('interrupted acknowledged protected Attempt is quarantined without rewriting its receipt or ACK', async () => {
+  const { db, authority, proposal } = await fixture();
+  let writer: Awaited<ReturnType<ProtectedProposalAuthority['prepareReceipt']>> | undefined;
+  try {
+    bindProtected(db, proposal);
+    await confirm(authority, scope, async () => true, async () => 'a'.repeat(40));
+    const { claimToken } = await authority.claimQueued(scope);
+    const receipt = { cwd: 'E:/fixture/worktree', principalHash: 'a'.repeat(64), threadId: 'thread-1', turnId: 'turn-1' };
+    writer = await authority.prepareReceipt(scope, claimToken, { cwd: receipt.cwd, principalHash: receipt.principalHash });
+    expect(writer.record(receipt)).toBe(true);
+    const before = db.prepare('SELECT * FROM protected_start_receipts').all();
+    await recoverInterrupted(authority);
+    expect(db.prepare('SELECT state FROM execution_attempts').get()).toEqual({ state: 'UNKNOWN' });
+    expect(db.prepare('SELECT state,claim_token FROM outbox').get()).toEqual({ state: 'ACKNOWLEDGED', claim_token: null });
+    expect(db.prepare('SELECT * FROM protected_start_receipts').all()).toEqual(before);
+    expect(await authority.beginReconciliation(scope)).toBe(true);
+    expect(await recoverInterrupted(authority)).toBe(true);
+    expect(db.prepare('SELECT state FROM execution_attempts').get()).toEqual({ state: 'RECONCILING' });
+    expect(db.prepare('SELECT state FROM resource_leases').get()).toEqual({ state: 'ACTIVE' });
+  } finally { writer?.dispose(); db.close(); }
+});
+
+test('recovery does not quarantine an unclaimed protected intent', async () => {
+  const { db, authority, proposal } = await fixture();
+  try {
+    bindProtected(db, proposal);
+    await confirm(authority, scope, async () => true, async () => 'a'.repeat(40));
+    expect(await recoverInterrupted(authority)).toBe(false);
+    expect(db.prepare('SELECT state FROM execution_attempts').get()).toEqual({ state: 'DISPATCH_PENDING' });
+    expect(db.prepare('SELECT state,claim_token FROM outbox').get()).toEqual({ state: 'PENDING', claim_token: null });
+  } finally { db.close(); }
+});
+
+test.each(['SUCCEEDED','FAILED','CANCELLED','NOT_STARTED'])(
+  'recovery cannot overwrite protected terminal state %s', async state => {
+    const { db, authority, proposal } = await fixture();
+    let writer: Awaited<ReturnType<ProtectedProposalAuthority['prepareReceipt']>> | undefined;
+    try {
+      bindProtected(db, proposal);
+      await confirm(authority, scope, async () => true, async () => 'a'.repeat(40));
+      const { claimToken } = await authority.claimQueued(scope);
+      const receipt = { cwd: 'E:/fixture/worktree', principalHash: 'a'.repeat(64), threadId: 'thread-1', turnId: 'turn-1' };
+      writer = await authority.prepareReceipt(scope, claimToken, { cwd: receipt.cwd, principalHash: receipt.principalHash });
+      expect(writer.record(receipt)).toBe(true);
+      db.prepare('UPDATE execution_attempts SET state=?').run(state);
+      expect(await recoverInterrupted(authority)).toBe(false);
+      expect(db.prepare('SELECT state FROM execution_attempts').get()).toEqual({ state });
+      expect(db.prepare('SELECT state FROM resource_leases').get()).toEqual({ state: 'ACTIVE' });
+    } finally { writer?.dispose(); db.close(); }
+  }
+);
+
+test.each(['missing key','forged approval','revoked Grant','released Lease','changed start payload'])(
+  'interrupted recovery refuses %s without retiring the claim', async kind => {
+    const { db, authority, proposal, vault } = await fixture();
+    try {
+      bindProtected(db, proposal);
+      await confirm(authority, scope, async () => true, async () => 'a'.repeat(40));
+      const { claimToken } = await authority.claimQueued(scope);
+      if (kind === 'missing key') vault.values.clear();
+      if (kind === 'forged approval') {
+        db.exec('DROP TRIGGER protected_execution_context_no_update');
+        db.prepare('UPDATE protected_execution_context SET approval_tag=?').run('hmac-sha256:' + '0'.repeat(64));
+      }
+      if (kind === 'revoked Grant') db.exec("UPDATE authorization_grants SET status='REVOKED'");
+      if (kind === 'released Lease') {
+        db.exec("DROP TRIGGER protected_lease_no_unverified_release; UPDATE resource_leases SET state='RELEASED'");
+      }
+      if (kind === 'changed start payload') {
+        db.exec("DROP TRIGGER protected_start_update; UPDATE outbox SET payload_json='{}'");
+      }
+      expect(await recoverInterrupted(authority)).toBe(false);
+      expect(db.prepare('SELECT state FROM execution_attempts').get()).toEqual({ state: 'DISPATCH_PENDING' });
+      expect(db.prepare('SELECT state,claim_token FROM outbox').get()).toEqual({ state: 'DISPATCHING', claim_token: claimToken });
+      expect(db.prepare('SELECT count(*) AS n FROM execution_attempts').get()).toEqual({ n: 1 });
+    } finally { db.close(); }
+  }
+);
+
+test('recovery rejects a foreign scope before reading its key', async () => {
+  const { db, authority, proposal, vault } = await fixture();
+  try {
+    bindProtected(db, proposal);
+    await confirm(authority, scope, async () => true, async () => 'a'.repeat(40));
+    await authority.claimQueued(scope);
+    const read = vi.spyOn(vault, 'read');
+    expect(await recoverInterrupted(authority, { ...scope, workspaceId: 'foreign' })).toBe(false);
+    expect(read).not.toHaveBeenCalled();
+    expect(db.prepare('SELECT state FROM execution_attempts').get()).toEqual({ state: 'DISPATCH_PENDING' });
+  } finally { db.close(); }
+});
+
+test('recovery rechecks Workspace access after its asynchronous key read', async () => {
+  const { db, authority, proposal, vault } = await fixture();
+  try {
+    bindProtected(db, proposal);
+    await confirm(authority, scope, async () => true, async () => 'a'.repeat(40));
+    const { claimToken } = await authority.claimQueued(scope);
+    const read = vault.read.bind(vault);
+    vi.spyOn(vault, 'read').mockImplementation(async ref => {
+      const key = await read(ref); db.exec("UPDATE workspaces SET status='LOCKED'"); return key;
+    });
+    expect(await recoverInterrupted(authority)).toBe(false);
+    expect(db.prepare('SELECT state,claim_token FROM outbox').get()).toEqual({ state: 'DISPATCHING', claim_token: claimToken });
+    expect(db.prepare('SELECT state FROM execution_attempts').get()).toEqual({ state: 'DISPATCH_PENDING' });
+  } finally { db.close(); }
+});
+
+test('an interrupted-recovery transaction rolls back claim retirement when Attempt quarantine fails', async () => {
+  const { db, authority, proposal } = await fixture();
+  try {
+    bindProtected(db, proposal);
+    await confirm(authority, scope, async () => true, async () => 'a'.repeat(40));
+    const { claimToken } = await authority.claimQueued(scope);
+    db.exec("CREATE TRIGGER fail_quarantine BEFORE UPDATE OF state ON execution_attempts WHEN NEW.state='UNKNOWN' BEGIN SELECT RAISE(ABORT,'injected'); END");
+    expect(await recoverInterrupted(authority)).toBe(false);
+    expect(db.prepare('SELECT state FROM execution_attempts').get()).toEqual({ state: 'DISPATCH_PENDING' });
+    expect(db.prepare('SELECT state,claim_token FROM outbox').get()).toEqual({ state: 'DISPATCHING', claim_token: claimToken });
+    expect(db.prepare('SELECT state FROM resource_leases').get()).toEqual({ state: 'ACTIVE' });
+  } finally { db.close(); }
+});
+
+test('recovery race: a new claim created while authentication waits must not be retired', async () => {
+  const { db, authority, proposal, vault } = await fixture();
+  let release!: () => void;
+  const wait = new Promise<void>(resolve => { release = resolve; });
+  let entered!: () => void;
+  const reading = new Promise<void>(resolve => { entered = resolve; });
+  try {
+    bindProtected(db, proposal);
+    await confirm(authority, scope, async () => true, async () => 'a'.repeat(40));
+    const read = vault.read.bind(vault);
+    const spy = vi.spyOn(vault, 'read').mockImplementationOnce(async ref => { entered(); await wait; return read(ref); });
+    const recovery = recoverInterrupted(authority);
+    const first = await Promise.race([reading.then(() => 'reading'), recovery.then(() => 'finished')]);
+    if (first === 'finished') spy.mockRestore();
+    const claim = await authority.claimQueued(scope);
+    release();
+    expect(await recovery).toBe(false);
+    spy.mockRestore();
+    expect(db.prepare('SELECT state,claim_token FROM outbox').get()).toEqual({ state: 'DISPATCHING', claim_token: claim.claimToken });
+    expect(db.prepare('SELECT state FROM execution_attempts').get()).toEqual({ state: 'DISPATCH_PENDING' });
+  } finally { release(); db.close(); }
+});
+
+test('recovery race: an ACK written while authentication waits must not become UNKNOWN', async () => {
+  const { db, authority, proposal, vault } = await fixture();
+  let writer: Awaited<ReturnType<ProtectedProposalAuthority['prepareReceipt']>> | undefined;
+  try {
+    bindProtected(db, proposal);
+    await confirm(authority, scope, async () => true, async () => 'a'.repeat(40));
+    const { claimToken } = await authority.claimQueued(scope);
+    const receipt = { cwd: 'E:/fixture/worktree', principalHash: 'a'.repeat(64), threadId: 'thread-1', turnId: 'turn-1' };
+    writer = await authority.prepareReceipt(scope, claimToken, { cwd: receipt.cwd, principalHash: receipt.principalHash });
+    const read = vault.read.bind(vault);
+    vi.spyOn(vault, 'read').mockImplementationOnce(async ref => {
+      const key = await read(ref); expect(writer!.record(receipt)).toBe(true); return key;
+    });
+    expect(await recoverInterrupted(authority)).toBe(false);
+    expect(db.prepare('SELECT state FROM execution_attempts').get()).toEqual({ state: 'RUNNING' });
+    expect(db.prepare('SELECT state,claim_token FROM outbox').get()).toEqual({ state: 'ACKNOWLEDGED', claim_token: null });
+  } finally { writer?.dispose(); db.close(); }
+});
+
+test('recovery race: Project paused after authentication starts prevents quarantine', async () => {
+  const { db, authority, proposal } = await fixture();
+  try {
+    bindProtected(db, proposal);
+    await confirm(authority, scope, async () => true, async () => 'a'.repeat(40));
+    const { claimToken } = await authority.claimQueued(scope);
+    const authenticated = authority as unknown as { tag(input: typeof scope, fields: readonly string[]): Promise<string> };
+    const tag = authenticated.tag.bind(authenticated);
+    vi.spyOn(authenticated, 'tag').mockImplementationOnce(async (...args) => {
+      const value = await tag(...args); db.exec("UPDATE projects SET status='PAUSED'"); return value;
+    });
+    expect(await recoverInterrupted(authority)).toBe(false);
+    expect(db.prepare('SELECT state FROM execution_attempts').get()).toEqual({ state: 'DISPATCH_PENDING' });
+    expect(db.prepare('SELECT state,claim_token FROM outbox').get()).toEqual({ state: 'DISPATCHING', claim_token: claimToken });
+  } finally { db.close(); }
+});
